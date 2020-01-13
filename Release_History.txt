@@ -1,0 +1,3 @@
+Version 0.1.0
+* Initial upload
+* Function for converting pdf to text, which will used for parsing bank documents

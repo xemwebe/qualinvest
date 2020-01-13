@@ -1,0 +1,12 @@
+[package]
+name = "qualinvest"
+version = "0.1.0"
+authors = ["Mark Beinker <mwb@quantlink.de>"]
+edition = "2018"
+description = "A cloud based tool for quantitative analysis and management of financial asset portfolios"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/xemwebe/qualinvest"
+readme = "README.md"
+keywords = ["finance", "investment", "quantitative", "analysis"]
+
+[dependencies]
