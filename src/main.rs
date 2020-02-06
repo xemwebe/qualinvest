@@ -3,7 +3,7 @@
 
 pub mod read_pdf;
 use read_pdf::text_from_pdf;
-use read_pdf::read_transaction::parse_transaction;
+use read_pdf::read_transactions::parse_transactions;
 #[macro_use] extern crate lazy_static;
 
 fn main() {
@@ -13,10 +13,19 @@ fn main() {
     let text = text_from_pdf(&pdf_file);
     match text {
         Ok(text) => {
-            let result = parse_transaction(&text);
-            match result {
-                Ok((transaction, asset)) =>  {
-                    println!("Could read transaction\n{:?}\non asset\n{:?}", transaction, asset);
+            let transactions = parse_transactions(&text);
+            match transactions {
+                Ok((transactions, asset)) =>  {
+                    println!("Found underlying\n{:#?}", asset);
+                    if transactions.len() == 0 {
+                        println!("Could not parse any transactions!");
+                    } else {
+                        println!("Found {} transaction{}:", transactions.len(),
+                            if transactions.len()>1 {"s"} else {""});
+                        for trans in transactions {
+                            println!("{:#?}", trans);
+                        }
+                    }
                 },
                 Err(err) => {
                     println!("Reading transaction from parsed pdf failed with error {:?}.", err);
