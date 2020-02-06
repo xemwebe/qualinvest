@@ -1,0 +1,6 @@
+{
+    "db_host": "127.0.0.1",
+    "db_name": "qlinvestdb",
+    "db_user": "qualinvest",
+    "db_password": "<password>"
+}
