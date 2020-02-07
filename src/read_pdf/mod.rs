@@ -21,6 +21,7 @@ pub enum ReadPDFError {
     ParseFloat(num::ParseFloatError),
     ParseCurrency(currency::CurrencyError),
     DBError(DataError),
+    CurrencyMismatch,
     ParseDate,
     NotFound(&'static str),
 }
@@ -85,11 +86,19 @@ pub fn parse_and_store<DB: DataHandler>(pdf_file: &str, db: &mut DB) -> Result<i
                         .insert_asset_if_new(&asset)
                         .map_err(|err| ReadPDFError::DBError(err))?;
                     let mut count = 0;
+                    let mut first_trans_id: usize = 0;
                     for trans in transactions {
                         let mut trans = trans.clone();
                         trans.set_asset_id(asset_id);
-                        db.insert_transaction(&trans)
-                            .map_err(|err| ReadPDFError::DBError(err))?;
+                        if first_trans_id != 0 {
+                            trans.set_transaction_ref(first_trans_id);
+                            db.insert_transaction(&trans)
+                                .map_err(|err| ReadPDFError::DBError(err))?;
+                        } else {
+                            first_trans_id = db
+                                .insert_transaction(&trans)
+                                .map_err(|err| ReadPDFError::DBError(err))?;
+                        }
                         count += 1;
                     }
                     Ok(count)
