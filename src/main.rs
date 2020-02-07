@@ -6,6 +6,7 @@ use read_pdf::parse_and_store;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::{stdout, BufReader, Write};
+use glob::glob;
 
 #[macro_use]
 extern crate lazy_static;
@@ -43,6 +44,14 @@ fn main() {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("pdf-dir")
+                .short("P")
+                .long("pdf-directory")
+                .value_name("pdf-dir")
+                .help("Parses all pdf files from a given directory and insert assets/transactions into database")
+                .takes_value(true),
+        )
+        .arg(
             Arg::with_name("clean-db")
                 .short("C")
                 .long("clean-db")
@@ -71,5 +80,19 @@ fn main() {
         let pdf_file = matches.value_of("parse-pdf").unwrap();
         let transactions = parse_and_store(&pdf_file, &mut db).unwrap();
         println!("{} transaction(s) stored in database.", transactions);
+    }
+    if matches.is_present("pdf-dir") {
+        let pdf_dir = matches.value_of("pdf-dir").unwrap();
+        let pattern = format!("{}/*.pdf", pdf_dir);
+        let mut count_transactions = 0;
+        for file in glob(&pattern).expect("Failed to read directory") {
+            let filename = file.unwrap().to_str().unwrap().to_owned();
+            let transactions = parse_and_store(&filename, &mut db);
+            match transactions {
+                Err(err) => { println!("Failed to parse file {} with error {:?}", filename, err); },
+                Ok(count) => { count_transactions+=count; }
+            } 
+        }
+        println!("{} transaction(s) stored in database.", count_transactions);  
     }
 }

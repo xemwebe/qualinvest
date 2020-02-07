@@ -22,7 +22,7 @@ pub enum ReadPDFError {
     ParseCurrency(currency::CurrencyError),
     DBError(DataError),
     ParseDate,
-    NotFound,
+    ElementNotFound,
 }
 
 impl fmt::Display for ReadPDFError {
