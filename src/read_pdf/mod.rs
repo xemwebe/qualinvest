@@ -74,10 +74,7 @@ pub fn german_string_to_date(date_string: &str) -> Result<NaiveDate, ReadPDFErro
     NaiveDate::parse_from_str(date_string, "%d.%m.%Y").map_err(|_| ReadPDFError::ParseDate)
 }
 
-pub fn parse_and_store<DB: DataHandler>(
-    pdf_file: &str,
-    db: &mut DB,
-) -> Result<(i32, i32), ReadPDFError> {
+pub fn parse_and_store<DB: DataHandler>(pdf_file: &str, db: &mut DB) -> Result<i32, ReadPDFError> {
     let text = text_from_pdf(pdf_file);
     match text {
         Ok(text) => {
@@ -95,7 +92,7 @@ pub fn parse_and_store<DB: DataHandler>(
                             .map_err(|err| ReadPDFError::DBError(err))?;
                         count += 1;
                     }
-                    Ok((1, count))
+                    Ok(count)
                 }
                 Err(err) => Err(err),
             }
