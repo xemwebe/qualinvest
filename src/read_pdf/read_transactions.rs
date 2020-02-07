@@ -42,7 +42,7 @@ pub fn parse_transactions(text: &str) -> Result<(Vec<Transaction>, Asset), ReadP
     let asset = parse_asset(text)?;
     lazy_static! {
         static ref BUY: Regex = Regex::new(r"Wertpapierkauf").unwrap();
-        static ref POSITION: Regex = Regex::new(r"St.\s*([-0-9.,]*)").unwrap();
+        static ref POSITION: Regex = Regex::new(r"St.\s+([0-9.,]+)").unwrap();
         static ref PRE_TAX_AMOUNT: Regex = Regex::new(
             r"(?m)Zu Ihren Lasten vor Steuern\s*\n.*\s*([0-9.]{10})\s*([A-Z]{3})\s*([-0-9.,]*)"
         )
