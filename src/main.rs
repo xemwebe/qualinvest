@@ -78,8 +78,12 @@ fn main() {
     }
     if matches.is_present("parse-pdf") {
         let pdf_file = matches.value_of("parse-pdf").unwrap();
-        let transactions = parse_and_store(&pdf_file, &mut db).unwrap();
-        println!("{} transaction(s) stored in database.", transactions);
+        let transactions = parse_and_store(&pdf_file, &mut db);
+        match transactions {
+            Err(err) => { println!("Failed to parse file {} with error {:?}", pdf_file, err); },
+            Ok(count) => { println!("{} transaction(s) stored in database.", count); }
+        }
+        
     }
     if matches.is_present("pdf-dir") {
         let pdf_dir = matches.value_of("pdf-dir").unwrap();

@@ -1,3 +1,6 @@
+///! # Read pdf files and transform into plain text
+///! This requires the extern tool `pdftotext`
+///! which is part of [XpdfReader](https://www.xpdfreader.com/pdftotext-man.html).
 use chrono::NaiveDate;
 use finql::currency;
 use finql::data_handler::{DataError, DataHandler};
@@ -5,9 +8,6 @@ use std::error::Error;
 use std::fmt;
 use std::io;
 use std::num;
-///! # Read pdf files and transform into plain text
-///! This requires the extern tool `pdftotext`
-///! which is part of [XpdfReader](https://www.xpdfreader.com/pdftotext-man.html).
 use std::process::Command;
 use std::string;
 
@@ -22,7 +22,7 @@ pub enum ReadPDFError {
     ParseCurrency(currency::CurrencyError),
     DBError(DataError),
     ParseDate,
-    ElementNotFound,
+    NotFound(&'static str),
 }
 
 impl fmt::Display for ReadPDFError {

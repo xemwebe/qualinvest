@@ -1,9 +1,9 @@
+///! Parse text files and extract asset and transaction data
+///! Currently, only the most simple transaction information from comdirect bank are supported
 use super::german_string_to_date;
 use super::german_string_to_float;
 use super::ReadPDFError;
 use finql::asset::Asset;
-///! Parse text files and extract asset and transaction data
-///! Currently, only the most simple transaction information from comdirect bank are supported
 use finql::transaction::{Transaction, TransactionType};
 use finql::Amount;
 use finql::CashFlow;
@@ -21,7 +21,7 @@ pub fn parse_asset(text: &str) -> Result<Asset, ReadPDFError> {
     }
     let cap = NAME_WKN_ISIN.captures(text);
     match cap {
-        None => Err(ReadPDFError::NotFound),
+        None => Err(ReadPDFError::NotFound("asset")),
         Some(cap) => {
             let wkn = Some(cap[2].to_string());
             let isin = Some(cap[4].to_string());
@@ -54,12 +54,12 @@ pub fn parse_transactions(text: &str) -> Result<(Vec<Transaction>, Asset), ReadP
     if BUY.is_match(text) {
         let position = POSITION.captures(text);
         let position = match position {
-            None => Err(ReadPDFError::NotFound),
+            None => Err(ReadPDFError::NotFound("position")),
             Some(position) => german_string_to_float(&position[1]),
         }?;
         let pre_tax = PRE_TAX_AMOUNT.captures(text);
         let (pre_tax, valuta) = match pre_tax {
-            None => Err(ReadPDFError::NotFound),
+            None => Err(ReadPDFError::NotFound("pre-tax amount")),
             Some(cap) => {
                 // buy cash flows are negative, therefore reverse sign
                 let amount = -german_string_to_float(&cap[3])?;
@@ -71,7 +71,7 @@ pub fn parse_transactions(text: &str) -> Result<(Vec<Transaction>, Asset), ReadP
         }?;
         let after_tax = AFTER_TAX_AMOUNT.captures(text);
         let _after_tax = match after_tax {
-            None => Err(ReadPDFError::NotFound),
+            None => Err(ReadPDFError::NotFound("after tax amount")),
             Some(cap) => {
                 let amount = german_string_to_float(&cap[2])?;
                 let currency =
