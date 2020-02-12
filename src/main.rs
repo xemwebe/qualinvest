@@ -11,7 +11,9 @@ use std::io::{stdout, BufReader, Write};
 #[macro_use]
 extern crate lazy_static;
 
+pub mod accounts;
 pub mod read_pdf;
+use accounts::AccountHandler;
 
 /// Configuration parameters
 #[derive(Debug, Deserialize)]
@@ -70,15 +72,19 @@ fn main() {
         config.db_host, config.db_user, config.db_password, config.db_name
     );
     let mut db = PostgresDB::connect(&connect_str).unwrap();
+    let mut account_db = AccountHandler::connect(&connect_str).unwrap();
+
     if matches.is_present("clean-db") {
         print!("Cleaning database...");
         stdout().flush().unwrap();
+        account_db.clean().unwrap();
         db.clean().unwrap();
+        account_db.init().unwrap();
         println!("done");
     }
     if matches.is_present("parse-pdf") {
         let pdf_file = matches.value_of("parse-pdf").unwrap();
-        let transactions = parse_and_store(&pdf_file, &mut db);
+        let transactions = parse_and_store(&pdf_file, &mut db, &mut account_db);
         match transactions {
             Err(err) => {
                 println!("Failed to parse file {} with error {:?}", pdf_file, err);
@@ -94,7 +100,7 @@ fn main() {
         let mut count_transactions = 0;
         for file in glob(&pattern).expect("Failed to read directory") {
             let filename = file.unwrap().to_str().unwrap().to_owned();
-            let transactions = parse_and_store(&filename, &mut db);
+            let transactions = parse_and_store(&filename, &mut db, &mut account_db);
             match transactions {
                 Err(err) => {
                     println!("Failed to parse file {} with error {:?}", filename, err);

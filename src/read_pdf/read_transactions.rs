@@ -145,7 +145,10 @@ pub fn parse_transactions(text: &str) -> Result<(Vec<Transaction>, Asset), ReadP
                 position,
             },
             cash_flow: CashFlow {
-                amount: Amount{ amount: -trade_value.amount, currency: trade_value.currency },
+                amount: Amount {
+                    amount: -trade_value.amount,
+                    currency: trade_value.currency,
+                },
                 date: valuta,
             },
             note: None,
