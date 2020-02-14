@@ -15,7 +15,7 @@ pub fn parse_account_info(text: &str) -> Result<(String, String), ReadPDFError> 
                 let account_id = ACCOUNT.captures(text);
                 match account_id {
                     None => Err(ReadPDFError::NotFound("comdirect account")),
-                    Some(account_id) => Ok(("comdirect".to_string(), account_id[2].to_string())),
+                    Some(account_id) => Ok(("comdirect".to_string(), account_id[1].to_string())),
                 }
             }
             _ => Err(ReadPDFError::NotFound("known broker")),

@@ -21,9 +21,9 @@ impl AccountHandler {
 
     /// Clean database by dropping all tables and than run init
     pub fn clean(&mut self) -> Result<(), Error> {
-        self.conn.execute("DROP TABLE IF EXISTS accounts", &[])?;
         self.conn
             .execute("DROP TABLE IF EXISTS account_transactions", &[])?;
+        self.conn.execute("DROP TABLE IF EXISTS accounts", &[])?;
         Ok(())
     }
 

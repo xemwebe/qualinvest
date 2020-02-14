@@ -1,3 +1,4 @@
+use super::accounts::{Account, AccountHandler};
 ///! # Read pdf files and transform into plain text
 ///! This requires the extern tool `pdftotext`
 ///! which is part of [XpdfReader](https://www.xpdfreader.com/pdftotext-man.html).
@@ -10,7 +11,6 @@ use std::io;
 use std::num;
 use std::process::Command;
 use std::string;
-use super::accounts::{Account,AccountHandler};
 
 mod read_account_info;
 mod read_transactions;
@@ -92,7 +92,8 @@ pub fn parse_and_store<DB: DataHandler>(
                 broker,
                 account_id,
             };
-            let acc_id = account_db.insert_account_if_new(&account)
+            let acc_id = account_db
+                .insert_account_if_new(&account)
                 .map_err(|err| ReadPDFError::DBError(err))?;
             account.id = Some(acc_id);
             let transactions = parse_transactions(&text);
@@ -109,19 +110,20 @@ pub fn parse_and_store<DB: DataHandler>(
                         if trans_id != 0 {
                             trans.set_transaction_ref(trans_id);
                         }
-                        trans_id = db.insert_transaction(&trans)
-                                .map_err(|err| ReadPDFError::DBError(err))?;
-                        let _= account_db.add_transaction_to_account(acc_id, trans_id)
-                        .map_err(|err| ReadPDFError::DBError(err))?;
+                        trans_id = db
+                            .insert_transaction(&trans)
+                            .map_err(|err| ReadPDFError::DBError(err))?;
+                        let _ = account_db
+                            .add_transaction_to_account(acc_id, trans_id)
+                            .map_err(|err| ReadPDFError::DBError(err))?;
                         count += 1;
                     }
                     Ok(count)
-                },
+                }
                 Err(err) => Err(err),
             }
-            },
-        
+        }
+
         Err(err) => Err(err),
     }
 }
-
