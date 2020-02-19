@@ -4,7 +4,7 @@ use super::accounts::{Account, AccountHandler};
 ///! which is part of [XpdfReader](https://www.xpdfreader.com/pdftotext-man.html).
 use chrono::NaiveDate;
 use finql::currency;
-use finql::data_handler::{DataError, DataHandler};
+use finql::data_handler::{DataError,TransactionHandler};
 use std::error::Error;
 use std::fmt;
 use std::io;
@@ -78,7 +78,7 @@ pub fn german_string_to_date(date_string: &str) -> Result<NaiveDate, ReadPDFErro
     NaiveDate::parse_from_str(date_string, "%d.%m.%Y").map_err(|_| ReadPDFError::ParseDate)
 }
 
-pub fn parse_and_store<DB: DataHandler>(
+pub fn parse_and_store<DB: TransactionHandler>(
     pdf_file: &str,
     db: &mut DB,
     account_db: &mut AccountHandler,

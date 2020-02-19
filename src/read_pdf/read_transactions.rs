@@ -5,9 +5,7 @@ use super::german_string_to_float;
 use super::ReadPDFError;
 use finql::asset::Asset;
 use finql::transaction::{Transaction, TransactionType};
-use finql::Amount;
-use finql::CashFlow;
-use finql::Currency;
+use finql::{CashFlow, CashAmount, Currency};
 use regex::Regex;
 use std::str::FromStr;
 
@@ -37,19 +35,19 @@ pub fn parse_asset(text: &str) -> Result<Asset, ReadPDFError> {
     }
 }
 
-fn parse_amount(regex: &Regex, text: &str) -> Result<Option<Amount>, ReadPDFError> {
+fn parse_amount(regex: &Regex, text: &str) -> Result<Option<CashAmount>, ReadPDFError> {
     match regex.captures(text) {
         None => Ok(None),
         Some(cap) => {
             let amount = german_string_to_float(&cap[2])?;
             let currency =
                 Currency::from_str(&cap[1]).map_err(|err| ReadPDFError::ParseCurrency(err))?;
-            Ok(Some(Amount { amount, currency }))
+            Ok(Some(CashAmount { amount, currency }))
         }
     }
 }
 
-fn add_opt_amounts(x: Option<Amount>, y: Option<Amount>) -> Result<Option<Amount>, ReadPDFError> {
+fn add_opt_amounts(x: Option<CashAmount>, y: Option<CashAmount>) -> Result<Option<CashAmount>, ReadPDFError> {
     match x {
         None => Ok(y),
         Some(x_amount) => match y {
@@ -58,7 +56,7 @@ fn add_opt_amounts(x: Option<Amount>, y: Option<Amount>) -> Result<Option<Amount
                 if x_amount.currency != y_amount.currency {
                     Err(ReadPDFError::CurrencyMismatch)
                 } else {
-                    Ok(Some(Amount {
+                    Ok(Some(CashAmount {
                         amount: x_amount.amount + y_amount.amount,
                         currency: x_amount.currency,
                     }))
@@ -68,14 +66,14 @@ fn add_opt_amounts(x: Option<Amount>, y: Option<Amount>) -> Result<Option<Amount
     }
 }
 
-fn must_have(amount: Option<Amount>, error_message: &'static str) -> Result<Amount, ReadPDFError> {
+fn must_have(amount: Option<CashAmount>, error_message: &'static str) -> Result<CashAmount, ReadPDFError> {
     match amount {
         None => Err(ReadPDFError::NotFound(error_message)),
         Some(amount) => Ok(amount),
     }
 }
 
-fn get_fx_rate(regex: &Regex, text: &str) -> Result<(Option<f64>, Option<Amount>),ReadPDFError> {
+fn get_fx_rate(regex: &Regex, text: &str) -> Result<(Option<f64>, Option<CashAmount>),ReadPDFError> {
     let cap = regex.captures(text);
     if cap.is_none() {
         return Ok((None, None));
@@ -86,7 +84,7 @@ fn get_fx_rate(regex: &Regex, text: &str) -> Result<(Option<f64>, Option<Amount>
     let amount = german_string_to_float(&cap[3])?;
     let currency = Currency::from_str(&cap[2]).map_err(|err| ReadPDFError::ParseCurrency(err))?;
 
-    Ok((Some(fx_rate), Some(Amount{ amount, currency})))
+    Ok((Some(fx_rate), Some(CashAmount{ amount, currency})))
 }
 
 /// Extract transaction information from text files
@@ -131,7 +129,7 @@ pub fn parse_transactions(text: &str) -> Result<(Vec<Transaction>, Asset), ReadP
                 let amount = german_string_to_float(&position[3])?;
                 let currency = Currency::from_str(&position[2])
                     .map_err(|err| ReadPDFError::ParseCurrency(err))?;
-                trade_value = Some(Amount { amount, currency });
+                trade_value = Some(CashAmount { amount, currency });
                 german_string_to_float(&position[1])
             }
         }?;
@@ -143,7 +141,7 @@ pub fn parse_transactions(text: &str) -> Result<(Vec<Transaction>, Asset), ReadP
                 let currency =
                     Currency::from_str(&cap[2]).map_err(|err| ReadPDFError::ParseCurrency(err))?;
                 let valuta = german_string_to_date(&cap[1])?;
-                Ok((Amount { amount, currency }, valuta))
+                Ok((CashAmount { amount, currency }, valuta))
             }
         }?;
 
@@ -187,7 +185,7 @@ pub fn parse_transactions(text: &str) -> Result<(Vec<Transaction>, Asset), ReadP
                 position,
             },
             cash_flow: CashFlow {
-                amount: Amount {
+                amount: CashAmount {
                     amount: -trade_value.amount,
                     currency: trade_value.currency,
                 },
@@ -205,7 +203,7 @@ pub fn parse_transactions(text: &str) -> Result<(Vec<Transaction>, Asset), ReadP
                     transaction_ref: None,
                 },
                 cash_flow: CashFlow {
-                    amount: Amount {
+                    amount: CashAmount {
                         amount: -total_fee.amount,
                         currency: total_fee.currency,
                     },
