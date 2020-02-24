@@ -22,6 +22,7 @@ struct Config {
     db_name: String,
     db_user: String,
     db_password: String,
+    debug: bool,
 }
 
 fn main() {
@@ -60,12 +61,19 @@ fn main() {
                 .help("Clears all data in database before doing anything else, use with care!")
                 .takes_value(false),
         )
+        .arg(
+            Arg::with_name("debug")
+                .short("d")
+                .long("debug")
+                .help("Prints additional information for debugging purposes")
+                .takes_value(false),
+        )
         .get_matches();
 
     let config = matches.value_of("config").unwrap_or("qualinvest.json");
     let config_file = File::open(config).unwrap();
     let config_reader = BufReader::new(config_file);
-    let config: Config = serde_json::from_reader(config_reader).unwrap();
+    let mut config: Config = serde_json::from_reader(config_reader).unwrap();
 
     let connect_str = format!(
         "host={} user={} password={} dbname={} sslmode=disable",
@@ -74,6 +82,9 @@ fn main() {
     let mut db = PostgresDB::connect(&connect_str).unwrap();
     let mut account_db = AccountHandler::connect(&connect_str).unwrap();
 
+    if matches.is_present("debug") {
+        config.debug = true;
+    }
     if matches.is_present("clean-db") {
         print!("Cleaning database...");
         stdout().flush().unwrap();
@@ -84,7 +95,7 @@ fn main() {
     }
     if matches.is_present("parse-pdf") {
         let pdf_file = matches.value_of("parse-pdf").unwrap();
-        let transactions = parse_and_store(&pdf_file, &mut db, &mut account_db);
+        let transactions = parse_and_store(&pdf_file, &mut db, &mut account_db, config.debug);
         match transactions {
             Err(err) => {
                 println!("Failed to parse file {} with error {:?}", pdf_file, err);
@@ -100,7 +111,7 @@ fn main() {
         let mut count_transactions = 0;
         for file in glob(&pattern).expect("Failed to read directory") {
             let filename = file.unwrap().to_str().unwrap().to_owned();
-            let transactions = parse_and_store(&filename, &mut db, &mut account_db);
+            let transactions = parse_and_store(&filename, &mut db, &mut account_db, config.debug);
             match transactions {
                 Err(err) => {
                     println!("Failed to parse file {} with error {:?}", filename, err);

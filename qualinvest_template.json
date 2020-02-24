@@ -2,5 +2,6 @@
     "db_host": "/var/run/postgresql",
     "db_name": "qlinvestdb",
     "db_user": "qualinvest",
-    "db_password": "<password>"
+    "db_password": "<password>",
+    "debug": false
 }

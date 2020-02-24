@@ -4,7 +4,7 @@ use super::accounts::{Account, AccountHandler};
 ///! which is part of [XpdfReader](https://www.xpdfreader.com/pdftotext-man.html).
 use chrono::NaiveDate;
 use finql::currency;
-use finql::data_handler::{DataError,TransactionHandler};
+use finql::data_handler::{DataError, TransactionHandler};
 use std::error::Error;
 use std::fmt;
 use std::io;
@@ -26,6 +26,7 @@ pub enum ReadPDFError {
     DBError(DataError),
     CurrencyMismatch,
     ParseDate,
+    ConsistencyCheckFailed,
     NotFound(&'static str),
 }
 
@@ -50,6 +51,12 @@ impl From<std::string::FromUtf8Error> for ReadPDFError {
 impl From<io::Error> for ReadPDFError {
     fn from(error: io::Error) -> Self {
         Self::IoError(error)
+    }
+}
+
+impl From<DataError> for ReadPDFError {
+    fn from(error: DataError) -> Self {
+        Self::DBError(error)
     }
 }
 
@@ -82,6 +89,7 @@ pub fn parse_and_store<DB: TransactionHandler>(
     pdf_file: &str,
     db: &mut DB,
     account_db: &mut AccountHandler,
+    debug: bool,
 ) -> Result<i32, ReadPDFError> {
     let text = text_from_pdf(pdf_file);
     match text {
@@ -96,7 +104,7 @@ pub fn parse_and_store<DB: TransactionHandler>(
                 .insert_account_if_new(&account)
                 .map_err(|err| ReadPDFError::DBError(err))?;
             account.id = Some(acc_id);
-            let transactions = parse_transactions(&text);
+            let transactions = parse_transactions(&text, debug);
             match transactions {
                 Ok((transactions, asset)) => {
                     let asset_id = db
