@@ -1,6 +1,6 @@
-use finql::data_handler::DataError;
 ///! Implementation of Accounts and an according PostgreSQL handler
-use postgres::{Client, NoTls};
+use finql::data_handler::{TransactionHandler,DataError};
+use finql::postgres_handler::PostgresDB;
 use tokio_postgres::error::Error;
 
 pub struct Account {
@@ -9,18 +9,33 @@ pub struct Account {
     pub account_id: String,
 }
 
-pub struct AccountHandler {
-    conn: Client,
+
+/// Handler for asset depot accounts
+pub trait AccountHandler: TransactionHandler {
+    /// Clean database by dropping all tables and than run init
+    fn clean_accounts(&mut self) -> Result<(), Error>;
+
+    /// Set up new table for account management
+    fn init_accounts(&mut self) -> Result<(), Error>;
+
+    /// Insert new account info in database, if it not yet exist
+    fn insert_account_if_new(&mut self, account: &Account) -> Result<usize, DataError>;
+
+    /// Insert new account info in database
+    fn get_account_id(&mut self, account: &Account) -> Result<usize, DataError>;
+
+    /// Add a transaction to the account
+    fn add_transaction_to_account(
+        &mut self,
+        account: usize,
+        transaction: usize,
+    ) -> Result<(), DataError>;
 }
 
-impl AccountHandler {
-    pub fn connect(conn_str: &str) -> Result<AccountHandler, Error> {
-        let conn = Client::connect(conn_str, NoTls)?;
-        Ok(AccountHandler { conn })
-    }
 
+impl AccountHandler for PostgresDB {
     /// Clean database by dropping all tables and than run init
-    pub fn clean(&mut self) -> Result<(), Error> {
+    fn clean_accounts(&mut self) -> Result<(), Error> {
         self.conn
             .execute("DROP TABLE IF EXISTS account_transactions", &[])?;
         self.conn.execute("DROP TABLE IF EXISTS accounts", &[])?;
@@ -28,7 +43,7 @@ impl AccountHandler {
     }
 
     /// Set up new table for account management
-    pub fn init(&mut self) -> Result<(), Error> {
+    fn init_accounts(&mut self) -> Result<(), Error> {
         self.conn.execute(
             "CREATE TABLE IF NOT EXISTS accounts (
                 id SERIAL PRIMARY KEY,
@@ -50,7 +65,7 @@ impl AccountHandler {
     }
 
     /// Insert new account info in database
-    pub fn insert_account_if_new(&mut self, account: &Account) -> Result<usize, DataError> {
+    fn insert_account_if_new(&mut self, account: &Account) -> Result<usize, DataError> {
         let id = self.get_account_id(account);
         match id {
             Ok(id) => Ok(id),
@@ -69,7 +84,7 @@ impl AccountHandler {
     }
 
     /// Insert new account info in database
-    pub fn get_account_id(&mut self, account: &Account) -> Result<usize, DataError> {
+    fn get_account_id(&mut self, account: &Account) -> Result<usize, DataError> {
         let row = self
             .conn
             .query_one(
@@ -82,7 +97,7 @@ impl AccountHandler {
     }
 
     /// Insert new account info in database
-    pub fn add_transaction_to_account(
+    fn add_transaction_to_account(
         &mut self,
         account: usize,
         transaction: usize,

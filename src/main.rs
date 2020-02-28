@@ -29,7 +29,7 @@ fn main() {
     let matches = App::new("qualinvest")
         .version("0.1.0")
         .author("Mark Beinker <mwb@quantlink.de>")
-        .about("Tools for quantitative analysis and management of financtial asset portfolios")
+        .about("Tools for quantitative analysis and management of financial asset portfolios")
         .arg(
             Arg::with_name("config")
                 .short("c")
@@ -68,6 +68,13 @@ fn main() {
                 .help("Prints additional information for debugging purposes")
                 .takes_value(false),
         )
+        .arg(
+            Arg::with_name("hash")
+                .short("h")
+                .long("hash")
+                .help("Calculate SHA256 hash sum of given file")
+                .takes_value(true),
+        )
         .get_matches();
 
     let config = matches.value_of("config").unwrap_or("qualinvest.json");
@@ -80,22 +87,32 @@ fn main() {
         config.db_host, config.db_user, config.db_password, config.db_name
     );
     let mut db = PostgresDB::connect(&connect_str).unwrap();
-    let mut account_db = AccountHandler::connect(&connect_str).unwrap();
-
+ 
     if matches.is_present("debug") {
         config.debug = true;
     }
     if matches.is_present("clean-db") {
         print!("Cleaning database...");
         stdout().flush().unwrap();
-        account_db.clean().unwrap();
+        db.clean_accounts().unwrap();
         db.clean().unwrap();
-        account_db.init().unwrap();
+        db.init_accounts().unwrap();
         println!("done");
+    }
+    if matches.is_present("hash") {
+        let pdf_file = matches.value_of("hash").unwrap();
+        match read_pdf::pdf_store::sha256_hash(&pdf_file) {
+            Err(err) => {
+                println!("Failed to calculate hash of file {} with error {:?}", pdf_file, err);
+            }
+            Ok(hash) => {
+                println!("Hash is {}.", hash);
+            }
+        }
     }
     if matches.is_present("parse-pdf") {
         let pdf_file = matches.value_of("parse-pdf").unwrap();
-        let transactions = parse_and_store(&pdf_file, &mut db, &mut account_db, config.debug);
+        let transactions = parse_and_store(&pdf_file, &mut db, config.debug);
         match transactions {
             Err(err) => {
                 println!("Failed to parse file {} with error {:?}", pdf_file, err);
@@ -111,7 +128,7 @@ fn main() {
         let mut count_transactions = 0;
         for file in glob(&pattern).expect("Failed to read directory") {
             let filename = file.unwrap().to_str().unwrap().to_owned();
-            let transactions = parse_and_store(&filename, &mut db, &mut account_db, config.debug);
+            let transactions = parse_and_store(&filename, &mut db, config.debug);
             match transactions {
                 Err(err) => {
                     println!("Failed to parse file {} with error {:?}", filename, err);

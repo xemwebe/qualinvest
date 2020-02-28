@@ -21,3 +21,6 @@ clap = "2.33"
 glob = "0.3"
 postgres = { version = "0.17", features = ["with-chrono-0_4"] }
 tokio-postgres = "0.5"
+ring = "0.16"
+data-encoding = "2.2"
+buffer = "0.1"

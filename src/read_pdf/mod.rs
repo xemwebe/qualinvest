@@ -1,10 +1,10 @@
-use super::accounts::{Account, AccountHandler};
 ///! # Read pdf files and transform into plain text
 ///! This requires the extern tool `pdftotext`
 ///! which is part of [XpdfReader](https://www.xpdfreader.com/pdftotext-man.html).
+use super::accounts::{Account, AccountHandler};
 use chrono::NaiveDate;
 use finql::currency;
-use finql::data_handler::{DataError, TransactionHandler};
+use finql::data_handler::DataError;
 use std::error::Error;
 use std::fmt;
 use std::io;
@@ -14,6 +14,7 @@ use std::string;
 
 mod read_account_info;
 mod read_transactions;
+pub mod pdf_store;
 use read_account_info::parse_account_info;
 use read_transactions::parse_transactions;
 
@@ -85,10 +86,9 @@ pub fn german_string_to_date(date_string: &str) -> Result<NaiveDate, ReadPDFErro
     NaiveDate::parse_from_str(date_string, "%d.%m.%Y").map_err(|_| ReadPDFError::ParseDate)
 }
 
-pub fn parse_and_store<DB: TransactionHandler>(
+pub fn parse_and_store<DB: AccountHandler>(
     pdf_file: &str,
     db: &mut DB,
-    account_db: &mut AccountHandler,
     debug: bool,
 ) -> Result<i32, ReadPDFError> {
     let text = text_from_pdf(pdf_file);
@@ -100,7 +100,7 @@ pub fn parse_and_store<DB: TransactionHandler>(
                 broker,
                 account_id,
             };
-            let acc_id = account_db
+            let acc_id = db
                 .insert_account_if_new(&account)
                 .map_err(|err| ReadPDFError::DBError(err))?;
             account.id = Some(acc_id);
@@ -121,7 +121,7 @@ pub fn parse_and_store<DB: TransactionHandler>(
                         trans_id = db
                             .insert_transaction(&trans)
                             .map_err(|err| ReadPDFError::DBError(err))?;
-                        let _ = account_db
+                        let _ = db
                             .add_transaction_to_account(acc_id, trans_id)
                             .map_err(|err| ReadPDFError::DBError(err))?;
                         count += 1;
