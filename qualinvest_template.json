@@ -3,5 +3,6 @@
     "db_name": "qlinvestdb",
     "db_user": "qualinvest",
     "db_password": "<password>",
-    "debug": false
+    "debug": false,
+    "doc_path": "<directory path to store documents in>"
 }

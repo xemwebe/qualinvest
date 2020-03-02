@@ -17,12 +17,13 @@ use accounts::AccountHandler;
 
 /// Configuration parameters
 #[derive(Debug, Deserialize)]
-struct Config {
+pub struct Config {
     db_host: String,
     db_name: String,
     db_user: String,
     db_password: String,
     debug: bool,
+    doc_path: String,
 }
 
 fn main() {
@@ -87,7 +88,7 @@ fn main() {
         config.db_host, config.db_user, config.db_password, config.db_name
     );
     let mut db = PostgresDB::connect(&connect_str).unwrap();
- 
+
     if matches.is_present("debug") {
         config.debug = true;
     }
@@ -103,7 +104,10 @@ fn main() {
         let pdf_file = matches.value_of("hash").unwrap();
         match read_pdf::pdf_store::sha256_hash(&pdf_file) {
             Err(err) => {
-                println!("Failed to calculate hash of file {} with error {:?}", pdf_file, err);
+                println!(
+                    "Failed to calculate hash of file {} with error {:?}",
+                    pdf_file, err
+                );
             }
             Ok(hash) => {
                 println!("Hash is {}.", hash);
@@ -112,7 +116,7 @@ fn main() {
     }
     if matches.is_present("parse-pdf") {
         let pdf_file = matches.value_of("parse-pdf").unwrap();
-        let transactions = parse_and_store(&pdf_file, &mut db, config.debug);
+        let transactions = parse_and_store(&pdf_file, &mut db, &config);
         match transactions {
             Err(err) => {
                 println!("Failed to parse file {} with error {:?}", pdf_file, err);
@@ -128,7 +132,7 @@ fn main() {
         let mut count_transactions = 0;
         for file in glob(&pattern).expect("Failed to read directory") {
             let filename = file.unwrap().to_str().unwrap().to_owned();
-            let transactions = parse_and_store(&filename, &mut db, config.debug);
+            let transactions = parse_and_store(&filename, &mut db, &config);
             match transactions {
                 Err(err) => {
                     println!("Failed to parse file {} with error {:?}", filename, err);

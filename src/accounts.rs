@@ -1,5 +1,5 @@
 ///! Implementation of Accounts and an according PostgreSQL handler
-use finql::data_handler::{TransactionHandler,DataError};
+use finql::data_handler::{DataError, TransactionHandler};
 use finql::postgres_handler::PostgresDB;
 use tokio_postgres::error::Error;
 
@@ -8,7 +8,6 @@ pub struct Account {
     pub broker: String,
     pub account_id: String,
 }
-
 
 /// Handler for asset depot accounts
 pub trait AccountHandler: TransactionHandler {
@@ -23,15 +22,24 @@ pub trait AccountHandler: TransactionHandler {
 
     /// Insert new account info in database
     fn get_account_id(&mut self, account: &Account) -> Result<usize, DataError>;
-
     /// Add a transaction to the account
     fn add_transaction_to_account(
         &mut self,
         account: usize,
         transaction: usize,
     ) -> Result<(), DataError>;
-}
 
+    /// Check if we have already parsed a given document by look-up its hash
+    /// If successful, return the transaction ids and the path of the document
+    fn lookup_hash(&mut self, hash: &str) -> Result<(Vec<usize>, String), DataError>;
+    /// Insert document information for successfully parsed documents
+    fn insert_doc(
+        &mut self,
+        transaction_ids: &Vec<usize>,
+        hash: &str,
+        path: &str,
+    ) -> Result<(), DataError>;
+}
 
 impl AccountHandler for PostgresDB {
     /// Clean database by dropping all tables and than run init
@@ -39,6 +47,7 @@ impl AccountHandler for PostgresDB {
         self.conn
             .execute("DROP TABLE IF EXISTS account_transactions", &[])?;
         self.conn.execute("DROP TABLE IF EXISTS accounts", &[])?;
+        self.conn.execute("DROP TABLE IF EXISTS documents", &[])?;
         Ok(())
     }
 
@@ -58,6 +67,15 @@ impl AccountHandler for PostgresDB {
                 account_id INTEGER NOT NULL,
                 transaction_id INTEGER NOT NULL,
                 FOREIGN KEY(account_id) REFERENCES accounts(id),
+                FOREIGN KEY(transaction_id) REFERENCES transactions(id))",
+            &[],
+        )?;
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS documents (
+                id SERIAL PRIMARY KEY,
+                transaction_id INTEGER NOT NULL,
+                hash TEXT NOT NULL,
+                path TEXT NOT NULL,
                 FOREIGN KEY(transaction_id) REFERENCES transactions(id))",
             &[],
         )?;
@@ -108,6 +126,43 @@ impl AccountHandler for PostgresDB {
                 &[&(account as i32), &(transaction as i32)],
             )
             .map_err(|e| DataError::InsertFailed(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Insert document information for successfully parsed documents
+    fn lookup_hash(&mut self, hash: &str) -> Result<(Vec<usize>, String), DataError> {
+        let mut trans_ids = Vec::new();
+        let mut path = "".to_string();
+        for row in self
+            .conn
+            .query(
+                "SELECT transaction_id, path FROM documents WHERE hash=$1",
+                &[&hash],
+            )
+            .map_err(|e| DataError::InsertFailed(e.to_string()))?
+        {
+            let trans: i32 = row.get(0);
+            trans_ids.push(trans as usize);
+            path = row.get(1);
+        }
+        Ok((trans_ids, path))
+    }
+
+    /// Insert document information for successfully parsed documents
+    fn insert_doc(
+        &mut self,
+        transaction_ids: &Vec<usize>,
+        hash: &str,
+        path: &str,
+    ) -> Result<(), DataError> {
+        for trans_id in transaction_ids {
+            self.conn
+                .execute(
+                    "INSERT INTO documents (transaction_id, hash, path) VALUES ($1, $2, $3)",
+                    &[&(*trans_id as i32), &hash, &path],
+                )
+                .map_err(|e| DataError::InsertFailed(e.to_string()))?;
+        }
         Ok(())
     }
 }

@@ -352,7 +352,6 @@ pub fn parse_transactions(
                 note: None,
             });
         }
-
     }
     Ok((transactions, asset))
 }
