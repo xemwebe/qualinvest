@@ -111,6 +111,8 @@ pub fn parse_transactions(
             Regex::new(r"Umschreibeentgelt\s*:\s+([A-Z]{3})\s+([-0-9,.]+)").unwrap();
         static ref FOREIGN_EXPENSES: Regex =
             Regex::new(r"Fremde Spesen\s*:\s+([A-Z]{3})\s+([-0-9,.]+)").unwrap();
+        static ref MAKLER_FEE: Regex =
+            Regex::new(r"Maklercourtage\s*:\s+([A-Z]{3})\s+([-0-9,.]+)").unwrap();
         static ref FOREIGN_AFTER_FEE: Regex =
             Regex::new(r"Ausmachender Betrag\s*:?\s+([A-Z]{3})\s+([-0-9,.]+)").unwrap();
         static ref AFTER_TAX_AMOUNT: Regex =
@@ -189,6 +191,7 @@ pub fn parse_transactions(
         let foreign_expenses = parse_amount(&FOREIGN_EXPENSES, text)?;
         let unspecified_fee = parse_amount(&UNSPECIFIED_FEE, text)?;
         let clearstream_fee = parse_amount(&CLEARSTREAM_FEE, text)?;
+        let makler_fee = parse_amount(&MAKLER_FEE, text)?;
 
         let mut total_fee = CashAmount {
             amount: 0.0,
@@ -201,7 +204,8 @@ pub fn parse_transactions(
             .add_opt(variable_exchange_fee, time, &mut fx_db)?
             .add_opt(foreign_expenses, time, &mut fx_db)?
             .add_opt(unspecified_fee, time, &mut fx_db)?
-            .add_opt(clearstream_fee, time, &mut fx_db)?;
+            .add_opt(clearstream_fee, time, &mut fx_db)?
+            .add_opt(makler_fee, time, &mut fx_db)?;
 
         let capital_gain_tax = parse_amount(&CAPITAL_GAIN_TAX, text)?;
         let solidaritaets_tax = parse_amount(&SOLIDARITAETS_TAX, text)?;
