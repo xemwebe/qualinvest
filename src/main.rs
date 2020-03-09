@@ -24,6 +24,7 @@ pub struct Config {
     db_password: String,
     debug: bool,
     doc_path: String,
+    warn_old: bool,
 }
 
 fn main() {
@@ -63,6 +64,12 @@ fn main() {
                 .takes_value(false),
         )
         .arg(
+            Arg::with_name("warn-old")
+                .long("warn-if-old")
+                .help("Print warning if pdf file has already been parsed, otherwise ignore silently")
+                .takes_value(false),
+        )
+        .arg(
             Arg::with_name("debug")
                 .short("d")
                 .long("debug")
@@ -99,6 +106,9 @@ fn main() {
         db.clean().unwrap();
         db.init_accounts().unwrap();
         println!("done");
+    }
+    if matches.is_present("warn-old") {
+        config.warn_old = true;
     }
     if matches.is_present("hash") {
         let pdf_file = matches.value_of("hash").unwrap();

@@ -4,8 +4,8 @@ use data_encoding::HEXUPPER;
 use ring::digest::{Context, SHA256};
 use std::fs;
 use std::fs::File;
+use std::io::{BufReader, Read};
 use std::path::Path;
-use std::io::{BufReader,Read};
 
 pub fn sha256_hash(file: &str) -> Result<String, ReadPDFError> {
     let input = File::open(file)?;
@@ -22,11 +22,13 @@ pub fn sha256_hash(file: &str) -> Result<String, ReadPDFError> {
     Ok(hash)
 }
 
-pub fn store_pdf(pdf_file: &str, _hash: &str, config: &Config) -> Result<String,ReadPDFError> {
+pub fn store_pdf(pdf_file: &str, _hash: &str, config: &Config) -> Result<String, ReadPDFError> {
     let path = Path::new(pdf_file);
-    let name = path.file_name()
-      .ok_or(ReadPDFError::NotFound("no valid file name") )?.to_string_lossy();
-    let new_path = format!("{}/{}",&config.doc_path, name);
+    let name = path
+        .file_name()
+        .ok_or(ReadPDFError::NotFound("no valid file name"))?
+        .to_string_lossy();
+    let new_path = format!("{}/{}", &config.doc_path, name);
     fs::copy(pdf_file, &new_path)?;
     Ok(new_path)
 }

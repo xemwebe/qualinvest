@@ -2,17 +2,17 @@
 ///! This requires the extern tool `pdftotext`
 ///! which is part of [XpdfReader](https://www.xpdfreader.com/pdftotext-man.html).
 use super::accounts::{Account, AccountHandler};
+use crate::Config;
 use chrono::NaiveDate;
 use finql::currency;
 use finql::data_handler::DataError;
+use pdf_store::{sha256_hash, store_pdf};
 use std::error::Error;
 use std::fmt;
 use std::io;
 use std::num;
 use std::process::Command;
 use std::string;
-use crate::Config;
-use pdf_store::{sha256_hash, store_pdf};
 
 pub mod pdf_store;
 mod read_account_info;
@@ -97,10 +97,13 @@ pub fn parse_and_store<DB: AccountHandler>(
     let hash = sha256_hash(pdf_file)?;
     match db.lookup_hash(&hash) {
         Ok((ids, _path)) => {
-            if ids.len()>0 {
-                return Err(ReadPDFError::AlreadyParsed);
+            if ids.len() > 0 {
+                if config.warn_old {
+                    return Err(ReadPDFError::AlreadyParsed);
+                }
+                return Ok(0);
             }
-        },
+        }
         Err(_) => {}
     }
     let text = text_from_pdf(pdf_file);
@@ -138,13 +141,13 @@ pub fn parse_and_store<DB: AccountHandler>(
                             .map_err(|err| ReadPDFError::DBError(err))?;
                     }
                     Ok(trans_ids)
-                },
+                }
                 Err(err) => Err(err),
             }?;
             let new_path = store_pdf(pdf_file, &hash, &config)?;
             db.insert_doc(&trans_ids, &hash, &new_path)?;
             Ok(trans_ids.len() as i32)
-        },
+        }
         Err(err) => Err(err),
     }
 }

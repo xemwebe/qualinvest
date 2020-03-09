@@ -4,5 +4,6 @@
     "db_user": "qualinvest",
     "db_password": "<password>",
     "debug": false,
-    "doc_path": "<directory path to store documents in>"
+    "doc_path": "<directory path to store documents in>",
+    "warn_old": false
 }
