@@ -29,7 +29,7 @@ pub enum ReadPDFError {
     DBError(DataError),
     CurrencyMismatch,
     ParseDate,
-    ConsistencyCheckFailed,
+    ConsistencyCheckFailed(String),
     AlreadyParsed,
     NotFound(&'static str),
 }
@@ -119,7 +119,7 @@ pub fn parse_and_store<DB: AccountHandler>(
                 .insert_account_if_new(&account)
                 .map_err(|err| ReadPDFError::DBError(err))?;
             account.id = Some(acc_id);
-            let transactions = parse_transactions(&text, config.debug);
+            let transactions = parse_transactions(&text, &config);
             let trans_ids = match transactions {
                 Ok((transactions, asset)) => {
                     let asset_id = db

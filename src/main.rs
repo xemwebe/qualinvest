@@ -25,6 +25,7 @@ pub struct Config {
     debug: bool,
     doc_path: String,
     warn_old: bool,
+    consistency_check: bool,
 }
 
 fn main() {
@@ -83,6 +84,12 @@ fn main() {
                 .help("Calculate SHA256 hash sum of given file")
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("ignore-consistency-check")
+                .long("ignore-consistency-check")
+                .help("Process in spite of failed consistency check, but add note")
+                .takes_value(false),
+        )
         .get_matches();
 
     let config = matches.value_of("config").unwrap_or("qualinvest.json");
@@ -109,6 +116,9 @@ fn main() {
     }
     if matches.is_present("warn-old") {
         config.warn_old = true;
+    }
+    if matches.is_present("ignore-consistency-check") {
+        config.consistency_check = false;
     }
     if matches.is_present("hash") {
         let pdf_file = matches.value_of("hash").unwrap();

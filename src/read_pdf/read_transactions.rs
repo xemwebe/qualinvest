@@ -3,6 +3,7 @@
 use super::german_string_to_date;
 use super::german_string_to_float;
 use super::ReadPDFError;
+use crate::Config;
 use chrono::{Datelike, TimeZone, Utc};
 use finql::asset::Asset;
 use finql::fx_rates::insert_fx_quote;
@@ -85,7 +86,7 @@ fn rounded_equal(x: f64, y: f64, precision: i32) -> bool {
 /// Extract transaction information from text files
 pub fn parse_transactions(
     text: &str,
-    debug: bool,
+    config: &Config,
 ) -> Result<(Vec<Transaction>, Asset), ReadPDFError> {
     let asset = parse_asset(text)?;
     lazy_static! {
@@ -210,7 +211,8 @@ pub fn parse_transactions(
         let capital_gain_tax = parse_amount(&CAPITAL_GAIN_TAX, text)?;
         let solidaritaets_tax = parse_amount(&SOLIDARITAETS_TAX, text)?;
         let church_tax = parse_amount(&CHURCH_TAX, text)?;
-
+        let mut warnings = String::new();
+        
         let mut total_tax = CashAmount {
             amount: 0.0,
             currency: base_currency,
@@ -220,7 +222,7 @@ pub fn parse_transactions(
             .add_opt(solidaritaets_tax, time, &mut fx_db)?
             .add_opt(church_tax, time, &mut fx_db)?;
 
-        if debug {
+        if config.debug {
             println!(
                 "trade_value: {}\npre_tax: {}\nvaluta: {}\nbase_currency: {}\nfx_rate: {:?}",
                 trade_value, pre_tax, valuta, base_currency, fx_rate
@@ -247,9 +249,8 @@ pub fn parse_transactions(
         }
         if pre_tax_calculated.amount != 0.0 {
             if !rounded_equal(pre_tax_calculated.amount, pre_tax.amount, 2) {
-                println!("Calculated pre-tax value {} differs from reported pre-tax value {}: missed some fees or taxes?", 
-                    pre_tax_calculated, pre_tax);
-                return Err(ReadPDFError::ConsistencyCheckFailed);
+                warnings = format!("{}\nCalculated pre-tax value {} differs from reported pre-tax value {}: missed some fees or taxes?", 
+                    warnings, pre_tax_calculated, pre_tax);
             }
         }
 
@@ -268,22 +269,19 @@ pub fn parse_transactions(
                 converted_amount.unwrap().amount,
                 2,
             ) {
-                println!(
-                    "Converted foreign amount {} differs form calculated foreign amount {}.",
+                warnings = format!("{}\nConverted foreign amount {} differs form calculated foreign amount {}.",
+                    warnings,
                     converted_amount.unwrap(),
                     calculated_converted_amount
                 );
-                return Err(ReadPDFError::ConsistencyCheckFailed);
             }
             foreign_calculated.sub_opt(foreign_expenses, time, &mut fx_db)?;
             if !rounded_equal(foreign_calculated.amount, trade_value.amount, 2)
                 || foreign_calculated.currency != trade_value.currency
             {
-                println!(
-                    "Calculated foreign amount {} differs from parsed amount {}.",
-                    foreign_calculated, trade_value
+                warnings = format!("{}\nCalculated foreign amount {} differs from parsed amount {}.",
+                    warnings, foreign_calculated, trade_value
                 );
-                return Err(ReadPDFError::ConsistencyCheckFailed);
             }
         }
 
@@ -294,15 +292,21 @@ pub fn parse_transactions(
         calculated_after_tax.sub(total_tax, time, &mut fx_db)?;
         if after_tax.is_some() {
             if !rounded_equal(-after_tax.unwrap().amount, calculated_after_tax.amount, 2) {
-                println!(
-                    "After tax amount {} differs from calculated after tax amount {}.",
+                warnings = format!("{}\nAfter tax amount {} differs from calculated after tax amount {}.",
+                    warnings,
                     after_tax.unwrap(),
                     calculated_after_tax
                 );
-                return Err(ReadPDFError::ConsistencyCheckFailed);
             }
         }
 
+        let mut note = None;
+        if warnings != "" {
+            if config.consistency_check {
+                return Err(ReadPDFError::ConsistencyCheckFailed(warnings));
+            }
+            note = Some(warnings);
+        }
         // End of consistency checks
 
         transactions.push(Transaction {
@@ -318,7 +322,7 @@ pub fn parse_transactions(
                 },
                 date: valuta,
             },
-            note: None,
+            note,
         });
 
         if total_fee.amount != 0.0 {
