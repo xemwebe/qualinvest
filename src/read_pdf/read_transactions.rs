@@ -95,6 +95,9 @@ pub fn parse_transactions(
             r"Summe\s+St.\s+([0-9.,]+)\s+[A-Z]{3}\s+[0-9,.]+\s+([A-Z]{3})\s+([-0-9,.]+)"
         )
         .unwrap();
+        static ref BOND_POSITION: Regex = Regex::new(
+            r"[A-Z]{3}\s+([0-9.,]+)\s+[0-9.,]+%"
+        ).unwrap();
         static ref POSITION: Regex = Regex::new(r"St.\s+([0-9.,]+)").unwrap();
         static ref PRE_TAX_AMOUNT: Regex = Regex::new(
             r"(?m)Zu Ihren Lasten vor Steuern\s*\n.*\s*([0-9.]{10})\s*([A-Z]{3})\s*([-0-9.,]+)"
@@ -132,6 +135,8 @@ pub fn parse_transactions(
             Regex::new(r"Solidaritätszuschlag\s+([A-Z]{3})\s+([-0-9,.]+)").unwrap();
         static ref CHURCH_TAX: Regex =
             Regex::new(r"(?m)Kirchensteuer\s+([A-Z]{3})\s*\n\s*_*\s*\n\s*+([-0-9,.]+)").unwrap();
+        static ref ACCRUED_INTEREST: Regex =
+            Regex::new(r"[0-9]+\s+Tage Zinsen\s+:\s*([A-Z]{3})\s+([-0-9,.]+)").unwrap();
     }
     let mut transactions = Vec::new();
     // temporary storage for fx rates
@@ -140,8 +145,11 @@ pub fn parse_transactions(
         let mut trade_value = None;
         let position = match TOTAL_POSITION.captures(text) {
             None => match POSITION.captures(text) {
-                None => Err(ReadPDFError::NotFound("position")),
                 Some(position) => german_string_to_float(&position[1]),
+                None => match BOND_POSITION.captures(text) {
+                    Some(position) => german_string_to_float(&position[1]),
+                    None => Err(ReadPDFError::NotFound("position")),
+                },
             },
             Some(position) => {
                 let amount = german_string_to_float(&position[3])?;
@@ -193,6 +201,7 @@ pub fn parse_transactions(
         let unspecified_fee = parse_amount(&UNSPECIFIED_FEE, text)?;
         let clearstream_fee = parse_amount(&CLEARSTREAM_FEE, text)?;
         let makler_fee = parse_amount(&MAKLER_FEE, text)?;
+        let accrued_interest = parse_amount(&ACCRUED_INTEREST, text)?;
 
         let mut total_fee = CashAmount {
             amount: 0.0,
@@ -247,6 +256,8 @@ pub fn parse_transactions(
                 currency: base_currency,
             }
         }
+
+        pre_tax_calculated.add_opt(accrued_interest, time, &mut fx_db)?;
         if pre_tax_calculated.amount != 0.0 {
             if !rounded_equal(pre_tax_calculated.amount, pre_tax.amount, 2) {
                 warnings = format!("{}\nCalculated pre-tax value {} differs from reported pre-tax value {}: missed some fees or taxes?", 
@@ -354,6 +365,25 @@ pub fn parse_transactions(
                     amount: CashAmount {
                         amount: total_tax.amount,
                         currency: total_tax.currency,
+                    },
+                    date: valuta,
+                },
+                note: None,
+            });
+        }
+
+        if accrued_interest.is_some() {
+            // Add interest transaction
+            let accrued_interest = accrued_interest.unwrap();
+            transactions.push(Transaction {
+                id: None,
+                transaction_type: TransactionType::Interest {
+                    asset_id: 0,
+                },
+                cash_flow: CashFlow {
+                    amount: CashAmount {
+                        amount: -accrued_interest.amount,
+                        currency: accrued_interest.currency,
                     },
                     date: valuta,
                 },
