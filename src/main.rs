@@ -26,6 +26,7 @@ pub struct Config {
     doc_path: String,
     warn_old: bool,
     consistency_check: bool,
+    rename_asset: bool,
 }
 
 fn main() {
@@ -90,6 +91,12 @@ fn main() {
                 .help("Process in spite of failed consistency check, but add note")
                 .takes_value(false),
         )
+        .arg(
+            Arg::with_name("rename-asset")
+                .long("rename-asset")
+                .help("In case of duplicate asset names with different ISIN or WKN, rename asset by appending ' (NEW)'")
+                .takes_value(false),
+        )
         .get_matches();
 
     let config = matches.value_of("config").unwrap_or("qualinvest.json");
@@ -119,6 +126,9 @@ fn main() {
     }
     if matches.is_present("ignore-consistency-check") {
         config.consistency_check = false;
+    }
+    if matches.is_present("rename-asset") {
+        config.rename_asset = true;
     }
     if matches.is_present("hash") {
         let pdf_file = matches.value_of("hash").unwrap();

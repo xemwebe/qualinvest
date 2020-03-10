@@ -123,7 +123,7 @@ pub fn parse_and_store<DB: AccountHandler>(
             let trans_ids = match transactions {
                 Ok((transactions, asset)) => {
                     let asset_id = db
-                        .insert_asset_if_new(&asset)
+                        .insert_asset_if_new(&asset, config.rename_asset)
                         .map_err(|err| ReadPDFError::DBError(err))?;
                     let mut trans_ids = Vec::new();
                     for trans in transactions {
