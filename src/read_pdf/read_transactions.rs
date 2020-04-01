@@ -119,6 +119,8 @@ pub fn parse_transactions(
             Regex::new(r"Maklercourtage\s*:\s+([A-Z]{3})\s+([-0-9,.]+)").unwrap();
         static ref FOREIGN_AFTER_FEE: Regex =
             Regex::new(r"Ausmachender Betrag\s*:?\s+([A-Z]{3})\s+([-0-9,.]+)").unwrap();
+        static ref FEE_REDUCTION: Regex =
+            Regex::new(r"Reduktion Kaufaufschlag\s*:?\s+([A-Z]{3})\s+([-0-9,.]+)").unwrap();
         static ref AFTER_TAX_AMOUNT: Regex =
             Regex::new(r"Zu Ihren Lasten nach Steuern: *([A-Z]{3}) *([-0-9.,]+)").unwrap();
         static ref EXCHANGE_RATE: Regex = Regex::new(
@@ -201,6 +203,7 @@ pub fn parse_transactions(
         let unspecified_fee = parse_amount(&UNSPECIFIED_FEE, text)?;
         let clearstream_fee = parse_amount(&CLEARSTREAM_FEE, text)?;
         let makler_fee = parse_amount(&MAKLER_FEE, text)?;
+        let fee_reduction = parse_amount(&FEE_REDUCTION, text)?;
         let accrued_interest = parse_amount(&ACCRUED_INTEREST, text)?;
 
         let mut total_fee = CashAmount {
@@ -215,7 +218,8 @@ pub fn parse_transactions(
             .add_opt(foreign_expenses, time, &mut fx_db)?
             .add_opt(unspecified_fee, time, &mut fx_db)?
             .add_opt(clearstream_fee, time, &mut fx_db)?
-            .add_opt(makler_fee, time, &mut fx_db)?;
+            .add_opt(makler_fee, time, &mut fx_db)?
+            .add_opt(fee_reduction, time, &mut fx_db)?;
 
         let capital_gain_tax = parse_amount(&CAPITAL_GAIN_TAX, text)?;
         let solidaritaets_tax = parse_amount(&SOLIDARITAETS_TAX, text)?;
@@ -287,6 +291,11 @@ pub fn parse_transactions(
                 );
             }
             foreign_calculated.sub_opt(foreign_expenses, time, &mut fx_db)?;
+            if fee_reduction.is_some() {
+                if fee_reduction.unwrap().currency == trade_value.currency {
+                    foreign_calculated.sub_opt(fee_reduction, time, &mut fx_db)?;
+                }
+            }
             if !rounded_equal(foreign_calculated.amount, trade_value.amount, 2)
                 || foreign_calculated.currency != trade_value.currency
             {
