@@ -3,3 +3,5 @@
 Cargo.lock
 .vscode
 qualinvest.json
+/test_data
+

@@ -77,16 +77,26 @@ pub fn text_from_pdf(file: &str) -> Result<String, ReadPDFError> {
 /// Convert a string with German number convention
 /// (e.g. '.' as thousands separator and ',' as decimal separator)
 pub fn german_string_to_float(num_string: &str) -> Result<f64, ReadPDFError> {
-    let sign_less_string = num_string.replace("-","");
-    let positive = if sign_less_string != num_string { false } else { true };
+    let sign_less_string = num_string.replace("-", "");
+    let positive = if sign_less_string != num_string {
+        false
+    } else {
+        true
+    };
     let result = sign_less_string
         .replace(".", "")
         .replace(",", ".")
         .parse()
         .map_err(|err| ReadPDFError::ParseFloat(err));
     match result {
-        Ok(num) => if positive { Ok(num) } else { Ok(-num) },
-        Err(err) => Err(err)
+        Ok(num) => {
+            if positive {
+                Ok(num)
+            } else {
+                Ok(-num)
+            }
+        }
+        Err(err) => Err(err),
     }
 }
 
@@ -137,7 +147,8 @@ pub fn parse_and_store<DB: AccountHandler>(
                         trans.set_asset_id(asset_id);
                         if trans_ids.len() > 0 {
                             trans.set_transaction_ref(trans_ids[0]);
-                        }                        let trans_id = db
+                        }
+                        let trans_id = db
                             .insert_transaction(&trans)
                             .map_err(|err| ReadPDFError::DBError(err))?;
                         trans_ids.push(trans_id);
