@@ -32,6 +32,7 @@ pub enum ReadPDFError {
     ConsistencyCheckFailed(String),
     AlreadyParsed,
     NotFound(&'static str),
+    UnknownDocumentType,
 }
 
 impl fmt::Display for ReadPDFError {
@@ -84,6 +85,7 @@ pub fn german_string_to_float(num_string: &str) -> Result<f64, ReadPDFError> {
         true
     };
     let result = sign_less_string
+        .trim()
         .replace(".", "")
         .replace(",", ".")
         .parse()

@@ -160,18 +160,25 @@ fn main() {
         let pdf_dir = matches.value_of("pdf-dir").unwrap();
         let pattern = format!("{}/*.pdf", pdf_dir);
         let mut count_transactions = 0;
+        let mut count_docs = 0;
+        let mut count_failed = 0;
+        let mut count_skipped = 0;
         for file in glob(&pattern).expect("Failed to read directory") {
+            count_docs += 1;
             let filename = file.unwrap().to_str().unwrap().to_owned();
             let transactions = parse_and_store(&filename, &mut db, &config);
             match transactions {
                 Err(err) => {
+                    count_failed += 1;
                     println!("Failed to parse file {} with error {:?}", filename, err);
                 }
                 Ok(count) => {
+                    if count == 0 { count_skipped += 1; }
                     count_transactions += count;
                 }
             }
         }
-        println!("{} transaction(s) stored in database.", count_transactions);
+        println!("{} documents found, {} skipped, {} failed, {} parsed successfully, {} transaction(s) stored in database.", 
+            count_docs, count_skipped, count_failed, count_docs-count_skipped-count_failed, count_transactions);
     }
 }

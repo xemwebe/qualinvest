@@ -1,5 +1,5 @@
 ///! Parse text files and extract asset and transaction data
-///! Currently, only the most simple transaction information from comdirect bank are supported
+///! Currently, transaction documents from comdirect bank are supported
 use super::german_string_to_date;
 use super::german_string_to_float;
 use super::ReadPDFError;
@@ -10,32 +10,67 @@ use finql::fx_rates::insert_fx_quote;
 use finql::memory_handler::InMemoryDB;
 use finql::transaction::{Transaction, TransactionType};
 use finql::{CashAmount, CashFlow, Currency};
-use regex::Regex;
+use regex::{Regex,RegexSet};
 use std::str::FromStr;
 
+struct AssetInfo {
+    asset: Asset,
+    // reserved for later use
+    _ex_div_day: Option<NaiveDate>,
+    position: Option<f64>,
+}
+
 /// Extract asset information from text file
-pub fn parse_asset(text: &str) -> Result<Asset, ReadPDFError> {
+fn parse_asset(text: &str) -> Result<AssetInfo, ReadPDFError> {
     lazy_static! {
         static ref NAME_WKN_ISIN: Regex = Regex::new(
             r"(?m)WPKNR/ISIN\n(.*)\s\s\s*([A-Z0-9]{6})\s*\n\s*(.*)\s\s\s*([A-Z0-9]{12})"
         )
         .unwrap();
+        // Search for asset in dividend documents
+        static ref NAME_WKN_ISIN_DIV: Regex = Regex::new(
+            r"(?m)WKN/ISIN\n\s*per\s+([.0-9]*)\s+(.*)\s+([A-Z0-9]{6})\s*\n\s*STK\s+([.,0-9]*)\s+(.*)\s\s\s*([A-Z0-9]{12})"
+        )
+        .unwrap();
     }
-    let cap = NAME_WKN_ISIN.captures(text);
-    match cap {
-        None => Err(ReadPDFError::NotFound("asset")),
+    match NAME_WKN_ISIN.captures(text) {
         Some(cap) => {
             let wkn = Some(cap[2].to_string());
             let isin = Some(cap[4].to_string());
             let name = format!("{} {}", cap[1].trim(), cap[3].trim());
-            Ok(Asset {
-                id: None,
-                name,
-                wkn,
-                isin,
-                note: None,
+            Ok(AssetInfo {
+                asset: Asset {
+                    id: None,
+                    name,
+                    wkn,
+                    isin,
+                    note: None,
+                },
+                _ex_div_day: None,
+                position: None,
             })
-        }
+        },
+        None => match NAME_WKN_ISIN_DIV.captures(text) {
+            Some(cap) => {
+                let wkn = Some(cap[3].to_string());
+                let isin = Some(cap[6].to_string());
+                let name = format!("{} {}", cap[2].trim(), cap[5].trim());
+                let ex_div_day = Some(german_string_to_date(&cap[1])?);
+                let position = Some(german_string_to_float(&cap[4])?);
+                Ok(AssetInfo {
+                    asset: Asset {
+                        id: None,
+                        name,
+                        wkn,
+                        isin,
+                        note: None,
+                    },
+                    _ex_div_day: ex_div_day,
+                    position,
+                })
+            },
+            None => Err(ReadPDFError::NotFound("asset")),
+        },
     }
 }
 
@@ -61,13 +96,23 @@ fn must_have(
     }
 }
 
-fn parse_fx_rate(
-    regex: &Regex,
-    text: &str,
-) -> Result<(Option<f64>, Option<CashAmount>), ReadPDFError> {
-    let cap = regex.captures(text);
+fn parse_fx_rate(text: &str) -> Result<(Option<f64>, Option<CashAmount>), ReadPDFError> {
+    lazy_static! {
+        static ref EXCHANGE_RATE: Regex = Regex::new(
+            r"Umrechn. zum Dev. kurs\s+([0-9,.]*)\s+vom\s+[0-9.]*\s+:\s+([A-Z]{3})\s+([-0-9,.]+)"
+        )
+        .unwrap();
+        static ref EXCHANGE_RATE_DIV: Regex = Regex::new(
+            r"zum Devisenkurs:\s+[A-Z/]{7}\s+([0-9,.]+)\s\s+([A-Z]{3})\s+([-0-9,.]+)"
+        )
+        .unwrap();
+    }
+    let mut cap = EXCHANGE_RATE.captures(text);
     if cap.is_none() {
-        return Ok((None, None));
+        cap = EXCHANGE_RATE_DIV.captures(text);
+        if cap.is_none() {
+            return Ok((None, None));
+        }
     }
 
     let cap = cap.unwrap();
@@ -85,24 +130,47 @@ fn rounded_equal(x: f64, y: f64, precision: i32) -> bool {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 enum DocumentType {
-    Unknown,
     Buy,
     Sell,
+    Dividend,
+    Tax,
 }
 
-fn parse_doc_type(text: &str) -> DocumentType {
+fn parse_doc_type(text: &str) -> Result<DocumentType, ReadPDFError> {
     lazy_static! {
-        static ref BUY: Regex = Regex::new(r"Wertpapierkauf").unwrap();
-        static ref SELL: Regex = Regex::new(r"Wertpapierverkauf").unwrap();
+        static ref DOC_TYPE_SET: RegexSet = RegexSet::new(&[
+            r"Wertpapierkauf",
+            r"Wertpapierverkauf",
+            r"Dividendengutschrift",
+            r"Ertragsgutschrift",
+        ]).unwrap();
+        static ref TAX_TYPE: Regex = Regex::new(r"Steuerliche Behandlung:\s+(\w+)\s+(\w+)").unwrap();
     }
-    if BUY.is_match(text) {
-        DocumentType::Buy
-    } else if SELL.is_match(text) {
-        DocumentType::Sell
+    
+    let matches: Vec<_> = DOC_TYPE_SET.matches(text).into_iter().collect();
+    if matches.len() == 1 {
+        // Found document type
+        match matches[0] {
+            0 => Ok(DocumentType::Buy),
+            1 => Ok(DocumentType::Sell),
+            2|3 => Ok(DocumentType::Dividend),
+            // should never happen
+            _ => Err(ReadPDFError::UnknownDocumentType),
+        }
+    } else if matches.len() == 0 {
+        // No document type found, must be tax document
+        match TAX_TYPE.captures(text) {
+            Some(tax_type) => {
+                println!("Found tax document for |{}|{}|", &tax_type[1], &tax_type[2]);
+                Ok(DocumentType::Tax)
+            },
+            None => Err(ReadPDFError::UnknownDocumentType),
+        }
     } else {
-        DocumentType::Unknown
+        // Found more than one document type; this should not happen
+        Err(ReadPDFError::UnknownDocumentType)
     }
-}
+ }
 
 fn parse_pre_tax(text: &str, doc_type: DocumentType) -> Result<(CashAmount, NaiveDate), ReadPDFError> {
     lazy_static! {
@@ -116,7 +184,7 @@ fn parse_pre_tax(text: &str, doc_type: DocumentType) -> Result<(CashAmount, Naiv
         .unwrap();
     }
 
-    let matches = if doc_type == DocumentType::Sell { 
+    let matches = if doc_type == DocumentType::Sell || doc_type == DocumentType::Dividend { 
         PRE_TAX_AMOUNT_SELL.captures(text) 
     } else { 
         PRE_TAX_AMOUNT.captures(text)
@@ -140,7 +208,6 @@ pub fn parse_transactions(
     text: &str,
     config: &Config,
 ) -> Result<(Vec<Transaction>, Asset), ReadPDFError> {
-    let asset = parse_asset(text)?;
     lazy_static! {
         static ref TOTAL_POSITION: Regex = Regex::new(
             r"Summe\s+St.\s+([0-9.,]+)\s+[A-Z]{3}\s+[0-9,.]+\s+([A-Z]{3})\s+([-0-9,.]+)"
@@ -150,6 +217,8 @@ pub fn parse_transactions(
         static ref POSITION: Regex = Regex::new(r"St.\s+([0-9.,]+)").unwrap();
         static ref TRADE_VALUE: Regex =
             Regex::new(r"Kurswert\s*:\s+([A-Z]{3})\s+([-0-9,.]*)").unwrap();
+        static ref DIV_PRE_TAX: Regex =
+            Regex::new(r"Bruttobetrag\s*:\s+([A-Z]{3})\s+([-0-9,.]*)").unwrap();
         static ref PROVISION: Regex =
             Regex::new(r"(?:Gesamtprovision|Provision)\s*:\s+([A-Z]{3})\s+([-0-9,.]*)").unwrap();
         static ref EXCHANGE_FEE: Regex =
@@ -159,8 +228,8 @@ pub fn parse_transactions(
         static ref TRANSFER_FEE: Regex =
             Regex::new(r"Umschreibeentgelt\s*:\s+([A-Z]{3})\s+([-0-9,.]+)").unwrap();
         static ref FOREIGN_EXPENSES: Regex =
-            Regex::new(r"Fremde Spesen\s*:\s+([A-Z]{3})\s+([-0-9,.]+)").unwrap();
-        static ref MAKLER_FEE: Regex =
+            Regex::new(r"[fF]remde Spesen\s*:?\s+([A-Z]{3})\s+([-0-9,.]+ ?-?)").unwrap();
+        static ref BROKER_FEE: Regex =
             Regex::new(r"Maklercourtage\s*:\s+([A-Z]{3})\s+([-0-9,.]+)").unwrap();
         static ref FOREIGN_AFTER_FEE: Regex =
             Regex::new(r"Ausmachender Betrag\s*:?\s+([A-Z]{3})\s+([-0-9,.]+)").unwrap();
@@ -170,14 +239,14 @@ pub fn parse_transactions(
             Regex::new(r"Zu Ihren Lasten nach Steuern: *([A-Z]{3}) *([-0-9.,]+)").unwrap();
         static ref AFTER_TAX_AMOUNT_SELL: Regex =
             Regex::new(r"Zu Ihren Gunsten nach Steuern: *([A-Z]{3}) *([-0-9.,]+)").unwrap();
-        static ref EXCHANGE_RATE: Regex = Regex::new(
-            r"Umrechn. zum Dev. kurs\s+([0-9,.]*)\s+vom\s+[0-9.]*\s+:\s+([A-Z]{3})\s+([-0-9,.]+)"
-        )
-        .unwrap();
         static ref UNSPECIFIED_FEE: Regex =
             Regex::new(r"\n\s*Entgelte\s*:\s+([A-Z]{3})\s+([-0-9,.]+)").unwrap();
         static ref CLEARSTREAM_FEE: Regex =
             Regex::new(r"Abwickl.entgelt Clearstream\s*:\s+([A-Z]{3})\s+([-0-9,.]+)").unwrap();
+        static ref TAX_PAY_BACK_FEE: Regex =
+            Regex::new(r"Provision für Steuererstattung\s+([A-Z]{3})\s+([-0-9,.]+ ?-?)").unwrap();
+        static ref VAT_TAX: Regex =
+            Regex::new(r"Mehrwertsteuer auf\s+[A-Z]{3}\s+[-0-9,.]+\s+([A-Z]{3})\s+([-0-9,.]+ ?-?)").unwrap();
         static ref CAPITAL_GAIN_TAX: Regex =
             Regex::new(r"Kapitalertragsteuer\s*\(?[0-9]?\)?\s+([A-Z]{3})\s+([-0-9,.]+)").unwrap();
         static ref SOLIDARITAETS_TAX: Regex =
@@ -186,42 +255,59 @@ pub fn parse_transactions(
             Regex::new(r"(?m)Kirchensteuer\s+([A-Z]{3})\s*\n\s*_*\s*\n\s*+([-0-9,.]+)").unwrap();
         static ref ACCRUED_INTEREST: Regex =
             Regex::new(r"[0-9]+\s+Tage Zinsen\s+:\s*([A-Z]{3})\s+([-0-9,.]+)").unwrap();
+        static ref FOREIGN_DIV_TAX: Regex = 
+            Regex::new(r"Quellensteuer\s+([A-Z]{3})\s+([-0-9,.]+ ?-?)").unwrap();
+        static ref FOREIGN_DIV_TAX_BACK: Regex = 
+            Regex::new(r"Quellensteuervergütung\s+([A-Z]{3})\s+([-0-9,.]+ ?-?)").unwrap();
+        static ref AMENDMENT: Regex = Regex::new(r"Nachtragsabrechnung").unwrap();
     }
+
+    let doc_type = parse_doc_type(text)?;
+    let mut asset_info = parse_asset(text)?;
+    let is_amendment = AMENDMENT.is_match(text);
+
     let mut transactions = Vec::new();
     // temporary storage for fx rates
     let mut fx_db = InMemoryDB::new();
-    let doc_type = parse_doc_type(text);
-    let mut trade_value = None;
-    let position = match TOTAL_POSITION.captures(text) {
-        None => match POSITION.captures(text) {
-            Some(position) => german_string_to_float(&position[1]),
-            None => match BOND_POSITION.captures(text) {
-                Some(position) => german_string_to_float(&position[1]),
-                None => Err(ReadPDFError::NotFound("position")),
+    let mut pre_tax_fee_value = None;
+    if asset_info.position.is_none() {
+        // position could not been extracted while parsing asset in file
+        asset_info.position = match TOTAL_POSITION.captures(text) {
+            None => match POSITION.captures(text) {
+                Some(position) => Some(german_string_to_float(&position[1])?),
+                None => match BOND_POSITION.captures(text) {
+                    Some(position) => Some(german_string_to_float(&position[1])?),
+                    None => None,
+                },
             },
-        },
-        Some(position) => {
-            let amount = german_string_to_float(&position[3])?;
-            let currency =
-                Currency::from_str(&position[2]).map_err(|err| ReadPDFError::ParseCurrency(err))?;
-            trade_value = Some(CashAmount { amount, currency });
-            german_string_to_float(&position[1])
-        }
-    }?;
+            Some(position) => {
+                let amount = german_string_to_float(&position[3])?;
+                let currency =
+                    Currency::from_str(&position[2]).map_err(|err| ReadPDFError::ParseCurrency(err))?;
+                    pre_tax_fee_value = Some(CashAmount { amount, currency });
+                Some(german_string_to_float(&position[1])?)
+            }
+        };    
+    }
 
     let (pre_tax, valuta) = parse_pre_tax(text, doc_type)?;
-    if trade_value.is_none() {
-        trade_value = parse_amount(&TRADE_VALUE, text)?;
+
+    if pre_tax_fee_value.is_none() {
+        if doc_type == DocumentType::Buy || doc_type == DocumentType::Sell {
+            pre_tax_fee_value = parse_amount(&TRADE_VALUE, text)?;
+        } else if doc_type == DocumentType::Dividend {
+            pre_tax_fee_value = parse_amount(&DIV_PRE_TAX, text)?;
+        }
     }
-    let trade_value = must_have(trade_value, "trade value")?;
+    let pre_tax_fee_value = must_have(pre_tax_fee_value, "trade value")?;
 
     let time = Utc
         .ymd(valuta.year(), valuta.month(), valuta.day())
         .and_hms_milli(18, 0, 0, 0);
     let base_currency = pre_tax.currency;
-    let (fx_rate, converted_amount) = parse_fx_rate(&EXCHANGE_RATE, text)?;
+    let (fx_rate, converted_amount) = parse_fx_rate(text)?;
     if fx_rate.is_some() {
-        let foreign_currency = trade_value.currency;
+        let foreign_currency = pre_tax_fee_value.currency;
         let time = Utc
             .ymd(valuta.year(), valuta.month(), valuta.day())
             .and_hms_milli(0, 0, 0, 0);
@@ -240,7 +326,8 @@ pub fn parse_transactions(
     let foreign_expenses = parse_amount(&FOREIGN_EXPENSES, text)?;
     let unspecified_fee = parse_amount(&UNSPECIFIED_FEE, text)?;
     let clearstream_fee = parse_amount(&CLEARSTREAM_FEE, text)?;
-    let makler_fee = parse_amount(&MAKLER_FEE, text)?;
+    let tax_pay_back_fee = parse_amount(&TAX_PAY_BACK_FEE, text)?;
+    let broker_fee = parse_amount(&BROKER_FEE, text)?;
     let fee_reduction = parse_amount(&FEE_REDUCTION, text)?;
     let accrued_interest = parse_amount(&ACCRUED_INTEREST, text)?;
 
@@ -256,14 +343,26 @@ pub fn parse_transactions(
         .add_opt(foreign_expenses, time, &mut fx_db)?
         .add_opt(unspecified_fee, time, &mut fx_db)?
         .add_opt(clearstream_fee, time, &mut fx_db)?
-        .add_opt(makler_fee, time, &mut fx_db)?
-        .add_opt(fee_reduction, time, &mut fx_db)?;
+        .add_opt(broker_fee, time, &mut fx_db)?
+        .add_opt(fee_reduction, time, &mut fx_db)?
+        .add_opt(tax_pay_back_fee, time, &mut fx_db)?;
+
+    let foreign_tax = parse_amount(&FOREIGN_DIV_TAX, text)?;
+    let foreign_tax_back = parse_amount(&FOREIGN_DIV_TAX_BACK, text)?;
+    let mut total_foreign_tax = CashAmount {
+        amount: 0.0,
+        currency: pre_tax_fee_value.currency,
+    };
+    total_foreign_tax
+        .add_opt(foreign_tax, time, &mut fx_db)?
+        .add_opt(foreign_tax_back, time, &mut fx_db)?;
 
     let capital_gain_tax = parse_amount(&CAPITAL_GAIN_TAX, text)?;
     let solidaritaets_tax = parse_amount(&SOLIDARITAETS_TAX, text)?;
     let church_tax = parse_amount(&CHURCH_TAX, text)?;
-    let mut warnings = String::new();
+    let vat_tax = parse_amount(&VAT_TAX, text)?;
 
+    let mut warnings = String::new();
     let mut total_tax = CashAmount {
         amount: 0.0,
         currency: base_currency,
@@ -271,12 +370,13 @@ pub fn parse_transactions(
     total_tax
         .add_opt(capital_gain_tax, time, &mut fx_db)?
         .add_opt(solidaritaets_tax, time, &mut fx_db)?
-        .add_opt(church_tax, time, &mut fx_db)?;
+        .add_opt(church_tax, time, &mut fx_db)?
+        .add_opt(vat_tax, time, &mut fx_db)?;
 
     if config.debug {
         println!(
-            "trade_value: {}\npre_tax: {}\nvaluta: {}\nbase_currency: {}\nfx_rate: {:?}",
-            trade_value, pre_tax, valuta, base_currency, fx_rate
+            "value before tax and fees: {}\npre_tax: {}\nvaluta: {}\nbase_currency: {}\nfx_rate: {:?}",
+            pre_tax_fee_value, pre_tax, valuta, base_currency, fx_rate
         );
         println!("provision: {:?}\nexchange_fee: {:?}\ntransfer_fee: {:?}\nvariable_exchange_fee {:?}\nforeign_expenses: {:?}",
                 provision, exchange_fee, transfer_fee, variable_exchange_fee, foreign_expenses);
@@ -290,8 +390,9 @@ pub fn parse_transactions(
         );
     }
 
-    let mut pre_tax_calculated = trade_value;
+    let mut pre_tax_calculated = pre_tax_fee_value;
     pre_tax_calculated.add(total_fee, time, &mut fx_db)?;
+    pre_tax_calculated.add(total_foreign_tax, time, &mut fx_db)?;
     if fx_rate.is_some() {
         pre_tax_calculated = CashAmount {
             amount: pre_tax_calculated.amount / fx_rate.unwrap(),
@@ -299,8 +400,10 @@ pub fn parse_transactions(
         }
     }
 
-    pre_tax_calculated.add_opt(accrued_interest, time, &mut fx_db)?;
-    if pre_tax_calculated.amount != 0.0 {
+    pre_tax_calculated.add_opt(accrued_interest, time, &mut fx_db)?
+        .add_opt(vat_tax, time, &mut fx_db)?;
+    // skip this check if its an amendment, because this tends to become very complex
+    if !is_amendment && pre_tax_calculated.amount != 0.0 {
         if !rounded_equal(pre_tax_calculated.amount, pre_tax.amount, 2) {
             warnings = format!("{}\nCalculated pre-tax value {} differs from reported pre-tax value {}: missed some fees or taxes?", 
                     warnings, pre_tax_calculated, pre_tax);
@@ -308,9 +411,12 @@ pub fn parse_transactions(
     }
 
     if fx_rate.is_some() {
-        let foreign_calculated = parse_amount(&FOREIGN_AFTER_FEE, text)?;
+        let mut foreign_calculated = parse_amount(&FOREIGN_AFTER_FEE, text)?;
+        if foreign_calculated.is_none() && doc_type == DocumentType::Dividend {
+            foreign_calculated =  Some(pre_tax_fee_value);
+        };
         if foreign_calculated.is_none() {
-            return Err(ReadPDFError::NotFound("Ausmachender Betrag"));
+            return Err(ReadPDFError::NotFound("Unable to calculate foreign amount after taxes and fees"));
         }
         let mut foreign_calculated = foreign_calculated.unwrap();
         let calculated_converted_amount = CashAmount {
@@ -331,16 +437,17 @@ pub fn parse_transactions(
         }
         foreign_calculated.sub_opt(foreign_expenses, time, &mut fx_db)?;
         if fee_reduction.is_some() {
-            if fee_reduction.unwrap().currency == trade_value.currency {
+            if fee_reduction.unwrap().currency == pre_tax_fee_value.currency {
                 foreign_calculated.sub_opt(fee_reduction, time, &mut fx_db)?;
             }
         }
-        if !rounded_equal(foreign_calculated.amount, trade_value.amount, 2)
-            || foreign_calculated.currency != trade_value.currency
+        foreign_calculated.sub(total_foreign_tax, time, &mut fx_db)?;
+        if !rounded_equal(foreign_calculated.amount, pre_tax_fee_value.amount, 2)
+            || foreign_calculated.currency != pre_tax_fee_value.currency
         {
             warnings = format!(
                 "{}\nCalculated foreign amount {} differs from parsed amount {}.",
-                warnings, foreign_calculated, trade_value
+                warnings, foreign_calculated, pre_tax_fee_value
             );
         }
     }
@@ -379,25 +486,61 @@ pub fn parse_transactions(
     }
     // End of consistency checks
 
-    let sign = if doc_type == DocumentType::Sell { -1.0 } else { 1.0 };
-    transactions.push(Transaction {
-        id: None,
-        transaction_type: TransactionType::Asset {
-            asset_id: 0,
-            position: sign * position,
-        },
-        cash_flow: CashFlow {
-            amount: CashAmount {
-                amount: -sign * trade_value.amount,
-                currency: trade_value.currency,
+    if doc_type == DocumentType::Buy || doc_type == DocumentType::Sell {
+        // check if everything required for buy/sell transactions was found
+        
+        if asset_info.position.is_none() {
+            return Err(ReadPDFError::NotFound("position"));
+        }
+
+        let sign = if doc_type == DocumentType::Sell { -1.0 } else { 1.0 };
+        transactions.push(Transaction {
+            id: None,
+            transaction_type: TransactionType::Asset {
+                asset_id: 0,
+                position: sign * asset_info.position.unwrap(),
             },
-            date: valuta,
-        },
-        note,
-    });
+            cash_flow: CashFlow {
+                amount: CashAmount {
+                    amount: -sign * pre_tax_fee_value.amount,
+                    currency: pre_tax_fee_value.currency,
+                },
+                date: valuta,
+            },
+            note,
+        });    
+    } else if doc_type == DocumentType::Dividend {
+        if is_amendment {
+            // foreign tax pay back
+            transactions.push(Transaction {
+                id: None,
+                transaction_type: TransactionType::Tax {
+                    transaction_ref: None,
+                },
+                cash_flow: CashFlow {
+                    amount: pre_tax,
+                    date: valuta,
+                },
+                note: Some("foreign tax pay back".to_string()),
+            })
+        } else {
+            transactions.push(Transaction {
+                id: None, 
+                transaction_type: TransactionType::Dividend {
+                    asset_id: 0,
+                },
+                cash_flow: CashFlow {
+                    amount: pre_tax_fee_value,
+                    date: valuta, 
+                },
+                note,
+            });    
+        }
+    }
 
     if total_fee.amount != 0.0 {
         // Add fee transaction
+        let sign = if doc_type == DocumentType::Sell { -1.0 } else { 1.0 };
         transactions.push(Transaction {
             id: None,
             transaction_type: TransactionType::Fee {
@@ -415,7 +558,7 @@ pub fn parse_transactions(
     }
 
     if total_tax.amount != 0.0 {
-        // Add fee transaction
+        // Add tax transaction
         transactions.push(Transaction {
             id: None,
             transaction_type: TransactionType::Tax {
@@ -448,5 +591,21 @@ pub fn parse_transactions(
             note: None,
         });
     }
-    Ok((transactions, asset))
+
+    if total_foreign_tax.amount != 0.0 {
+        // Add tax transaction in foreign currency
+        transactions.push(Transaction {
+            id: None,
+            transaction_type: TransactionType::Tax {
+                transaction_ref: None,
+            },
+            cash_flow: CashFlow {
+                amount: total_foreign_tax,
+                date: valuta,
+            },
+            note: None,
+        });
+    }
+
+    Ok((transactions, asset_info.asset))
 }
