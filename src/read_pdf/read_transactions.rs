@@ -20,6 +20,27 @@ struct AssetInfo {
     position: Option<f64>,
 }
 
+// Collect all parsed data that is required to construct by category distinct cash flow transactions
+pub struct ParsedTransactionInfo {
+    doc_type: DocumentType,
+    asset: Asset,
+    base_currency: Currency,
+    // Price pay/received for buying/selling asset in base currency
+    base_asset: f64,
+    base_fee: f64,
+    base_tax: f64,
+    base_accrued: f64,
+    // Total payment in account currency
+    base_total: f64,
+    foreign_currency: Currency,
+    foreign_fee: f64,
+    foreign_tax: f64,
+    foreign_accrued: f64,
+    // Price pay/received for buying/selling asset in base currency
+    foreign_asset: f64,
+    valuta: NaiveDate,
+}
+
 /// Extract asset information from text file
 fn parse_asset(text: &str) -> Result<AssetInfo, ReadPDFError> {
     lazy_static! {
@@ -32,6 +53,8 @@ fn parse_asset(text: &str) -> Result<AssetInfo, ReadPDFError> {
             r"(?m)WKN/ISIN\n\s*per\s+([.0-9]*)\s+(.*)\s+([A-Z0-9]{6})\s*\n\s*STK\s+([.,0-9]*)\s+(.*)\s\s\s*([A-Z0-9]{12})"
         )
         .unwrap();
+        // Search for asset in dividend documents
+        static ref WKN_ISIN_TAX: Regex = Regex::new(r"WKN\s*/\s*ISIN:\s+([A-Z0-9]{6})\s*/\s*([A-Z0-9]{12})").unwrap();
     }
     match NAME_WKN_ISIN.captures(text) {
         Some(cap) => {
@@ -69,7 +92,25 @@ fn parse_asset(text: &str) -> Result<AssetInfo, ReadPDFError> {
                     position,
                 })
             },
-            None => Err(ReadPDFError::NotFound("asset")),
+            None => match WKN_ISIN_TAX.captures(text) {
+                // The document does not provide the full name, leave name empty and search in database by ISIN/WKN
+                Some(cap) => {
+                    let wkn = Some(cap[1].to_string());
+                    let isin = Some(cap[2].to_string());
+                    Ok(AssetInfo {
+                        asset: Asset {
+                            id: None,
+                            name: String::new(),
+                            wkn,
+                            isin,
+                            note: None,
+                        },
+                        _ex_div_day: None,
+                        position: None,
+                    })
+                },
+                None => Err(ReadPDFError::NotFound("asset")),
+            },
         },
     }
 }
@@ -139,10 +180,10 @@ enum DocumentType {
 fn parse_doc_type(text: &str) -> Result<DocumentType, ReadPDFError> {
     lazy_static! {
         static ref DOC_TYPE_SET: RegexSet = RegexSet::new(&[
-            r"Wertpapierkauf",
-            r"Wertpapierverkauf",
-            r"Dividendengutschrift",
-            r"Ertragsgutschrift",
+            r"(?m)^\s*Wertpapierkauf",
+            r"(?m)^\s*Wertpapierverkauf",
+            r"(?m)^\s*Dividendengutschrift",
+            r"(?m)^\s*Ertragsgutschrift",
         ]).unwrap();
         static ref TAX_TYPE: Regex = Regex::new(r"Steuerliche Behandlung:\s+(\w+)\s+(\w+)").unwrap();
     }
@@ -160,8 +201,7 @@ fn parse_doc_type(text: &str) -> Result<DocumentType, ReadPDFError> {
     } else if matches.len() == 0 {
         // No document type found, must be tax document
         match TAX_TYPE.captures(text) {
-            Some(tax_type) => {
-                println!("Found tax document for |{}|{}|", &tax_type[1], &tax_type[2]);
+            Some(_) => {
                 Ok(DocumentType::Tax)
             },
             None => Err(ReadPDFError::UnknownDocumentType),
@@ -182,6 +222,37 @@ fn parse_pre_tax(text: &str, doc_type: DocumentType) -> Result<(CashAmount, Naiv
             r"(?m)Zu Ihren Gunsten vor Steuern\s*\n.*\s*([0-9.]{10})\s*([A-Z]{3})\s*([-0-9.,]+)"
         )
         .unwrap();
+        static ref PRE_TAX_AMOUNT_TAX: Regex = Regex::new(
+            r"Zu Ihren Gunsten vor Steuern:\s*([A-Z]{3})\s*([-0-9.,]+)"
+        )
+        .unwrap();
+        static ref VALUTA: Regex = Regex::new(
+            r"erfolgt mit Valuta\s*([0-9.]{10})"
+        )
+        .unwrap();
+        static ref VALUTA_ALT: Regex = Regex::new(
+            r"Datum:\s+([0-9.]{10})"
+        )
+        .unwrap();
+    }
+
+    if doc_type == DocumentType::Tax {
+        return match PRE_TAX_AMOUNT_TAX.captures(text) {
+            None => Err(ReadPDFError::NotFound("pre-tax amount")),
+            Some(cap) => {
+                let amount = german_string_to_float(&cap[2])?;
+                let currency =
+                    Currency::from_str(&cap[1]).map_err(|err| ReadPDFError::ParseCurrency(err))?;
+                let valuta = match VALUTA.captures(text) {
+                    Some(cap) => Ok(german_string_to_date(&cap[1])?),
+                    None => match VALUTA_ALT.captures(text) {
+                        Some(cap) => Ok(german_string_to_date(&cap[1])?),
+                        None => Err(ReadPDFError::NotFound("pre-tax amount")),
+                    },
+                }?;
+                Ok((CashAmount { amount, currency }, valuta))
+            },
+        }
     }
 
     let matches = if doc_type == DocumentType::Sell || doc_type == DocumentType::Dividend { 
@@ -297,9 +368,11 @@ pub fn parse_transactions(
             pre_tax_fee_value = parse_amount(&TRADE_VALUE, text)?;
         } else if doc_type == DocumentType::Dividend {
             pre_tax_fee_value = parse_amount(&DIV_PRE_TAX, text)?;
+        } else if doc_type == DocumentType::Tax {
+            pre_tax_fee_value = Some(pre_tax);
         }
     }
-    let pre_tax_fee_value = must_have(pre_tax_fee_value, "trade value")?;
+    let pre_tax_fee_value = must_have(pre_tax_fee_value, "can't find value before taxes and fees")?;
 
     let time = Utc
         .ymd(valuta.year(), valuta.month(), valuta.day())

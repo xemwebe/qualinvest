@@ -7,5 +7,6 @@
     "doc_path": "<directory path to store documents in>",
     "warn_old": false,
     "consistency_check": true,
-    "rename_asset": false
+    "rename_asset": false,
+    "default_account": false
 }

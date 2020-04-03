@@ -27,6 +27,7 @@ pub struct Config {
     warn_old: bool,
     consistency_check: bool,
     rename_asset: bool,
+    default_account: bool,
 }
 
 fn main() {
@@ -97,6 +98,12 @@ fn main() {
                 .help("In case of duplicate asset names with different ISIN or WKN, rename asset by appending ' (NEW)'")
                 .takes_value(false),
         )
+        .arg(
+            Arg::with_name("default-account")
+                .long("default-account")
+                .help("If account details could not be found, use the account 'unassigned'")
+                .takes_value(false),
+        )
         .get_matches();
 
     let config = matches.value_of("config").unwrap_or("qualinvest.json");
@@ -123,6 +130,9 @@ fn main() {
     }
     if matches.is_present("warn-old") {
         config.warn_old = true;
+    }
+    if matches.is_present("default-account") {
+        config.default_account = true;
     }
     if matches.is_present("ignore-consistency-check") {
         config.consistency_check = false;

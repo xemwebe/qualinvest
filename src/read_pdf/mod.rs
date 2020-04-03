@@ -124,14 +124,20 @@ pub fn parse_and_store<DB: AccountHandler>(
         }
         Err(_) => {}
     }
+    //println!("Start parsing document {}", pdf_file);
     let text = text_from_pdf(pdf_file);
     match text {
         Ok(text) => {
-            let (broker, account_id) = parse_account_info(&text)?;
+            let account_info = parse_account_info(&text);
+            let (broker, account_id) = if account_info.is_err() && config.default_account {
+                ("nobroker".to_string(), "unassigned".to_string())
+            } else {
+                account_info?
+            };
             let mut account = Account {
                 id: None,
                 broker,
-                account_id,
+                account_id: account_id,
             };
             let acc_id = db
                 .insert_account_if_new(&account)
@@ -140,9 +146,13 @@ pub fn parse_and_store<DB: AccountHandler>(
             let transactions = parse_transactions(&text, &config);
             let trans_ids = match transactions {
                 Ok((transactions, asset)) => {
-                    let asset_id = db
-                        .insert_asset_if_new(&asset, config.rename_asset)
-                        .map_err(|err| ReadPDFError::DBError(err))?;
+                    let asset_id = if asset.name == "" {
+                        db.get_asset_by_isin(&asset.isin.unwrap())
+                        .map_err(|_| ReadPDFError::NotFound("could not find ISIN in db"))?.id.unwrap()
+                    } else {
+                        db.insert_asset_if_new(&asset, config.rename_asset)
+                        .map_err(|err| ReadPDFError::DBError(err))?
+                   };
                     let mut trans_ids = Vec::new();
                     for trans in transactions {
                         let mut trans = trans.clone();
