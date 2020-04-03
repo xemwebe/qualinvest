@@ -21,24 +21,36 @@ struct AssetInfo {
 }
 
 // Collect all parsed data that is required to construct by category distinct cash flow transactions
-pub struct ParsedTransactionInfo {
+struct ParsedTransactionInfo {
     doc_type: DocumentType,
     asset: Asset,
+    position: f64,
     base_currency: Currency,
-    // Price pay/received for buying/selling asset in base currency
-    base_asset: f64,
-    base_fee: f64,
-    base_tax: f64,
-    base_accrued: f64,
-    // Total payment in account currency
-    base_total: f64,
-    foreign_currency: Currency,
-    foreign_fee: f64,
-    foreign_tax: f64,
-    foreign_accrued: f64,
-    // Price pay/received for buying/selling asset in base currency
-    foreign_asset: f64,
+    foreign_currency: Option<Currency>,
     valuta: NaiveDate,
+    main_amount: CashAmount,
+    extra_fees: Vec<CashAmount>,
+    extra_taxes: Vec<CashAmount>,
+    accruals: Vec<CashAmount>,
+    note: Option<String>,
+}
+
+impl ParsedTransactionInfo{
+    fn new(doc_type: DocumentType, asset: Asset, main_amount: CashAmount, valuta: NaiveDate) -> ParsedTransactionInfo {
+        ParsedTransactionInfo{
+            doc_type,
+            asset,
+            position: 0.0,
+            base_currency: main_amount.currency,
+            foreign_currency: None,
+            valuta,
+            main_amount,
+            extra_fees: Vec::new(),
+            extra_taxes: Vec::new(),
+            accruals: Vec::new(),
+            note: None,
+        }
+    }
 }
 
 /// Extract asset information from text file
@@ -337,7 +349,6 @@ pub fn parse_transactions(
     let mut asset_info = parse_asset(text)?;
     let is_amendment = AMENDMENT.is_match(text);
 
-    let mut transactions = Vec::new();
     // temporary storage for fx rates
     let mut fx_db = InMemoryDB::new();
     let mut pre_tax_fee_value = None;
@@ -446,23 +457,6 @@ pub fn parse_transactions(
         .add_opt(church_tax, time, &mut fx_db)?
         .add_opt(vat_tax, time, &mut fx_db)?;
 
-    if config.debug {
-        println!(
-            "value before tax and fees: {}\npre_tax: {}\nvaluta: {}\nbase_currency: {}\nfx_rate: {:?}",
-            pre_tax_fee_value, pre_tax, valuta, base_currency, fx_rate
-        );
-        println!("provision: {:?}\nexchange_fee: {:?}\ntransfer_fee: {:?}\nvariable_exchange_fee {:?}\nforeign_expenses: {:?}",
-                provision, exchange_fee, transfer_fee, variable_exchange_fee, foreign_expenses);
-        println!(
-            "unspecified_fee: {:?}\ncleartream_fee: {:?}\ntotal_fee: {}",
-            unspecified_fee, clearstream_fee, total_fee
-        );
-        println!(
-            "capital_gain_tax: {:?}\nsolidaritaets_tax: {:?}\nchurch_tax: {:?}\ntotal_tax: {}",
-            capital_gain_tax, solidaritaets_tax, church_tax, total_tax
-        );
-    }
-
     let mut pre_tax_calculated = pre_tax_fee_value;
     pre_tax_calculated.add(total_fee, time, &mut fx_db)?;
     pre_tax_calculated.add(total_foreign_tax, time, &mut fx_db)?;
@@ -549,136 +543,149 @@ pub fn parse_transactions(
             );
         }
     }
+    // End of consistency checks
 
-    let mut note = None;
+    // Collect essential informations in ParsedTransactionInfo
+    let mut tri = match doc_type {
+        DocumentType::Buy | DocumentType::Sell => {
+            let sign = if doc_type == DocumentType::Sell { -1.0 } else { 1.0 };
+            if asset_info.position.is_none() {
+                return Err(ReadPDFError::NotFound("position"));
+            }
+            let main_amount = CashAmount {
+                amount: -sign * pre_tax_fee_value.amount,
+                currency: pre_tax_fee_value.currency,
+            };
+            let mut tri = ParsedTransactionInfo::new(doc_type, asset_info.asset, main_amount, valuta);
+            tri.position = sign * asset_info.position.unwrap();
+            tri           
+        },
+        DocumentType::Dividend => {
+            if is_amendment {
+                // foreign tax pay back
+                let mut tri = ParsedTransactionInfo::new(DocumentType::Tax, asset_info.asset, pre_tax, valuta);
+                tri.note = Some("foreign tax pay back\n".to_string());
+                tri
+            } else {
+                ParsedTransactionInfo::new(doc_type, asset_info.asset, pre_tax_fee_value, valuta)
+            }
+        },
+        DocumentType::Tax => {
+            let tri = ParsedTransactionInfo::new(DocumentType::Tax, asset_info.asset, total_tax, valuta);
+            total_tax.amount = 0.0;
+            tri
+        }
+    };
+
     if warnings != "" {
         if config.consistency_check {
             return Err(ReadPDFError::ConsistencyCheckFailed(warnings));
         }
-        note = Some(warnings);
-    }
-    // End of consistency checks
-
-    if doc_type == DocumentType::Buy || doc_type == DocumentType::Sell {
-        // check if everything required for buy/sell transactions was found
-        
-        if asset_info.position.is_none() {
-            return Err(ReadPDFError::NotFound("position"));
-        }
-
-        let sign = if doc_type == DocumentType::Sell { -1.0 } else { 1.0 };
-        transactions.push(Transaction {
-            id: None,
-            transaction_type: TransactionType::Asset {
-                asset_id: 0,
-                position: sign * asset_info.position.unwrap(),
-            },
-            cash_flow: CashFlow {
-                amount: CashAmount {
-                    amount: -sign * pre_tax_fee_value.amount,
-                    currency: pre_tax_fee_value.currency,
-                },
-                date: valuta,
-            },
-            note,
-        });    
-    } else if doc_type == DocumentType::Dividend {
-        if is_amendment {
-            // foreign tax pay back
-            transactions.push(Transaction {
-                id: None,
-                transaction_type: TransactionType::Tax {
-                    transaction_ref: None,
-                },
-                cash_flow: CashFlow {
-                    amount: pre_tax,
-                    date: valuta,
-                },
-                note: Some("foreign tax pay back".to_string()),
-            })
-        } else {
-            transactions.push(Transaction {
-                id: None, 
-                transaction_type: TransactionType::Dividend {
-                    asset_id: 0,
-                },
-                cash_flow: CashFlow {
-                    amount: pre_tax_fee_value,
-                    date: valuta, 
-                },
-                note,
-            });    
-        }
+        tri.note = Some(warnings);
     }
 
     if total_fee.amount != 0.0 {
-        // Add fee transaction
-        let sign = if doc_type == DocumentType::Sell { -1.0 } else { 1.0 };
+        let sign = if tri.doc_type == DocumentType::Sell { -1.0 } else { 1.0 };
+        tri.extra_fees.push(                
+            CashAmount {
+                amount: -sign * total_fee.amount,
+                currency: total_fee.currency,
+            }
+        );
+    }
+    if total_tax.amount != 0.0 {
+        tri.extra_taxes.push( CashAmount {
+                amount: total_tax.amount,
+                currency: total_tax.currency,
+            });
+    }
+    if total_foreign_tax.amount != 0.0 {
+        tri.extra_taxes.push( total_foreign_tax );
+    }
+
+    if accrued_interest.is_some() {
+        let accrued_interest = accrued_interest.unwrap();
+        tri.accruals.push(CashAmount {
+            amount: -accrued_interest.amount,
+            currency: accrued_interest.currency,
+        });
+    }
+
+    // Generate list of transactions
+    make_transactions(&tri) 
+}
+
+fn make_transactions(tri: &ParsedTransactionInfo)-> Result<(Vec<Transaction>, Asset), ReadPDFError> 
+{
+    let mut transactions = Vec::new();
+    // Construct main transaction
+    transactions.push(Transaction {
+            id: None,
+            transaction_type: match tri.doc_type {
+                DocumentType::Buy | DocumentType::Sell => { 
+                    TransactionType::Asset {
+                        asset_id: 0,
+                        position: tri.position
+                    }
+                },
+                DocumentType::Dividend => {
+                    TransactionType::Dividend {
+                        asset_id: 0,
+                    }
+                },
+                DocumentType::Tax => {
+                    TransactionType::Tax {
+                        transaction_ref: None,
+                    }
+                }
+            },
+            cash_flow: CashFlow {
+                amount: tri.main_amount,
+                date: tri.valuta,
+            },
+            note: tri.note.clone(),
+        }
+    );
+
+    for fee in &tri.extra_fees {
         transactions.push(Transaction {
             id: None,
             transaction_type: TransactionType::Fee {
                 transaction_ref: None,
             },
             cash_flow: CashFlow {
-                amount: CashAmount {
-                    amount: -sign * total_fee.amount,
-                    currency: total_fee.currency,
-                },
-                date: valuta,
+                amount: *fee,
+                date: tri.valuta,
             },
             note: None,
         });
     }
 
-    if total_tax.amount != 0.0 {
-        // Add tax transaction
+    for tax in &tri.extra_taxes {
         transactions.push(Transaction {
             id: None,
             transaction_type: TransactionType::Tax {
                 transaction_ref: None,
             },
             cash_flow: CashFlow {
-                amount: CashAmount {
-                    amount: total_tax.amount,
-                    currency: total_tax.currency,
-                },
-                date: valuta,
+                amount: *tax,
+                date: tri.valuta,
             },
             note: None,
         });
     }
 
-    if accrued_interest.is_some() {
-        // Add interest transaction
-        let accrued_interest = accrued_interest.unwrap();
+    for accrued in &tri.accruals {
         transactions.push(Transaction {
             id: None,
             transaction_type: TransactionType::Interest { asset_id: 0 },
             cash_flow: CashFlow {
-                amount: CashAmount {
-                    amount: -accrued_interest.amount,
-                    currency: accrued_interest.currency,
-                },
-                date: valuta,
+                amount: *accrued,
+                date: tri.valuta,
             },
             note: None,
         });
     }
 
-    if total_foreign_tax.amount != 0.0 {
-        // Add tax transaction in foreign currency
-        transactions.push(Transaction {
-            id: None,
-            transaction_type: TransactionType::Tax {
-                transaction_ref: None,
-            },
-            cash_flow: CashFlow {
-                amount: total_foreign_tax,
-                date: valuta,
-            },
-            note: None,
-        });
-    }
-
-    Ok((transactions, asset_info.asset))
+    Ok((transactions, tri.asset.clone()))
 }
