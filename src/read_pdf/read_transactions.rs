@@ -2,14 +2,10 @@
 ///! Currently, transaction documents from comdirect bank are supported
 use super::german_string_to_date;
 use super::german_string_to_float;
-use super::ReadPDFError;
-use crate::Config;
-use chrono::{Datelike, NaiveDate, TimeZone, Utc};
+use super::{ReadPDFError,ParsedTransactionInfo,DocumentType};
+use chrono::{NaiveDate};
 use finql::asset::Asset;
-use finql::fx_rates::insert_fx_quote;
-use finql::memory_handler::InMemoryDB;
-use finql::transaction::{Transaction, TransactionType};
-use finql::{CashAmount, CashFlow, Currency};
+use finql::{CashAmount, Currency};
 use regex::{Regex, RegexSet};
 use std::str::FromStr;
 
@@ -18,46 +14,6 @@ struct AssetInfo {
     // reserved for later use
     _ex_div_day: Option<NaiveDate>,
     position: Option<f64>,
-}
-
-// Collect all parsed data that is required to construct by category distinct cash flow transactions
-struct ParsedTransactionInfo {
-    doc_type: DocumentType,
-    asset: Asset,
-    position: f64,
-    valuta: NaiveDate,
-    fx_rate: Option<f64>,
-    main_amount: CashAmount,
-    total_amount: CashAmount,
-    extra_fees: Vec<CashAmount>,
-    extra_taxes: Vec<CashAmount>,
-    accruals: Vec<CashAmount>,
-    note: Option<String>,
-}
-
-impl ParsedTransactionInfo {
-    fn new(
-        doc_type: DocumentType,
-        asset: Asset,
-        main_amount: CashAmount,
-        total_amount: CashAmount,
-        fx_rate: Option<f64>,
-        valuta: NaiveDate,
-    ) -> ParsedTransactionInfo {
-        ParsedTransactionInfo {
-            doc_type,
-            asset,
-            position: 0.0,
-            valuta,
-            fx_rate,
-            main_amount,
-            total_amount,
-            extra_fees: Vec::new(),
-            extra_taxes: Vec::new(),
-            accruals: Vec::new(),
-            note: None,
-        }
-    }
 }
 
 /// Extract asset information from text file
@@ -180,19 +136,6 @@ fn parse_fx_rate(text: &str) -> Result<(Option<f64>, Option<CashAmount>), ReadPD
     let currency = Currency::from_str(&cap[2]).map_err(|err| ReadPDFError::ParseCurrency(err))?;
 
     Ok((Some(fx_rate), Some(CashAmount { amount, currency })))
-}
-
-fn rounded_equal(x: f64, y: f64, precision: i32) -> bool {
-    let factor = 10.0_f64.powi(precision);
-    return (x * factor).round() == (y * factor).round();
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-enum DocumentType {
-    Buy,
-    Sell,
-    Dividend,
-    Tax,
 }
 
 fn parse_doc_type(text: &str) -> Result<DocumentType, ReadPDFError> {
@@ -324,9 +267,7 @@ fn parse_payment_components(
 
 /// Extract transaction information from text files
 pub fn parse_transactions(
-    text: &str,
-    config: &Config,
-) -> Result<(Vec<Transaction>, Asset), ReadPDFError> {
+    text: &str) -> Result<ParsedTransactionInfo, ReadPDFError> {
     lazy_static! {
         static ref TOTAL_POSITION: Regex = Regex::new(
             r"Summe\s+St.\s+([0-9.,]+)\s+[A-Z]{3}\s+[0-9,.]+\s+([A-Z]{3})\s+([-0-9,.]+)"
@@ -493,147 +434,6 @@ pub fn parse_transactions(
         parse_payment_components(&mut tri.accruals, &COMDIRECT_ACCRUALS, text, -1.0)?;
     }
 
-    if config.consistency_check {
-        check_consistency(&tri)?;
-    }
-
-    // Generate list of transactions
-    make_transactions(&tri)
+    Ok(tri)
 }
 
-// Check if main payment plus all fees and taxes add up to total payment
-// Add up all payments separate by currencies, convert into total currency, and check if the add up to zero.
-fn check_consistency(tri: &ParsedTransactionInfo) -> Result<(), ReadPDFError> {
-    let time = Utc
-        .ymd(tri.valuta.year(), tri.valuta.month(), tri.valuta.day())
-        .and_hms_milli(18, 0, 0, 0);
-
-    // temporary storage for fx rates
-    // total payment is always in base currency, but main_amount (and maybe fees or taxes) could be in foreign currency.
-    let mut fx_db = InMemoryDB::new();
-    if tri.fx_rate.is_some() {
-        insert_fx_quote(
-            tri.fx_rate.unwrap(),
-            tri.total_amount.currency,
-            tri.main_amount.currency,
-            time,
-            &mut fx_db,
-        )?;
-    }
-
-    // Add up all payment components and check whether they equal the final payment
-    let mut check_sum = -tri.total_amount;
-    let mut foreign_check_sum = tri.main_amount;
-    for fee in &tri.extra_fees {
-        if fee.currency == check_sum.currency {
-            check_sum.add(*fee, time, &mut fx_db, false)?;
-        } else {
-            foreign_check_sum.add(*fee, time, &mut fx_db, false)?;
-        }
-    }
-    for tax in &tri.extra_taxes {
-        if tax.currency == check_sum.currency {
-            check_sum.add(*tax, time, &mut fx_db, false)?;
-        } else {
-            foreign_check_sum.add(*tax, time, &mut fx_db, false)?;
-        }
-    }
-    for accrued in &tri.accruals {
-        if accrued.currency == check_sum.currency {
-            check_sum.add(*accrued, time, &mut fx_db, true)?;
-        } else {
-            foreign_check_sum.add(*accrued, time, &mut fx_db, false)?;
-        }
-    }
-    check_sum.add(foreign_check_sum, time, &mut fx_db, true)?;
-
-    // Final sum should be nearly zero
-    if !rounded_equal(check_sum.amount, 0.0, 4) {
-        let warning = format!(
-            "Sum of payments does not equal total payments, difference is {}.",
-            check_sum.amount
-        );
-        return Err(ReadPDFError::ConsistencyCheckFailed(warning));
-    } else {
-        Ok(())
-    }
-}
-
-fn make_transactions(
-    tri: &ParsedTransactionInfo,
-) -> Result<(Vec<Transaction>, Asset), ReadPDFError> {
-    let mut transactions = Vec::new();
-
-    // Construct main transaction
-    if tri.main_amount.amount != 0.0 {
-        transactions.push(Transaction {
-            id: None,
-            transaction_type: match tri.doc_type {
-                DocumentType::Buy | DocumentType::Sell => TransactionType::Asset {
-                    asset_id: 0,
-                    position: tri.position,
-                },
-                DocumentType::Dividend => TransactionType::Dividend { asset_id: 0 },
-                DocumentType::Tax => TransactionType::Tax {
-                    transaction_ref: None,
-                },
-            },
-            cash_flow: CashFlow {
-                amount: tri.main_amount,
-                date: tri.valuta,
-            },
-            note: tri.note.clone(),
-        });
-    }
-
-    for fee in &tri.extra_fees {
-        if fee.amount == 0.0 {
-            continue;
-        }
-        transactions.push(Transaction {
-            id: None,
-            transaction_type: TransactionType::Fee {
-                transaction_ref: None,
-            },
-            cash_flow: CashFlow {
-                amount: (*fee),
-                date: tri.valuta,
-            },
-            note: None,
-        });
-    }
-
-    for tax in &tri.extra_taxes {
-        if tax.amount == 0.0 {
-            continue;
-        }
-        transactions.push(Transaction {
-            id: None,
-            transaction_type: TransactionType::Tax {
-                transaction_ref: None,
-            },
-            cash_flow: CashFlow {
-                amount: (*tax),
-                date: tri.valuta,
-            },
-            note: None,
-        });
-    }
-
-    for accrued in &tri.accruals {
-        if accrued.amount == 0.0 {
-            continue;
-        }
-        transactions.push(Transaction {
-            id: None,
-            transaction_type: TransactionType::Interest { asset_id: 0 },
-            cash_flow: CashFlow {
-                amount: (*accrued),
-                date: tri.valuta,
-            },
-            note: None,
-        });
-    }
-
-    Ok((transactions, tri.asset.clone()))
-}
