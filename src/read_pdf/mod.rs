@@ -148,11 +148,13 @@ pub fn parse_and_store<DB: AccountHandler>(
                 Ok((transactions, asset)) => {
                     let asset_id = if asset.name == "" {
                         db.get_asset_by_isin(&asset.isin.unwrap())
-                        .map_err(|_| ReadPDFError::NotFound("could not find ISIN in db"))?.id.unwrap()
+                            .map_err(|_| ReadPDFError::NotFound("could not find ISIN in db"))?
+                            .id
+                            .unwrap()
                     } else {
                         db.insert_asset_if_new(&asset, config.rename_asset)
-                        .map_err(|err| ReadPDFError::DBError(err))?
-                   };
+                            .map_err(|err| ReadPDFError::DBError(err))?
+                    };
                     let mut trans_ids = Vec::new();
                     for trans in transactions {
                         let mut trans = trans.clone();

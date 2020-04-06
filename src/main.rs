@@ -183,7 +183,9 @@ fn main() {
                     println!("Failed to parse file {} with error {:?}", filename, err);
                 }
                 Ok(count) => {
-                    if count == 0 { count_skipped += 1; }
+                    if count == 0 {
+                        count_skipped += 1;
+                    }
                     count_transactions += count;
                 }
             }

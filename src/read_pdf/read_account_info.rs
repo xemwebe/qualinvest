@@ -3,7 +3,7 @@ use super::ReadPDFError;
 use regex::Regex;
 
 fn trim_account(account: &str) -> String {
-    account.trim().replace(" ","").to_string()
+    account.trim().replace(" ", "").to_string()
 }
 
 pub fn parse_account_info(text: &str) -> Result<(String, String), ReadPDFError> {
@@ -23,9 +23,11 @@ pub fn parse_account_info(text: &str) -> Result<(String, String), ReadPDFError> 
                         let account_id = ACCOUNT_ABBREV.captures(text);
                         match account_id {
                             None => Err(ReadPDFError::NotFound("comdirect account")),
-                            Some(account_id) => Ok(("comdirect".to_string(), trim_account(&account_id[1]))),
+                            Some(account_id) => {
+                                Ok(("comdirect".to_string(), trim_account(&account_id[1])))
+                            }
                         }
-                    },
+                    }
                     Some(account_id) => Ok(("comdirect".to_string(), trim_account(&account_id[1]))),
                 }
             }
