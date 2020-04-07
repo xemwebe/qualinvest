@@ -79,6 +79,7 @@ enum DocumentType {
     Sell,
     Dividend,
     Tax,
+    Interest,
 }
 
 
@@ -331,6 +332,7 @@ pub fn make_transactions(
                     position: tri.position,
                 },
                 DocumentType::Dividend => TransactionType::Dividend { asset_id: 0 },
+                DocumentType::Interest => TransactionType::Interest { asset_id: 0 },
                 DocumentType::Tax => TransactionType::Tax {
                     transaction_ref: None,
                 },
