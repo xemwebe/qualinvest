@@ -1,3 +1,7 @@
+Version 0.3.0
+* Split into separate crates. `qualinvest_core` contains the core functionality, while `qualinvest_cli` contains the command line interface.
+  This prepares for an additional REST service interface and a GUI as web assembly.
+
 Version 0.2.0
 * Implementation of parsing documents from comdirect bank (asset buy and sell, dividend payments, interest payments and tax statements)
 * The payments are split into a main transactions (e.g. asset sell) und related fee or tax payments.
