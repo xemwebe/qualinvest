@@ -1,3 +1,8 @@
+Version 0.2.0
+* Implementation of parsing documents from comdirect bank (asset buy and sell, dividend payments, interest payments and tax statements)
+* The payments are split into a main transactions (e.g. asset sell) und related fee or tax payments.
+* Storage of assets (if new) and transactions in database
+
 Version 0.1.0
 * Initial upload
-* Function for converting pdf to text, which will used for parsing bank documents
+* Function for converting pdf to text, which will used for parsing bank documents using the external to pdftotext
