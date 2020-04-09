@@ -8,6 +8,7 @@ use finql::asset::Asset;
 use finql::{CashAmount, Currency};
 use regex::{Regex, RegexSet};
 use std::str::FromStr;
+use lazy_static::lazy_static;
 
 struct AssetInfo {
     asset: Asset,

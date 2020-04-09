@@ -1,0 +1,9 @@
+[package]
+name = "qualinvest_cli"
+version = "0.1.0"
+authors = ["Mark Beinker <mwb@quantlink.de>"]
+edition = "2018"
+
+[dependencies]
+qualinvest_core = { path="../qualinvest_core" }
+

@@ -3,36 +3,16 @@
 use clap::{App, Arg};
 use finql::postgres_handler::PostgresDB;
 use glob::glob;
-use read_pdf::parse_and_store;
-use serde::Deserialize;
 use std::fs::File;
 use std::io::{stdout, BufReader, Write};
 
-#[macro_use]
-extern crate lazy_static;
-
-pub mod accounts;
-pub mod read_pdf;
-use accounts::AccountHandler;
-
-/// Configuration parameters
-#[derive(Debug, Deserialize)]
-pub struct Config {
-    db_host: String,
-    db_name: String,
-    db_user: String,
-    db_password: String,
-    debug: bool,
-    doc_path: String,
-    warn_old: bool,
-    consistency_check: bool,
-    rename_asset: bool,
-    default_account: bool,
-}
+use qualinvest_core::read_pdf::{parse_and_store,sha256_hash};
+use qualinvest_core::Config;
+use qualinvest_core::accounts::AccountHandler;
 
 fn main() {
     let matches = App::new("qualinvest")
-        .version("0.1.0")
+        .version("0.3.0")
         .author("Mark Beinker <mwb@quantlink.de>")
         .about("Tools for quantitative analysis and management of financial asset portfolios")
         .arg(
@@ -142,7 +122,7 @@ fn main() {
     }
     if matches.is_present("hash") {
         let pdf_file = matches.value_of("hash").unwrap();
-        match read_pdf::pdf_store::sha256_hash(&pdf_file) {
+        match sha256_hash(&pdf_file) {
             Err(err) => {
                 println!(
                     "Failed to calculate hash of file {} with error {:?}",

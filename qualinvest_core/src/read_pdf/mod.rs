@@ -10,7 +10,7 @@ use finql::fx_rates::insert_fx_quote;
 use finql::transaction::{Transaction, TransactionType};
 use finql::asset::Asset;
 use finql::{CashAmount, CashFlow};
-use pdf_store::{sha256_hash, store_pdf};
+use pdf_store::{store_pdf};
 use std::error::Error;
 use std::fmt;
 use std::io;
@@ -26,6 +26,7 @@ mod read_account_info;
 mod read_transactions;
 use read_account_info::parse_account_info;
 use read_transactions::parse_transactions;
+pub use pdf_store::sha256_hash;
 
 #[derive(Debug)]
 pub enum ReadPDFError {
