@@ -21,7 +21,7 @@ name = "qualinvest_cli"
 path = "qualinvest_cli/src/main.rs"
 
 [dependencies]
-finql = "0.5.4"
+finql = { version = "0.5.4", path = "../finql" }
 serde = { version = "1.0.*", features = ["derive"] }
 serde_json = "1.0"
 clap = "2.33"

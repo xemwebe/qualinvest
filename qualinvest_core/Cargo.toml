@@ -3,7 +3,18 @@ name = "qualinvest_core"
 version = "0.1.0"
 authors = ["Mark Beinker <mwb@quantlink.de>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "Core library of the qualinvest project"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/xemwebe/qualinvest"
+keywords = ["finance", "investment", "quantitative", "analysis"]
 
 [dependencies]
+finql = { version = "0.5.4", path = "../../finql" }
+serde = { version = "1.0.*", features = ["derive"] }
+lazy_static = "1.4"
+chrono = "0.4"
+ring = "0.16"
+regex = "1.3"
+postgres = { version = "0.17", features = ["with-chrono-0_4"] }
+tokio-postgres = "0.5"
+data-encoding = "2.2"
