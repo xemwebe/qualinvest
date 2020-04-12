@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 pub mod read_pdf;
 pub mod accounts;
-
+pub mod position;
 
 /// Configuration parameters
 #[derive(Debug, Deserialize)]
