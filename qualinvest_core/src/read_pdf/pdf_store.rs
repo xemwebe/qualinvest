@@ -39,11 +39,11 @@ mod tests {
 
     #[test]
     fn test_hash() {
-        let file = "Cargo.toml";
+        let file = "LICENSE-MIT";
         let hash = sha256_hash(file).unwrap();
         assert_eq!(
             hash,
-            "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855".to_string()
+            "0998C58A8B2993EA0B3AA8EBAF260606A8F84F3C1005F060A72C814199BDD0BA".to_string()
         );
     }
 }
