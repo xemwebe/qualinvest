@@ -4,29 +4,28 @@
 use super::accounts::{Account, AccountHandler};
 use crate::Config;
 use chrono::NaiveDate;
+use chrono::{Datelike, TimeZone, Utc};
+use finql::asset::Asset;
 use finql::currency;
 use finql::data_handler::DataError;
 use finql::fx_rates::insert_fx_quote;
+use finql::memory_handler::InMemoryDB;
 use finql::transaction::{Transaction, TransactionType};
-use finql::asset::Asset;
 use finql::{CashAmount, CashFlow};
-use pdf_store::{store_pdf};
+use pdf_store::store_pdf;
 use std::error::Error;
 use std::fmt;
 use std::io;
 use std::num;
 use std::process::Command;
 use std::string;
-use finql::memory_handler::InMemoryDB;
-use chrono::{Utc,TimeZone,Datelike};
-
 
 pub mod pdf_store;
 mod read_account_info;
 mod read_transactions;
+pub use pdf_store::sha256_hash;
 use read_account_info::parse_account_info;
 use read_transactions::parse_transactions;
-pub use pdf_store::sha256_hash;
 
 #[derive(Debug)]
 pub enum ReadPDFError {
@@ -73,7 +72,6 @@ impl From<DataError> for ReadPDFError {
     }
 }
 
-
 #[derive(Debug, PartialEq, Clone, Copy)]
 enum DocumentType {
     Buy,
@@ -82,7 +80,6 @@ enum DocumentType {
     Tax,
     Interest,
 }
-
 
 // Collect all parsed data that is required to construct by category distinct cash flow transactions
 pub struct ParsedTransactionInfo {
@@ -123,7 +120,6 @@ impl ParsedTransactionInfo {
         }
     }
 }
-
 
 pub fn rounded_equal(x: f64, y: f64, precision: i32) -> bool {
     let factor = 10.0_f64.powi(precision);
@@ -255,7 +251,6 @@ pub fn parse_and_store<DB: AccountHandler>(
     }
 }
 
-
 // Check if main payment plus all fees and taxes add up to total payment
 // Add up all payments separate by currencies, convert into total currency, and check if the add up to zero.
 pub fn check_consistency(tri: &ParsedTransactionInfo) -> Result<(), ReadPDFError> {
@@ -304,7 +299,8 @@ pub fn check_consistency(tri: &ParsedTransactionInfo) -> Result<(), ReadPDFError
 
 // Transaction in foreign currency will be converted to currency of total payment amount
 pub fn make_transactions(
-    tri: &ParsedTransactionInfo) -> Result<(Vec<Transaction>, Asset), ReadPDFError> {
+    tri: &ParsedTransactionInfo,
+) -> Result<(Vec<Transaction>, Asset), ReadPDFError> {
     let mut transactions = Vec::new();
     let time = Utc
         .ymd(tri.valuta.year(), tri.valuta.month(), tri.valuta.day())
@@ -349,7 +345,6 @@ pub fn make_transactions(
         return Ok((transactions, tri.asset.clone()));
     }
 
-
     let mut total_fee = CashAmount {
         amount: 0.0,
         currency: tri.total_amount.currency,
@@ -368,9 +363,8 @@ pub fn make_transactions(
                 date: tri.valuta,
             },
             note: None,
-        });    
+        });
     }
-
 
     let mut total_tax = CashAmount {
         amount: 0.0,
@@ -413,13 +407,18 @@ pub fn make_transactions(
     }
 
     // Ensure that sum of payments equal total payments in spite of rounding errors
-    transactions[0].cash_flow.amount.amount = tri.total_amount.amount - total_accrued.amount - total_tax.amount - total_fee.amount;
+    transactions[0].cash_flow.amount.amount =
+        tri.total_amount.amount - total_accrued.amount - total_tax.amount - total_fee.amount;
     transactions[0].cash_flow.amount.currency = tri.total_amount.currency;
 
     Ok((transactions, tri.asset.clone()))
 }
 
-fn add_by_currency(new_amount: &CashAmount, base_amount: &mut CashAmount, foreign_amount: &mut CashAmount) {
+fn add_by_currency(
+    new_amount: &CashAmount,
+    base_amount: &mut CashAmount,
+    foreign_amount: &mut CashAmount,
+) {
     if new_amount.currency == base_amount.currency {
         base_amount.amount += new_amount.amount;
     } else {

@@ -2,13 +2,13 @@
 ///! Currently, transaction documents from comdirect bank are supported
 use super::german_string_to_date;
 use super::german_string_to_float;
-use super::{ReadPDFError,ParsedTransactionInfo,DocumentType};
-use chrono::{NaiveDate};
+use super::{DocumentType, ParsedTransactionInfo, ReadPDFError};
+use chrono::NaiveDate;
 use finql::asset::Asset;
 use finql::{CashAmount, Currency};
+use lazy_static::lazy_static;
 use regex::{Regex, RegexSet};
 use std::str::FromStr;
-use lazy_static::lazy_static;
 
 struct AssetInfo {
     asset: Asset,
@@ -41,30 +41,28 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
     }
 
     match doc_type {
-        DocumentType::Interest => {
-            match NAME_WKN_ISIN_INT.captures(text) {
-                Some(cap) => {
-                    let wkn = Some(cap[4].to_string());
-                    let isin = Some(cap[7].to_string());
-                    let name = format!("{} {}", cap[3].trim(), cap[6].trim());
-                    let ex_div_day = Some(german_string_to_date(&cap[1])?);
-                    let position = Some(german_string_to_float(&cap[5])?);
-                    let interest_rate = Some(german_string_to_float(&cap[2])?);
-                    Ok(AssetInfo {
-                        asset: Asset {
-                            id: None,
-                            name,
-                            wkn,
-                            isin,
-                            note: None,
-                        },
-                        _ex_div_day: ex_div_day,
-                        _interest_rate: interest_rate,
-                        position,
-                    })
-                },
-                None => Err(ReadPDFError::NotFound("asset")),
+        DocumentType::Interest => match NAME_WKN_ISIN_INT.captures(text) {
+            Some(cap) => {
+                let wkn = Some(cap[4].to_string());
+                let isin = Some(cap[7].to_string());
+                let name = format!("{} {}", cap[3].trim(), cap[6].trim());
+                let ex_div_day = Some(german_string_to_date(&cap[1])?);
+                let position = Some(german_string_to_float(&cap[5])?);
+                let interest_rate = Some(german_string_to_float(&cap[2])?);
+                Ok(AssetInfo {
+                    asset: Asset {
+                        id: None,
+                        name,
+                        wkn,
+                        isin,
+                        note: None,
+                    },
+                    _ex_div_day: ex_div_day,
+                    _interest_rate: interest_rate,
+                    position,
+                })
             }
+            None => Err(ReadPDFError::NotFound("asset")),
         },
         DocumentType::Tax => {
             match WKN_ISIN_TAX.captures(text) {
@@ -84,55 +82,51 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
                         _interest_rate: None,
                         position: None,
                     })
-                },
+                }
                 None => Err(ReadPDFError::NotFound("asset")),
             }
+        }
+        DocumentType::Dividend => match NAME_WKN_ISIN_DIV.captures(text) {
+            Some(cap) => {
+                let wkn = Some(cap[3].to_string());
+                let isin = Some(cap[6].to_string());
+                let name = format!("{} {}", cap[2].trim(), cap[5].trim());
+                let ex_div_day = Some(german_string_to_date(&cap[1])?);
+                let position = Some(german_string_to_float(&cap[4])?);
+                Ok(AssetInfo {
+                    asset: Asset {
+                        id: None,
+                        name,
+                        wkn,
+                        isin,
+                        note: None,
+                    },
+                    _ex_div_day: ex_div_day,
+                    _interest_rate: None,
+                    position,
+                })
+            }
+            None => Err(ReadPDFError::NotFound("asset")),
         },
-        DocumentType::Dividend => {
-            match NAME_WKN_ISIN_DIV.captures(text) {
-                Some(cap) => {
-                    let wkn = Some(cap[3].to_string());
-                    let isin = Some(cap[6].to_string());
-                    let name = format!("{} {}", cap[2].trim(), cap[5].trim());
-                    let ex_div_day = Some(german_string_to_date(&cap[1])?);
-                    let position = Some(german_string_to_float(&cap[4])?);
-                    Ok(AssetInfo {
-                        asset: Asset {
-                            id: None,
-                            name,
-                            wkn,
-                            isin,
-                            note: None,
-                        },
-                        _ex_div_day: ex_div_day,
-                        _interest_rate: None,
-                        position,
-                    })
-                },
-                None => Err(ReadPDFError::NotFound("asset")),
+        _ => match NAME_WKN_ISIN.captures(text) {
+            Some(cap) => {
+                let wkn = Some(cap[2].to_string());
+                let isin = Some(cap[4].to_string());
+                let name = format!("{} {}", cap[1].trim(), cap[3].trim());
+                Ok(AssetInfo {
+                    asset: Asset {
+                        id: None,
+                        name,
+                        wkn,
+                        isin,
+                        note: None,
+                    },
+                    _ex_div_day: None,
+                    _interest_rate: None,
+                    position: None,
+                })
             }
-        },
-        _ => {
-            match NAME_WKN_ISIN.captures(text) {
-                Some(cap) => {
-                    let wkn = Some(cap[2].to_string());
-                    let isin = Some(cap[4].to_string());
-                    let name = format!("{} {}", cap[1].trim(), cap[3].trim());
-                    Ok(AssetInfo {
-                        asset: Asset {
-                            id: None,
-                            name,
-                            wkn,
-                            isin,
-                            note: None,
-                        },
-                        _ex_div_day: None,
-                        _interest_rate: None,
-                        position: None,
-                    })
-                },
-                None => Err(ReadPDFError::NotFound("asset")),
-            }
+            None => Err(ReadPDFError::NotFound("asset")),
         },
     }
 }
@@ -305,8 +299,7 @@ fn parse_payment_components(
 }
 
 /// Extract transaction information from text files
-pub fn parse_transactions(
-    text: &str) -> Result<ParsedTransactionInfo, ReadPDFError> {
+pub fn parse_transactions(text: &str) -> Result<ParsedTransactionInfo, ReadPDFError> {
     lazy_static! {
         static ref TOTAL_POSITION: Regex = Regex::new(
             r"Summe\s+St.\s+([0-9.,]+)\s+[A-Z]{3}\s+[0-9,.]+\s+([A-Z]{3})\s+([-0-9,.]+)"
@@ -321,9 +314,10 @@ pub fn parse_transactions(
         static ref TOTAL_AMOUNT: Regex =
             Regex::new(r"Zu Ihren (?:Lasten|Gunsten) nach Steuern: *([A-Z]{3}) *([-0-9.,]+)")
                 .unwrap();
-        static ref PAID_TAX: Regex =
-            Regex::new(r"(?m)(?:abgeführte|erstattete) Steuern\s+([A-Z]{3}).*\n.*\n\s+([-0-9,.]+ ?-?)$")
-                .unwrap();
+        static ref PAID_TAX: Regex = Regex::new(
+            r"(?m)(?:abgeführte|erstattete) Steuern\s+([A-Z]{3}).*\n.*\n\s+([-0-9,.]+ ?-?)$"
+        )
+        .unwrap();
         static ref COMDIRECT_FEES: Vec<Regex> = vec![
             Regex::new(r"(?:Gesamtprovision|Provision)\s*:\s+([A-Z]{3})\s+([-0-9,.]*)").unwrap(),
             Regex::new(r"Börsenplatzabhäng. Entgelt\s*:\s+([A-Z]{3})\s+([-0-9,.]*)").unwrap(),
@@ -390,11 +384,10 @@ pub fn parse_transactions(
     let total_amount = match doc_type {
         DocumentType::Sell | DocumentType::Buy => parse_amount(&TOTAL_AMOUNT, text)?,
         DocumentType::Dividend | DocumentType::Interest => Some(pre_tax),
-        DocumentType::Tax => parse_amount(&PAID_TAX, text)?, 
+        DocumentType::Tax => parse_amount(&PAID_TAX, text)?,
     };
     let total_amount = must_have(total_amount, "can't identify total payment amount")?;
     let (fx_rate, _) = parse_fx_rate(text)?;
-
 
     // Collect essential informations in ParsedTransactionInfo
     let mut tri = match doc_type {
@@ -465,7 +458,11 @@ pub fn parse_transactions(
     };
 
     if !is_amendment {
-        let sign = if tri.doc_type == DocumentType::Buy {-1.0} else {1.0};
+        let sign = if tri.doc_type == DocumentType::Buy {
+            -1.0
+        } else {
+            1.0
+        };
         parse_payment_components(&mut tri.extra_fees, &COMDIRECT_FEES, text, sign)?;
         if tri.doc_type != DocumentType::Tax {
             // Already in main payment included if document is of type tax
@@ -476,4 +473,3 @@ pub fn parse_transactions(
 
     Ok(tri)
 }
-

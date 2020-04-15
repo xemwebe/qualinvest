@@ -1,8 +1,8 @@
 use serde::Deserialize;
 
-pub mod read_pdf;
 pub mod accounts;
 pub mod position;
+pub mod read_pdf;
 
 /// Configuration parameters
 #[derive(Debug, Deserialize)]
@@ -18,4 +18,3 @@ pub struct Config {
     pub rename_asset: bool,
     pub default_account: bool,
 }
-

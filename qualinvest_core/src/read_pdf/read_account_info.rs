@@ -1,7 +1,7 @@
 ///! Parse broker or bank and account information form pdf file
 use super::ReadPDFError;
-use regex::Regex;
 use lazy_static::lazy_static;
+use regex::Regex;
 
 fn trim_account(account: &str) -> String {
     account.trim().replace(" ", "").to_string()
