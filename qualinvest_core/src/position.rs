@@ -1,6 +1,7 @@
 use finql::transaction::{Transaction, TransactionType};
 use finql::Currency;
 use std::collections::BTreeMap;
+use serde::{Deserialize,Serialize};
 
 /// Errors related to position calculation
 #[derive(Debug, Clone, PartialEq)]
@@ -9,7 +10,7 @@ pub enum PositionError {
 }
 
 /// Calculate the total position as of a given date by applying a specified set of filters
-#[derive(Debug)]
+#[derive(Debug,Serialize,Deserialize)]
 pub struct Position {
     pub asset_id: Option<usize>,
     pub position: f64,
@@ -39,10 +40,10 @@ impl Position {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug,Serialize,Deserialize)]
 pub struct PortfolioPosition {
-    cash: Position,
-    assets: BTreeMap<usize, Position>,
+    pub cash: Position,
+    pub assets: BTreeMap<usize, Position>,
 }
 
 impl PortfolioPosition {

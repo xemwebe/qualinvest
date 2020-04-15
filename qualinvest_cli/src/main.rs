@@ -94,7 +94,13 @@ fn main() {
             SubCommand::with_name("position")
                 .about("Calculate the position per asset")
                 .setting(AppSettings::ColoredHelp)
-        ).get_matches();
+                .arg(
+                    Arg::with_name("json")
+                        .long("json")
+                        .short("j")
+                        .help("Display output in JSON format (default is csv)")
+                ))
+        .get_matches();
 
     let config = matches.value_of("config").unwrap_or("qualinvest.json");
     let config_file = File::open(config).unwrap();
@@ -196,10 +202,19 @@ fn main() {
         }
     }
 
-    if let Some(_) = matches.subcommand_matches("position") {
+    if let Some(matches) = matches.subcommand_matches("position") {
         let currency = Currency::from_str("EUR").unwrap();
         let transactions = db.get_all_transactions().unwrap();
         let position = calc_position(currency, &transactions).unwrap();
-        println!("{:#?}", position);
+        if matches.is_present("json") {
+            println!("{}", serde_json::to_string(&position).unwrap());
+        } else {
+            let mut wtr = csv::Writer::from_writer(stdout());
+            wtr.serialize(position.cash).unwrap();
+            for (_, pos) in position.assets {
+                wtr.serialize(pos).unwrap();
+            }
+            wtr.flush().unwrap();
+        }
     }
 }

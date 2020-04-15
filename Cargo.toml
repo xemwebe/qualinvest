@@ -33,4 +33,4 @@ regex = "1.3"
 postgres = { version = "0.17", features = ["with-chrono-0_4"] }
 tokio-postgres = "0.5"
 data-encoding = "2.2"
-
+csv = "1.1"
