@@ -2,13 +2,17 @@
 ///! A cloud based tool for quantitative analysis and management of financial asset portfolios
 use clap::{App, AppSettings, Arg, SubCommand};
 use finql::postgres_handler::PostgresDB;
+use finql::data_handler::TransactionHandler;
+use finql::{Currency};
 use glob::glob;
 use std::fs::File;
 use std::io::{stdout, BufReader, Write};
+use std::str::FromStr;
 
 use qualinvest_core::accounts::AccountHandler;
 use qualinvest_core::read_pdf::{parse_and_store, sha256_hash};
 use qualinvest_core::Config;
+use qualinvest_core::position::calc_position;
 
 fn main() {
     let matches = App::new("qualinvest")
@@ -85,7 +89,11 @@ fn main() {
                     .long("default-account")
                     .help("If account details could not be found, use the account 'unassigned'")
                     .takes_value(false),
-            )
+            ))
+        .subcommand(
+            SubCommand::with_name("position")
+                .about("Calculate the position per asset")
+                .setting(AppSettings::ColoredHelp)
         ).get_matches();
 
     let config = matches.value_of("config").unwrap_or("qualinvest.json");
@@ -186,5 +194,12 @@ fn main() {
                 }
             }
         }
+    }
+
+    if let Some(_) = matches.subcommand_matches("position") {
+        let currency = Currency::from_str("EUR").unwrap();
+        let transactions = db.get_all_transactions().unwrap();
+        let position = calc_position(currency, &transactions).unwrap();
+        println!("{:#?}", position);
     }
 }

@@ -9,6 +9,7 @@ pub enum PositionError {
 }
 
 /// Calculate the total position as of a given date by applying a specified set of filters
+#[derive(Debug)]
 pub struct Position {
     pub asset_id: Option<usize>,
     pub position: f64,
@@ -38,6 +39,7 @@ impl Position {
     }
 }
 
+#[derive(Debug)]
 pub struct PortfolioPosition {
     cash: Position,
     assets: BTreeMap<usize, Position>,
