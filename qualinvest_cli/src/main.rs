@@ -205,7 +205,9 @@ fn main() {
     if let Some(matches) = matches.subcommand_matches("position") {
         let currency = Currency::from_str("EUR").unwrap();
         let transactions = db.get_all_transactions().unwrap();
-        let position = calc_position(currency, &transactions).unwrap();
+        let mut position = calc_position(currency, &transactions).unwrap();
+        position.get_asset_names(&mut db).unwrap();
+
         if matches.is_present("json") {
             println!("{}", serde_json::to_string(&position).unwrap());
         } else {

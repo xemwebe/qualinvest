@@ -1,5 +1,7 @@
 use finql::transaction::{Transaction, TransactionType};
 use finql::Currency;
+use finql::data_handler::{DataError,AssetHandler};
+
 use std::collections::BTreeMap;
 use serde::{Deserialize,Serialize};
 
@@ -13,6 +15,7 @@ pub enum PositionError {
 #[derive(Debug,Serialize,Deserialize)]
 pub struct Position {
     pub asset_id: Option<usize>,
+    pub name: String,
     pub position: f64,
     pub purchase_value: f64,
     // realized p&l from buying/selling assets
@@ -28,6 +31,7 @@ impl Position {
     fn new(asset_id: Option<usize>, currency: Currency) -> Position {
         Position {
             asset_id,
+            name: String::new(),
             position: 0.0,
             purchase_value: 0.0,
             realized_pnl: 0.0,
@@ -52,6 +56,14 @@ impl PortfolioPosition {
             cash: Position::new(None, base_currency),
             assets: BTreeMap::new(),
         }
+    }
+
+    pub fn get_asset_names(&mut self, db: &mut dyn AssetHandler) -> Result<(),DataError> {
+        for (id, mut pos) in &mut self.assets {
+            let asset = db.get_asset_by_id(*id)?;
+            pos.name = asset.name;
+        }
+        Ok(())
     }
 }
 
