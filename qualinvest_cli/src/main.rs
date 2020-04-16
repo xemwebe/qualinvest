@@ -99,7 +99,15 @@ fn main() {
                         .long("json")
                         .short("j")
                         .help("Display output in JSON format (default is csv)")
-                ))
+                )
+                .arg(
+                    Arg::with_name("account")
+                        .long("account")
+                        .short("a")
+                        .help("Calculate position for the given account only")
+                        .takes_value(true)
+                )
+            )
         .get_matches();
 
     let config = matches.value_of("config").unwrap_or("qualinvest.json");
@@ -204,7 +212,11 @@ fn main() {
 
     if let Some(matches) = matches.subcommand_matches("position") {
         let currency = Currency::from_str("EUR").unwrap();
-        let transactions = db.get_all_transactions().unwrap();
+        let account_id = matches.value_of("account");
+        let transactions = match account_id {
+            Some(account_id) => db.get_all_transactions_with_account(usize::from_str(&account_id).unwrap()).unwrap(),
+            None => db.get_all_transactions().unwrap(),
+        };
         let mut position = calc_position(currency, &transactions).unwrap();
         position.get_asset_names(&mut db).unwrap();
 

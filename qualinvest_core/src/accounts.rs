@@ -1,12 +1,13 @@
 ///! Implementation of Accounts and an according PostgreSQL handler
 use finql::data_handler::{DataError, TransactionHandler};
-use finql::postgres_handler::PostgresDB;
+use finql::postgres_handler::{PostgresDB, RawTransaction};
+use finql::transaction::Transaction;
 use tokio_postgres::error::Error;
 
 pub struct Account {
     pub id: Option<usize>,
     pub broker: String,
-    pub account_id: String,
+    pub account_name: String,
 }
 
 /// Handler for asset depot accounts
@@ -39,6 +40,9 @@ pub trait AccountHandler: TransactionHandler {
         hash: &str,
         path: &str,
     ) -> Result<(), DataError>;
+
+    /// Get transactions filtered by account id
+    fn get_all_transactions_with_account(&mut self, account_id: usize) -> Result<Vec<Transaction>, DataError>;
 }
 
 impl AccountHandler for PostgresDB {
@@ -57,8 +61,8 @@ impl AccountHandler for PostgresDB {
             "CREATE TABLE IF NOT EXISTS accounts (
                 id SERIAL PRIMARY KEY,
                 broker TEXT NOT NULL,
-                account_id TEXT NOT NULL,
-                UNIQUE (broker, account_id))",
+                account_name TEXT NOT NULL,
+                UNIQUE (broker, account_name))",
             &[],
         )?;
         self.conn.execute(
@@ -91,8 +95,8 @@ impl AccountHandler for PostgresDB {
                 let row = self
                     .conn
                     .query_one(
-                        "INSERT INTO accounts (broker, account_id) VALUES ($1, $2) RETURNING id",
-                        &[&account.broker, &account.account_id],
+                        "INSERT INTO accounts (broker, account_name) VALUES ($1, $2) RETURNING id",
+                        &[&account.broker, &account.account_name],
                     )
                     .map_err(|e| DataError::InsertFailed(e.to_string()))?;
                 let id: i32 = row.get(0);
@@ -101,20 +105,20 @@ impl AccountHandler for PostgresDB {
         }
     }
 
-    /// Insert new account info in database
+    /// Get ID of given account
     fn get_account_id(&mut self, account: &Account) -> Result<usize, DataError> {
         let row = self
             .conn
             .query_one(
-                "SELECT id FROM accounts where broker=$1 AND account_id=$2",
-                &[&account.broker, &account.account_id],
+                "SELECT id FROM accounts where broker=$1 AND account_name=$2",
+                &[&account.broker, &account.account_name],
             )
             .map_err(|e| DataError::InsertFailed(e.to_string()))?;
         let id: i32 = row.get(0);
         Ok(id as usize)
     }
 
-    /// Insert new account info in database
+    /// Insert transaction to account relation
     fn add_transaction_to_account(
         &mut self,
         account: usize,
@@ -164,5 +168,34 @@ impl AccountHandler for PostgresDB {
                 .map_err(|e| DataError::InsertFailed(e.to_string()))?;
         }
         Ok(())
+    }
+
+    /// Get transactions filtered by account id
+    fn get_all_transactions_with_account(&mut self, account_id: usize) -> Result<Vec<Transaction>, DataError> {
+        let mut transactions = Vec::new();
+        for row in self
+            .conn
+            .query(
+                "SELECT t.id, t.trans_type, t.asset_id, 
+        t.cash_amount, t.cash_currency, t.cash_date, t.related_trans, t.position, t.note 
+        FROM transactions t, account_transactions a WHERE a.account_id = $1 and a.transaction_id = t.id",
+                &[&(account_id as i32)],
+            )
+            .map_err(|e| DataError::NotFound(e.to_string()))?
+        {
+            let transaction = RawTransaction {
+                id: row.get(0),
+                trans_type: row.get(1),
+                asset: row.get(2),
+                cash_amount: row.get(3),
+                cash_currency: row.get(4),
+                cash_date: row.get(5),
+                related_trans: row.get(6),
+                position: row.get(7),
+                note: row.get(8),
+            };
+            transactions.push(transaction.to_transaction()?);
+        }
+        Ok(transactions)
     }
 }

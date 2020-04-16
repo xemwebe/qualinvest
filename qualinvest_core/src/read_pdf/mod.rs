@@ -190,7 +190,7 @@ pub fn parse_and_store<DB: AccountHandler>(
     match text {
         Ok(text) => {
             let account_info = parse_account_info(&text);
-            let (broker, account_id) = if account_info.is_err() && config.default_account {
+            let (broker, account_name) = if account_info.is_err() && config.default_account {
                 ("nobroker".to_string(), "unassigned".to_string())
             } else {
                 account_info?
@@ -198,13 +198,13 @@ pub fn parse_and_store<DB: AccountHandler>(
             let mut account = Account {
                 id: None,
                 broker,
-                account_id: account_id,
+                account_name,
             };
             let acc_id = db
                 .insert_account_if_new(&account)
                 .map_err(|err| ReadPDFError::DBError(err))?;
             account.id = Some(acc_id);
-
+            
             // Retrieve all transaction relevant data from pdf
             let tri = parse_transactions(&text)?;
             // If not disable, perform consistency check
