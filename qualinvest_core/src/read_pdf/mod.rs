@@ -79,6 +79,7 @@ enum DocumentType {
     Dividend,
     Tax,
     Interest,
+    BondPayBack,
 }
 
 // Collect all parsed data that is required to construct by category distinct cash flow transactions
@@ -204,7 +205,7 @@ pub fn parse_and_store<DB: AccountHandler>(
                 .insert_account_if_new(&account)
                 .map_err(|err| ReadPDFError::DBError(err))?;
             account.id = Some(acc_id);
-            
+
             // Retrieve all transaction relevant data from pdf
             let tri = parse_transactions(&text)?;
             // If not disable, perform consistency check
@@ -324,10 +325,12 @@ pub fn make_transactions(
         transactions.push(Transaction {
             id: None,
             transaction_type: match tri.doc_type {
-                DocumentType::Buy | DocumentType::Sell => TransactionType::Asset {
-                    asset_id: 0,
-                    position: tri.position,
-                },
+                DocumentType::Buy | DocumentType::Sell | DocumentType::BondPayBack => {
+                    TransactionType::Asset {
+                        asset_id: 0,
+                        position: tri.position,
+                    }
+                }
                 DocumentType::Dividend => TransactionType::Dividend { asset_id: 0 },
                 DocumentType::Interest => TransactionType::Interest { asset_id: 0 },
                 DocumentType::Tax => TransactionType::Tax {

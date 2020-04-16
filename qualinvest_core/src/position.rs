@@ -1,9 +1,9 @@
+use finql::data_handler::{AssetHandler, DataError};
 use finql::transaction::{Transaction, TransactionType};
 use finql::Currency;
-use finql::data_handler::{DataError,AssetHandler};
 
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use serde::{Deserialize,Serialize};
 
 /// Errors related to position calculation
 #[derive(Debug, Clone, PartialEq)]
@@ -12,7 +12,7 @@ pub enum PositionError {
 }
 
 /// Calculate the total position as of a given date by applying a specified set of filters
-#[derive(Debug,Serialize,Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Position {
     pub asset_id: Option<usize>,
     pub name: String,
@@ -44,7 +44,7 @@ impl Position {
     }
 }
 
-#[derive(Debug,Serialize,Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PortfolioPosition {
     pub cash: Position,
     pub assets: BTreeMap<usize, Position>,
@@ -58,7 +58,7 @@ impl PortfolioPosition {
         }
     }
 
-    pub fn get_asset_names(&mut self, db: &mut dyn AssetHandler) -> Result<(),DataError> {
+    pub fn get_asset_names(&mut self, db: &mut dyn AssetHandler) -> Result<(), DataError> {
         for (id, mut pos) in &mut self.assets {
             let asset = db.get_asset_by_id(*id)?;
             pos.name = asset.name;
@@ -104,10 +104,6 @@ pub fn calc_delta_position(
 ) -> Result<(), PositionError> {
     let base_currency = positions.cash.currency;
     for trans in transactions {
-        // ignore zero cash flows
-        if trans.cash_flow.amount.amount == 0.0 {
-            continue;
-        }
         // currently, we assume that all cash flows are in one account have the same currency
         if trans.cash_flow.amount.currency != base_currency {
             return Err(PositionError::ForeignCurrency);

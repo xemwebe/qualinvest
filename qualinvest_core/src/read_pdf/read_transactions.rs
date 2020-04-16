@@ -41,7 +41,7 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
     }
 
     match doc_type {
-        DocumentType::Interest => match NAME_WKN_ISIN_INT.captures(text) {
+        DocumentType::Interest | DocumentType::BondPayBack => match NAME_WKN_ISIN_INT.captures(text) {
             Some(cap) => {
                 let wkn = Some(cap[4].to_string());
                 let isin = Some(cap[7].to_string());
@@ -187,6 +187,7 @@ fn parse_doc_type(text: &str) -> Result<DocumentType, ReadPDFError> {
             r"(?m)^\s*Dividendengutschrift",
             r"(?m)^\s*Ertragsgutschrift",
             r"(?m)^\s*Zinsgutschrift",
+            r"(?m)^\s*Einlösung",
         ])
         .unwrap();
         static ref TAX_TYPE: Regex =
@@ -201,6 +202,7 @@ fn parse_doc_type(text: &str) -> Result<DocumentType, ReadPDFError> {
             1 => Ok(DocumentType::Sell),
             2 | 3 => Ok(DocumentType::Dividend),
             4 => Ok(DocumentType::Interest),
+            5 => Ok(DocumentType::BondPayBack),
             // should never happen
             _ => Err(ReadPDFError::UnknownDocumentType),
         }
@@ -314,6 +316,8 @@ pub fn parse_transactions(text: &str) -> Result<ParsedTransactionInfo, ReadPDFEr
         static ref TOTAL_AMOUNT: Regex =
             Regex::new(r"Zu Ihren (?:Lasten|Gunsten) nach Steuern: *([A-Z]{3}) *([-0-9.,]+)")
                 .unwrap();
+        static ref BOND_PAYBACK: Regex =
+            Regex::new(r"Kurswert Einlösung\s+([A-Z]{3}) *([-0-9.,]+)").unwrap();
         static ref PAID_TAX: Regex = Regex::new(
             r"(?m)(?:abgeführte|erstattete) Steuern\s+([A-Z]{3}).*\n.*\n\s+([-0-9,.]+ ?-?)$"
         )
@@ -376,14 +380,17 @@ pub fn parse_transactions(text: &str) -> Result<ParsedTransactionInfo, ReadPDFEr
             DocumentType::Buy | DocumentType::Sell => parse_amount(&TRADE_VALUE, text)?,
             DocumentType::Dividend | DocumentType::Interest => parse_amount(&DIV_PRE_TAX, text)?,
             DocumentType::Tax => Some(pre_tax),
+            DocumentType::BondPayBack => parse_amount(&BOND_PAYBACK, text)?,
         };
     }
     let pre_tax_fee_value = must_have(pre_tax_fee_value, "can't find value before taxes and fees")?;
 
     // Determine final value
     let total_amount = match doc_type {
-        DocumentType::Sell | DocumentType::Buy => parse_amount(&TOTAL_AMOUNT, text)?,
-        DocumentType::Dividend | DocumentType::Interest => Some(pre_tax),
+        DocumentType::Sell | DocumentType::Buy => {
+            parse_amount(&TOTAL_AMOUNT, text)?
+        }
+        DocumentType::Dividend | DocumentType::Interest | DocumentType::BondPayBack => Some(pre_tax),
         DocumentType::Tax => parse_amount(&PAID_TAX, text)?,
     };
     let total_amount = must_have(total_amount, "can't identify total payment amount")?;
@@ -391,8 +398,8 @@ pub fn parse_transactions(text: &str) -> Result<ParsedTransactionInfo, ReadPDFEr
 
     // Collect essential informations in ParsedTransactionInfo
     let mut tri = match doc_type {
-        DocumentType::Buy | DocumentType::Sell => {
-            let sign = if doc_type == DocumentType::Sell {
+        DocumentType::Buy | DocumentType::Sell | DocumentType::BondPayBack => {
+            let sign = if doc_type == DocumentType::Buy {
                 -1.0
             } else {
                 1.0
@@ -401,7 +408,7 @@ pub fn parse_transactions(text: &str) -> Result<ParsedTransactionInfo, ReadPDFEr
                 return Err(ReadPDFError::NotFound("position"));
             }
             let main_amount = CashAmount {
-                amount: -sign * pre_tax_fee_value.amount,
+                amount: sign * pre_tax_fee_value.amount,
                 currency: pre_tax_fee_value.currency,
             };
             let mut tri = ParsedTransactionInfo::new(
@@ -412,7 +419,7 @@ pub fn parse_transactions(text: &str) -> Result<ParsedTransactionInfo, ReadPDFEr
                 fx_rate,
                 valuta,
             );
-            tri.position = sign * asset_info.position.unwrap();
+            tri.position = -sign * asset_info.position.unwrap();
             tri
         }
         DocumentType::Dividend => {

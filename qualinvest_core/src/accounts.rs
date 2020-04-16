@@ -42,7 +42,10 @@ pub trait AccountHandler: TransactionHandler {
     ) -> Result<(), DataError>;
 
     /// Get transactions filtered by account id
-    fn get_all_transactions_with_account(&mut self, account_id: usize) -> Result<Vec<Transaction>, DataError>;
+    fn get_all_transactions_with_account(
+        &mut self,
+        account_id: usize,
+    ) -> Result<Vec<Transaction>, DataError>;
 }
 
 impl AccountHandler for PostgresDB {
@@ -171,7 +174,10 @@ impl AccountHandler for PostgresDB {
     }
 
     /// Get transactions filtered by account id
-    fn get_all_transactions_with_account(&mut self, account_id: usize) -> Result<Vec<Transaction>, DataError> {
+    fn get_all_transactions_with_account(
+        &mut self,
+        account_id: usize,
+    ) -> Result<Vec<Transaction>, DataError> {
         let mut transactions = Vec::new();
         for row in self
             .conn

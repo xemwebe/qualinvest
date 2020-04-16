@@ -1,18 +1,18 @@
 ///! # qualinvest
 ///! A cloud based tool for quantitative analysis and management of financial asset portfolios
 use clap::{App, AppSettings, Arg, SubCommand};
-use finql::postgres_handler::PostgresDB;
 use finql::data_handler::TransactionHandler;
-use finql::{Currency};
+use finql::postgres_handler::PostgresDB;
+use finql::Currency;
 use glob::glob;
 use std::fs::File;
 use std::io::{stdout, BufReader, Write};
 use std::str::FromStr;
 
 use qualinvest_core::accounts::AccountHandler;
+use qualinvest_core::position::calc_position;
 use qualinvest_core::read_pdf::{parse_and_store, sha256_hash};
 use qualinvest_core::Config;
-use qualinvest_core::position::calc_position;
 
 fn main() {
     let matches = App::new("qualinvest")
@@ -214,7 +214,9 @@ fn main() {
         let currency = Currency::from_str("EUR").unwrap();
         let account_id = matches.value_of("account");
         let transactions = match account_id {
-            Some(account_id) => db.get_all_transactions_with_account(usize::from_str(&account_id).unwrap()).unwrap(),
+            Some(account_id) => db
+                .get_all_transactions_with_account(usize::from_str(&account_id).unwrap())
+                .unwrap(),
             None => db.get_all_transactions().unwrap(),
         };
         let mut position = calc_position(currency, &transactions).unwrap();
