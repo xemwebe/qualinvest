@@ -9,7 +9,7 @@ use finql::asset::Asset;
 use finql::currency;
 use finql::data_handler::DataError;
 use finql::fx_rates::insert_fx_quote;
-use finql::memory_handler::InMemoryDB;
+use finql::sqlite_handler::SqliteDB;
 use finql::transaction::{Transaction, TransactionType};
 use finql::{CashAmount, CashFlow};
 use pdf_store::store_pdf;
@@ -261,7 +261,7 @@ pub fn check_consistency(tri: &ParsedTransactionInfo) -> Result<(), ReadPDFError
 
     // temporary storage for fx rates
     // total payment is always in base currency, but main_amount (and maybe fees or taxes) could be in foreign currency.
-    let mut fx_db = InMemoryDB::new();
+    let mut fx_db = SqliteDB::create(":memory:").unwrap();
     if tri.fx_rate.is_some() {
         insert_fx_quote(
             tri.fx_rate.unwrap(),
@@ -309,7 +309,7 @@ pub fn make_transactions(
 
     // temporary storage for fx rates
     // total payment is always in base currency, but main_amount (and maybe fees or taxes) could be in foreign currency.
-    let mut fx_db = InMemoryDB::new();
+    let mut fx_db = SqliteDB::create(":memory:").unwrap();
     if tri.fx_rate.is_some() {
         insert_fx_quote(
             tri.fx_rate.unwrap(),

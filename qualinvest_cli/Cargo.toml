@@ -10,7 +10,7 @@ keywords = ["finance", "investment", "quantitative", "analysis"]
 
 [dependencies]
 qualinvest_core = { version="0.1", path="../qualinvest_core" }
-finql = { version = "0.5.4", path = "../../finql" }
+finql = { version = "0.6.0", path = "../../finql" }
 serde = { version = "1.0.*", features = ["derive"] }
 serde_json = "1.0"
 clap = "2.33"

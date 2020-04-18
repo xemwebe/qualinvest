@@ -9,7 +9,7 @@ repository = "https://github.com/xemwebe/qualinvest"
 keywords = ["finance", "investment", "quantitative", "analysis"]
 
 [dependencies]
-finql = { version = "0.5.4", path = "../../finql" }
+finql = { version = "0.6.0", path = "../../finql" }
 serde = { version = "1.0.*", features = ["derive"] }
 lazy_static = "1.4"
 chrono = "0.4"
