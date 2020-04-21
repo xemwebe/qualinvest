@@ -1,6 +1,8 @@
 Version 0.3.2
  * Update to finql 0.7
  * Switching to TOML as default format for config files (JSON format files are still supported via flag `-J`)
+ * New command added to CLI: update to update quotes for all active ticker
+ * New command added to CLI: insert ticker <JSON> to insert ticker into database from command line
 
 Version 0.3.1
  * Update to finql 0.6.0
