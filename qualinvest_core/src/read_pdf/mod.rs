@@ -2,7 +2,7 @@
 ///! This requires the extern tool `pdftotext`
 ///! which is part of [XpdfReader](https://www.xpdfreader.com/pdftotext-man.html).
 use super::accounts::{Account, AccountHandler};
-use crate::Config;
+use crate::PdfParseParams;
 use chrono::NaiveDate;
 use chrono::{Datelike, TimeZone, Utc};
 use finql::asset::Asset;
@@ -179,7 +179,7 @@ pub fn german_string_to_date(date_string: &str) -> Result<NaiveDate, ReadPDFErro
 pub fn parse_and_store<DB: AccountHandler>(
     pdf_file: &str,
     db: &mut DB,
-    config: &Config,
+    config: &PdfParseParams,
 ) -> Result<i32, ReadPDFError> {
     let hash = sha256_hash(pdf_file)?;
     match db.lookup_hash(&hash) {

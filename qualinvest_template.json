@@ -1,12 +1,18 @@
 {
-    "db_host": "/var/run/postgresql",
-    "db_name": "qlinvestdb",
-    "db_user": "qualinvest",
-    "db_password": "<password>",
-    "debug": false,
-    "doc_path": "<directory path to store documents in>",
-    "warn_old": false,
-    "consistency_check": true,
-    "rename_asset": false,
-    "default_account": false
+    "db" : 
+    {
+        "host": "/var/run/postgresql",
+        "name": "qlinvestdb",
+        "user": "qualinvest",
+        "password": "<password>" 
+    },
+    "pdf" :
+    {
+        "doc_path": "<directory path to store documents in>",
+        "warn_old": false,
+        "consistency_check": true,
+        "rename_asset": false,
+        "default_account": false
+    },
+    "debug": false
 }

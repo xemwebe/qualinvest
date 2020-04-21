@@ -1,5 +1,5 @@
 use super::ReadPDFError;
-use crate::Config;
+use crate::PdfParseParams;
 use data_encoding::HEXUPPER;
 use ring::digest::{Context, SHA256};
 use std::fs;
@@ -22,7 +22,7 @@ pub fn sha256_hash(file: &str) -> Result<String, ReadPDFError> {
     Ok(hash)
 }
 
-pub fn store_pdf(pdf_file: &str, _hash: &str, config: &Config) -> Result<String, ReadPDFError> {
+pub fn store_pdf(pdf_file: &str, _hash: &str, config: &PdfParseParams) -> Result<String, ReadPDFError> {
     let path = Path::new(pdf_file);
     let name = path
         .file_name()

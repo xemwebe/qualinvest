@@ -117,7 +117,7 @@ fn main() {
 
     let connect_str = format!(
         "host={} user={} password={} dbname={} sslmode=disable",
-        config.db_host, config.db_user, config.db_password, config.db_name
+        config.db.host, config.db.user, config.db.password, config.db.name
     );
     let mut db = PostgresDB::connect(&connect_str).unwrap();
 
@@ -155,16 +155,16 @@ fn main() {
     if let Some(matches) = matches.subcommand_matches("parse") {
         // Handle flags for parsing
         if matches.is_present("warn-old") {
-            config.warn_old = true;
+            config.pdf.warn_old = true;
         }
         if matches.is_present("default-account") {
-            config.default_account = true;
+            config.pdf.default_account = true;
         }
         if matches.is_present("ignore-consistency-check") {
-            config.consistency_check = false;
+            config.pdf.consistency_check = false;
         }
         if matches.is_present("rename-asset") {
-            config.rename_asset = true;
+            config.pdf.rename_asset = true;
         }
 
         let path = matches.value_of("PATH").unwrap();
@@ -179,7 +179,7 @@ fn main() {
             for file in glob(&pattern).expect("Failed to read directory") {
                 count_docs += 1;
                 let filename = file.unwrap().to_str().unwrap().to_owned();
-                let transactions = parse_and_store(&filename, &mut db, &config);
+                let transactions = parse_and_store(&filename, &mut db, &config.pdf);
                 match transactions {
                     Err(err) => {
                         count_failed += 1;
@@ -198,7 +198,7 @@ fn main() {
         } else {
             // parse single file
             let pdf_file = matches.value_of("parse-pdf").unwrap();
-            let transactions = parse_and_store(&pdf_file, &mut db, &config);
+            let transactions = parse_and_store(&pdf_file, &mut db, &config.pdf);
             match transactions {
                 Err(err) => {
                     println!("Failed to parse file {} with error {:?}", pdf_file, err);
