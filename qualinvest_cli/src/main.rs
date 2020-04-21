@@ -5,7 +5,7 @@ use finql::data_handler::TransactionHandler;
 use finql::postgres_handler::PostgresDB;
 use finql::Currency;
 use glob::glob;
-use std::fs::File;
+use std::fs;
 use std::io::{stdout, BufReader, Write};
 use std::str::FromStr;
 
@@ -28,6 +28,12 @@ fn main() {
                 .value_name("file")
                 .help("Sets a custom config file")
                 .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("json-config")
+                .short("J")
+                .long("json-config")
+                .help("Set config file format ot JSON (default is TOML)"),
         )
         .arg(
             Arg::with_name("debug")
@@ -110,11 +116,19 @@ fn main() {
             )
         .get_matches();
 
-    let config = matches.value_of("config").unwrap_or("qualinvest.json");
-    let config_file = File::open(config).unwrap();
-    let config_reader = BufReader::new(config_file);
-    let mut config: Config = serde_json::from_reader(config_reader).unwrap();
-
+    let config = matches.value_of("config").unwrap_or("qualinvest.toml");
+   
+    let mut config: Config = match matches.is_present("json-config") {
+        true => {
+            let config_file = fs::File::open(config).unwrap();
+            let config_reader = BufReader::new(config_file);
+            serde_json::from_reader(config_reader).unwrap()
+        },
+        false => {
+            let config_file = fs::read_to_string(config).unwrap();
+            toml::from_str(&config_file).unwrap()
+        },
+    };
     let connect_str = format!(
         "host={} user={} password={} dbname={} sslmode=disable",
         config.db.host, config.db.user, config.db.password, config.db.name
