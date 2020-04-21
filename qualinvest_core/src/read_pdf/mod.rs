@@ -50,7 +50,14 @@ impl fmt::Display for ReadPDFError {
 
 impl Error for ReadPDFError {
     fn cause(&self) -> Option<&dyn Error> {
-        Some(self)
+        match self {
+            Self::IoError(err) => Some(err),
+            Self::ParseError(err) => Some(err),
+            Self::ParseFloat(err) => Some(err),
+            Self::ParseCurrency(err) => Some(err),
+            Self::DBError(err) => Some(err),
+            _ => None,
+        }
     }
 }
 
