@@ -1,3 +1,7 @@
+Version 0.3.2
+ * Update to finql 0.7
+ * Switching to TOML as default format for config files (JSON format files are still supported via flag `-J`)
+
 Version 0.3.1
  * Update to finql 0.6.0
  

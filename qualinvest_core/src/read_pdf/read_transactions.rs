@@ -41,29 +41,31 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
     }
 
     match doc_type {
-        DocumentType::Interest | DocumentType::BondPayBack => match NAME_WKN_ISIN_INT.captures(text) {
-            Some(cap) => {
-                let wkn = Some(cap[4].to_string());
-                let isin = Some(cap[7].to_string());
-                let name = format!("{} {}", cap[3].trim(), cap[6].trim());
-                let ex_div_day = Some(german_string_to_date(&cap[1])?);
-                let position = Some(german_string_to_float(&cap[5])?);
-                let interest_rate = Some(german_string_to_float(&cap[2])?);
-                Ok(AssetInfo {
-                    asset: Asset {
-                        id: None,
-                        name,
-                        wkn,
-                        isin,
-                        note: None,
-                    },
-                    _ex_div_day: ex_div_day,
-                    _interest_rate: interest_rate,
-                    position,
-                })
+        DocumentType::Interest | DocumentType::BondPayBack => {
+            match NAME_WKN_ISIN_INT.captures(text) {
+                Some(cap) => {
+                    let wkn = Some(cap[4].to_string());
+                    let isin = Some(cap[7].to_string());
+                    let name = format!("{} {}", cap[3].trim(), cap[6].trim());
+                    let ex_div_day = Some(german_string_to_date(&cap[1])?);
+                    let position = Some(german_string_to_float(&cap[5])?);
+                    let interest_rate = Some(german_string_to_float(&cap[2])?);
+                    Ok(AssetInfo {
+                        asset: Asset {
+                            id: None,
+                            name,
+                            wkn,
+                            isin,
+                            note: None,
+                        },
+                        _ex_div_day: ex_div_day,
+                        _interest_rate: interest_rate,
+                        position,
+                    })
+                }
+                None => Err(ReadPDFError::NotFound("asset")),
             }
-            None => Err(ReadPDFError::NotFound("asset")),
-        },
+        }
         DocumentType::Tax => {
             match WKN_ISIN_TAX.captures(text) {
                 // The document does not provide the full name, leave name empty and search in database by ISIN/WKN
@@ -387,10 +389,10 @@ pub fn parse_transactions(text: &str) -> Result<ParsedTransactionInfo, ReadPDFEr
 
     // Determine final value
     let total_amount = match doc_type {
-        DocumentType::Sell | DocumentType::Buy => {
-            parse_amount(&TOTAL_AMOUNT, text)?
+        DocumentType::Sell | DocumentType::Buy => parse_amount(&TOTAL_AMOUNT, text)?,
+        DocumentType::Dividend | DocumentType::Interest | DocumentType::BondPayBack => {
+            Some(pre_tax)
         }
-        DocumentType::Dividend | DocumentType::Interest | DocumentType::BondPayBack => Some(pre_tax),
         DocumentType::Tax => parse_amount(&PAID_TAX, text)?,
     };
     let total_amount = must_have(total_amount, "can't identify total payment amount")?;

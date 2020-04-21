@@ -1,9 +1,11 @@
 ///! # qualinvest
 ///! A cloud based tool for quantitative analysis and management of financial asset portfolios
 use clap::{App, AppSettings, Arg, SubCommand};
-use finql::data_handler::TransactionHandler;
+use finql::data_handler::{TransactionHandler, QuoteHandler};
 use finql::postgres_handler::PostgresDB;
 use finql::Currency;
+use finql::Market;
+use finql::quote::Ticker;
 use glob::glob;
 use std::fs;
 use std::io::{stdout, BufReader, Write};
@@ -40,7 +42,6 @@ fn main() {
                 .short("d")
                 .long("debug")
                 .help("Prints additional information for debugging purposes")
-                .takes_value(false),
         )
         .subcommand(
             SubCommand::with_name("hash")
@@ -114,20 +115,39 @@ fn main() {
                         .takes_value(true)
                 )
             )
+        .subcommand(
+            SubCommand::with_name("update")
+                .about("Update all active ticker to most recent quote")
+                .setting(AppSettings::ColoredHelp)
+            )
+        .subcommand(
+            SubCommand::with_name("insert")
+                .about("Insert object into database")
+                .setting(AppSettings::ColoredHelp)
+                .subcommand(
+                    SubCommand::with_name("ticker")
+                        .about("Insert ticker into database")
+                        .setting(AppSettings::ColoredHelp)
+                        .arg(Arg::with_name("JSON-OBJECT")
+                            .help("ticker to be inserted as string in JSON format")
+                            .required(true)
+                            .index(1))
+                    )
+            )
         .get_matches();
 
     let config = matches.value_of("config").unwrap_or("qualinvest.toml");
-   
+
     let mut config: Config = match matches.is_present("json-config") {
         true => {
             let config_file = fs::File::open(config).unwrap();
             let config_reader = BufReader::new(config_file);
             serde_json::from_reader(config_reader).unwrap()
-        },
+        }
         false => {
             let config_file = fs::read_to_string(config).unwrap();
             toml::from_str(&config_file).unwrap()
-        },
+        }
     };
     let connect_str = format!(
         "host={} user={} password={} dbname={} sslmode=disable",
@@ -222,6 +242,8 @@ fn main() {
                 }
             }
         }
+
+        return;
     }
 
     if let Some(matches) = matches.subcommand_matches("position") {
@@ -246,5 +268,25 @@ fn main() {
             }
             wtr.flush().unwrap();
         }
+        return;
+    }
+
+    if let Some(_) = matches.subcommand_matches("update") {
+        let mut market = Market::new(Box::new(db));
+        let yahoo = finql::quote::MarketDataSource::Yahoo;
+        market.add_provider(yahoo.to_string(), yahoo.get_provider(String::new()).unwrap());
+        market.update_quotes().unwrap();
+        return;
+    }
+
+    if let Some(matches) = matches.subcommand_matches("insert") {
+        if let Some(matches) = matches.subcommand_matches("ticker") {
+            let ticker = matches.value_of("JSON-OBJECT").unwrap();
+            let ticker: Ticker = serde_json::from_str(&ticker).unwrap();
+            db.insert_ticker(&ticker).unwrap();
+        } else {
+            println!("Nothing inserted, unknown object type, use `help insert` to display all supported types.");
+        }
+        return;
     }
 }

@@ -10,7 +10,6 @@ pub struct Config {
     pub db: DbParams,
     pub pdf: PdfParseParams,
     pub debug: bool,
-
 }
 
 /// Database parameters
