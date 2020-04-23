@@ -12,3 +12,8 @@ warn_old = false
 consistency_check = true
 rename_asset = false
 default_account = false
+
+[market_data]
+alpha_vantage_token = "<token>"
+gurufocus_token = "<token>"
+eod_historical_data_token = "<token>"

@@ -4,12 +4,13 @@ use clap::{App, AppSettings, Arg, SubCommand};
 use finql::data_handler::{TransactionHandler, QuoteHandler};
 use finql::postgres_handler::PostgresDB;
 use finql::Currency;
-use finql::Market;
 use finql::quote::Ticker;
+use finql::date_time_helper::date_time_from_str_standard;
 use glob::glob;
 use std::fs;
 use std::io::{stdout, BufReader, Write};
 use std::str::FromStr;
+use chrono::Utc;
 
 use qualinvest_core::accounts::AccountHandler;
 use qualinvest_core::position::calc_position;
@@ -119,6 +120,33 @@ fn main() {
             SubCommand::with_name("update")
                 .about("Update all active ticker to most recent quote")
                 .setting(AppSettings::ColoredHelp)
+                .arg(
+                    Arg::with_name("ticker-id")
+                        .long("ticker-id")
+                        .short("t")
+                        .help("Update only the given ticker id")
+                        .takes_value(true)
+                )
+                .arg(
+                    Arg::with_name("history")
+                        .long("history")
+                        .short("h")
+                        .help("Update history of quotes, only allowed in single ticker mode")
+                )
+                .arg(
+                    Arg::with_name("start")
+                        .long("start")
+                        .short("s")
+                        .help("Start of history to be updated")
+                        .takes_value(true)
+                )
+                .arg(
+                    Arg::with_name("end")
+                        .long("end")
+                        .short("e")
+                        .help("End of history to be updated")
+                        .takes_value(true)
+                )
             )
         .subcommand(
             SubCommand::with_name("insert")
@@ -131,7 +159,8 @@ fn main() {
                         .arg(Arg::with_name("JSON-OBJECT")
                             .help("ticker to be inserted as string in JSON format")
                             .required(true)
-                            .index(1))
+                            .index(1)
+                        )
                     )
             )
         .get_matches();
@@ -271,11 +300,28 @@ fn main() {
         return;
     }
 
-    if let Some(_) = matches.subcommand_matches("update") {
-        let mut market = Market::new(Box::new(db));
-        let yahoo = finql::quote::MarketDataSource::Yahoo;
-        market.add_provider(yahoo.to_string(), yahoo.get_provider(String::new()).unwrap());
-        market.update_quotes().unwrap();
+    if let Some(matches) = matches.subcommand_matches("update") {
+        if matches.is_present("history") {
+            let ticker_id = usize::from_str(matches.value_of("ticker-id").unwrap()).unwrap();
+            let end = if matches.is_present("end") {
+                date_time_from_str_standard(matches.value_of("end").unwrap(), 18).unwrap()
+            } else {
+                Utc::now()
+            };
+            let start = if matches.is_present("start") {
+                date_time_from_str_standard(matches.value_of("start").unwrap(), 9).unwrap()
+            } else {
+                date_time_from_str_standard("2014-01-01", 9).unwrap()
+            };
+            qualinvest_core::update_quote_history(ticker_id, start, end, Box::new(db), &config).unwrap();
+
+        } else if matches.is_present("ticker-id") {
+            let ticker_id = usize::from_str(matches.value_of("ticker-id").unwrap()).unwrap();
+            qualinvest_core::update_ticker(ticker_id, &mut db, &config).unwrap();
+
+        } else {
+            qualinvest_core::update_quotes(Box::new(db), &config).unwrap();
+        }
         return;
     }
 
