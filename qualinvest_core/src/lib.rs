@@ -89,7 +89,7 @@ pub fn update_ticker(ticker_id: usize, db: &mut dyn QuoteHandler, config: &Confi
     Ok(())
 }
 
-pub fn update_quotes(db: Box<dyn QuoteHandler>, config: &Config) -> Result<(), MarketError> {
+pub fn update_quotes(db: Box<dyn QuoteHandler>, config: &Config) -> Result<Vec<usize>, MarketError> {
     let mut market = finql::Market::new(db);
     set_market_providers(&mut market, &config.market_data);   
     market.update_quotes()

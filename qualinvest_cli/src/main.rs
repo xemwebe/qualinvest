@@ -320,7 +320,8 @@ fn main() {
             qualinvest_core::update_ticker(ticker_id, &mut db, &config).unwrap();
 
         } else {
-            qualinvest_core::update_quotes(Box::new(db), &config).unwrap();
+            let failed_ticker = qualinvest_core::update_quotes(Box::new(db), &config).unwrap();
+            if failed_ticker.len()>0 { println!("Some ticker could not be updated: {:?}", failed_ticker); }
         }
         return;
     }
