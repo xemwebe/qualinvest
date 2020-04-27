@@ -64,6 +64,8 @@ fn set_market_providers(market: &mut finql::Market, providers: &MarketDataProvid
     add_provider(market, &providers.alpha_vantage_token, MarketDataSource::AlphaVantage);
     add_provider(market, &providers.gurufocus_token, MarketDataSource::GuruFocus);
     add_provider(market, &providers.eod_historical_data_token, MarketDataSource::EodHistData);
+    let codi = finql::quote::MarketDataSource::Comdirect;
+    market.add_provider(codi.to_string(), codi.get_provider(String::new()).unwrap());
 }
 
 pub fn update_quote_history(ticker_id: usize, start: DateTime<Utc>, end: DateTime<Utc>, db: Box<dyn QuoteHandler>, config: &Config) -> Result<(), MarketError> {
