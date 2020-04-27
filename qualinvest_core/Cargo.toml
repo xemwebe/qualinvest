@@ -1,6 +1,6 @@
 [package]
 name = "qualinvest_core"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Mark Beinker <mwb@quantlink.de>"]
 edition = "2018"
 description = "Core library of the qualinvest project"
