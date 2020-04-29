@@ -1,16 +1,16 @@
+use chrono::Utc;
 ///! # qualinvest
 ///! A cloud based tool for quantitative analysis and management of financial asset portfolios
 use clap::{App, AppSettings, Arg, SubCommand};
-use finql::data_handler::{TransactionHandler, QuoteHandler};
-use finql::postgres_handler::PostgresDB;
-use finql::Currency;
-use finql::quote::Ticker;
+use finql::data_handler::{QuoteHandler, TransactionHandler};
 use finql::date_time_helper::date_time_from_str_standard;
+use finql::postgres_handler::PostgresDB;
+use finql::quote::Ticker;
+use finql::Currency;
 use glob::glob;
 use std::fs;
 use std::io::{stdout, BufReader, Write};
 use std::str::FromStr;
-use chrono::Utc;
 
 use qualinvest_core::accounts::AccountHandler;
 use qualinvest_core::position::calc_position;
@@ -313,15 +313,16 @@ fn main() {
             } else {
                 date_time_from_str_standard("2014-01-01", 9).unwrap()
             };
-            qualinvest_core::update_quote_history(ticker_id, start, end, Box::new(db), &config).unwrap();
-
+            qualinvest_core::update_quote_history(ticker_id, start, end, Box::new(db), &config)
+                .unwrap();
         } else if matches.is_present("ticker-id") {
             let ticker_id = usize::from_str(matches.value_of("ticker-id").unwrap()).unwrap();
             qualinvest_core::update_ticker(ticker_id, &mut db, &config).unwrap();
-
         } else {
             let failed_ticker = qualinvest_core::update_quotes(Box::new(db), &config).unwrap();
-            if failed_ticker.len()>0 { println!("Some ticker could not be updated: {:?}", failed_ticker); }
+            if failed_ticker.len() > 0 {
+                println!("Some ticker could not be updated: {:?}", failed_ticker);
+            }
         }
         return;
     }

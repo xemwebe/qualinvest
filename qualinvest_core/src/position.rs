@@ -12,7 +12,7 @@ pub enum PositionError {
 }
 
 /// Calculate the total position as of a given date by applying a specified set of filters
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Position {
     pub asset_id: Option<usize>,
     pub name: String,

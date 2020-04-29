@@ -14,11 +14,8 @@ use finql::transaction::{Transaction, TransactionType};
 use finql::{CashAmount, CashFlow};
 use pdf_store::store_pdf;
 use std::error::Error;
-use std::fmt;
-use std::io;
-use std::num;
 use std::process::Command;
-use std::string;
+use std::{fmt, io, num, string};
 
 pub mod pdf_store;
 mod read_account_info;
