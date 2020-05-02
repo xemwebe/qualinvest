@@ -1,14 +1,37 @@
-use finql::data_handler::{AssetHandler, DataError};
+use finql::data_handler::{AssetHandler, QuoteHandler, DataError};
 use finql::transaction::{Transaction, TransactionType};
 use finql::Currency;
+use finql::fx_rates::get_fx_rate;
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use chrono::{DateTime, Local, Utc};
+use std::convert::From;
+use std::{error, fmt};
+
 
 /// Errors related to position calculation
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug)]
 pub enum PositionError {
     ForeignCurrency,
+    NoQuote(DataError),
+    NoFxRate(DataError),
+}
+
+impl fmt::Display for PositionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Calculation of P&L failed.")
+    }
+}
+
+impl error::Error for PositionError {
+    fn cause(&self) -> Option<&dyn error::Error> {
+        match self {
+            Self::NoQuote(err) => Some(err),
+            Self::NoFxRate(err) => Some(err),
+            _ => None,
+        }
+    }
 }
 
 /// Calculate the total position as of a given date by applying a specified set of filters
@@ -25,10 +48,12 @@ pub struct Position {
     pub fees: f64,
     pub tax: f64,
     pub currency: Currency,
+    pub last_quote: Option<f64>,
+    pub last_quote_time: Option<DateTime<Utc>>,
 }
 
 impl Position {
-    fn new(asset_id: Option<usize>, currency: Currency) -> Position {
+    pub fn new(asset_id: Option<usize>, currency: Currency) -> Position {
         Position {
             asset_id,
             name: String::new(),
@@ -40,7 +65,33 @@ impl Position {
             dividend: 0.0,
             fees: 0.0,
             tax: 0.0,
+            last_quote: None,
+            last_quote_time: None,
         }
+    }
+
+    pub fn add_quote(
+        &mut self,
+        time: DateTime<Utc>,
+        db: &mut dyn QuoteHandler,
+    ) -> Result<(), PositionError> {
+        let (last_quote, last_quote_time) = if let Some(asset_id) = self.asset_id {
+            let (quote, currency) = db
+                .get_last_quote_before_by_id(asset_id, time)
+                .map_err(|e| PositionError::NoQuote(e))?;
+            if currency == self.currency {
+                (quote.price, quote.time)
+            } else {
+                let fx_rate = get_fx_rate(currency, self.currency, time, db)
+                    .map_err(|e| PositionError::NoFxRate(e))?;
+                (quote.price * fx_rate, quote.time)
+            }
+        } else {
+            (1.0, DateTime::<Utc>::from(Local::now()))
+        };
+        self.last_quote = Some(last_quote);
+        self.last_quote_time = Some(last_quote_time);
+        Ok(())
     }
 }
 
@@ -62,6 +113,13 @@ impl PortfolioPosition {
         for (id, mut pos) in &mut self.assets {
             let asset = db.get_asset_by_id(*id)?;
             pos.name = asset.name;
+        }
+        Ok(())
+    }
+
+    pub fn add_quote(&mut self, time: DateTime<Utc>, db: &mut dyn QuoteHandler) -> Result<(), PositionError> {
+        for (_, pos) in &mut self.assets {
+            if pos.asset_id.is_some() { pos.add_quote(time, db)?; }
         }
         Ok(())
     }
@@ -212,6 +270,10 @@ mod tests {
     use chrono::NaiveDate;
     use finql::assert_fuzzy_eq;
     use finql::{CashAmount, CashFlow};
+    use finql::asset::Asset;
+    use finql::data_handler::asset_handler::AssetHandler;
+    use finql::quote::{MarketDataSource, Quote, Ticker};
+    use finql::sqlite_handler::SqliteDB;
     use std::str::FromStr;
 
     #[test]
@@ -423,5 +485,99 @@ mod tests {
         assert_fuzzy_eq!(asset_pos_2.dividend, 13.0, tol);
         let asset_pos_3 = positions.assets.get(&3).unwrap();
         assert_fuzzy_eq!(asset_pos_3.interest, 6.6, tol);
+    }
+
+    #[test]
+    fn test_add_quote_to_position() {
+        let tol = 1e-4;
+        // Make new database
+        let mut db = SqliteDB::create(":memory:").unwrap();
+        // first add some assets
+        let eur_id = db
+            .insert_asset(&Asset {
+                id: None,
+                name: "EUR Stock".to_string(),
+                wkn: None,
+                isin: None,
+                note: None,
+            })
+            .unwrap();
+        // first add some assets
+        let us_id = db
+            .insert_asset(&Asset {
+                id: None,
+                name: "US Stock".to_string(),
+                wkn: None,
+                isin: None,
+                note: None,
+            })
+            .unwrap();
+        let eur = finql::Currency::from_str("EUR").unwrap();
+        let usd = finql::Currency::from_str("USD").unwrap();
+        // add ticker
+        let _eur_ticker_id = db
+            .insert_ticker(&Ticker {
+                id: None,
+                name: "EUR_STOCK.DE".to_string(),
+                asset: eur_id,
+                priority: 10,
+                currency: eur,
+                source: MarketDataSource::Manual,
+                factor: 1.0,
+            })
+            .unwrap();
+        let _us_ticker_id = db
+            .insert_ticker(&Ticker {
+                id: None,
+                name: "US_STOCK.DE".to_string(),
+                asset: us_id,
+                priority: 10,
+                currency: usd,
+                source: MarketDataSource::Manual,
+                factor: 1.0,
+            })
+            .unwrap();
+        // add quotes
+        let time = finql::helpers::make_time(2019, 12, 30, 10, 0, 0).unwrap();
+        let _ = db
+            .insert_quote(&Quote {
+                id: None,
+                ticker: eur_id,
+                price: 12.34,
+                time,
+                volume: None,
+            })
+            .unwrap();
+        let _ = db
+            .insert_quote(&Quote {
+                id: None,
+                ticker: us_id,
+                price: 43.21,
+                time,
+                volume: None,
+            })
+            .unwrap();
+        let mut eur_position = Position::new(Some(eur_id), eur);
+        eur_position.name = "EUR Stock".to_string();
+        eur_position.position = 1000.0;
+
+        let mut usd_position = Position::new(Some(us_id), eur); 
+        usd_position.name = "US Stock".to_string();
+        usd_position.position = 1000.0;
+
+        finql::fx_rates::insert_fx_quote(2.0, usd, eur, time, &mut db).unwrap();
+        let time = finql::helpers::make_time(2019, 12, 30, 12, 0, 0).unwrap();
+        eur_position.add_quote(time, &mut db).unwrap();
+        assert_fuzzy_eq!(eur_position.last_quote.unwrap(), 12.34, tol);
+        assert_eq!(
+            eur_position.last_quote_time.unwrap().format("%F %H:%M:%S").to_string(),
+            "2019-12-30 09:00:00"
+        );
+        usd_position.add_quote(time, &mut db).unwrap();
+        assert_fuzzy_eq!(usd_position.last_quote.unwrap(), 86.42, tol);
+        assert_eq!(
+            usd_position.last_quote_time.unwrap().format("%F %H:%M:%S").to_string(),
+            "2019-12-30 09:00:00"
+        );
     }
 }

@@ -6,7 +6,6 @@ use serde::Deserialize;
 use std::ops::Deref;
 
 pub mod accounts;
-pub mod pnl;
 pub mod position;
 pub mod read_pdf;
 

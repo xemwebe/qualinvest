@@ -1,4 +1,3 @@
-use chrono::Utc;
 ///! # qualinvest
 ///! A cloud based tool for quantitative analysis and management of financial asset portfolios
 use clap::{App, AppSettings, Arg, SubCommand};
@@ -11,6 +10,7 @@ use glob::glob;
 use std::fs;
 use std::io::{stdout, BufReader, Write};
 use std::str::FromStr;
+use chrono::{DateTime, Local, Utc};
 
 use qualinvest_core::accounts::AccountHandler;
 use qualinvest_core::position::calc_position;
@@ -114,6 +114,12 @@ fn main() {
                         .short("a")
                         .help("Calculate position for the given account only")
                         .takes_value(true)
+                )
+                .arg(
+                    Arg::with_name("quote")
+                        .long("quote")
+                        .short("q")
+                        .help("Include fields for latest quotes")
                 )
             )
         .subcommand(
@@ -286,6 +292,11 @@ fn main() {
         };
         let mut position = calc_position(currency, &transactions).unwrap();
         position.get_asset_names(&mut db).unwrap();
+        
+        if matches.is_present("quote") {
+            let time = DateTime::from(Local::now());
+            position.add_quote(time, &mut db).unwrap();
+        }
 
         if matches.is_present("json") {
             println!("{}", serde_json::to_string(&position).unwrap());
