@@ -10,7 +10,7 @@ readme = "README.md"
 keywords = ["finance", "investment", "quantitative", "analysis"]
 
 [workspace]
-members = ["qualinvest_core", "qualinvest_cli"]
+members = ["qualinvest_core", "qualinvest_cli", "qualinvest_server"]
 
 [lib]
 name = "qualinvest_core"
@@ -19,6 +19,10 @@ path = "qualinvest_core/src/lib.rs"
 [[bin]]
 name = "qualinvest_cli"
 path = "qualinvest_cli/src/main.rs"
+
+[[bin]]
+name = "qualinvest_server"
+path = "qualinvest_server/src/main.rs"
 
 [dependencies]
 finql = { version = "0.7", path = "../finql" }
@@ -35,3 +39,10 @@ tokio-postgres = "0.5"
 data-encoding = "2.2"
 csv = "1.1"
 toml = "0.5"
+rocket = { git="https://github.com/SergioBenitez/Rocket.git" }
+rusqlite = "0.23"
+
+[dependencies.rocket_contrib]
+git="https://github.com/SergioBenitez/Rocket.git"
+default-features = false
+features = ["json", "postgres_pool"]

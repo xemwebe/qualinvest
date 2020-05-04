@@ -48,7 +48,7 @@ pub trait AccountHandler: TransactionHandler {
     ) -> Result<Vec<Transaction>, DataError>;
 }
 
-impl AccountHandler for PostgresDB {
+impl AccountHandler for PostgresDB<'_> {
     /// Clean database by dropping all tables and than run init
     fn clean_accounts(&mut self) -> Result<(), Error> {
         self.conn

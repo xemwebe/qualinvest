@@ -6,6 +6,7 @@ use finql::date_time_helper::date_time_from_str_standard;
 use finql::postgres_handler::PostgresDB;
 use finql::quote::Ticker;
 use finql::Currency;
+use postgres;
 use glob::glob;
 use std::fs;
 use std::io::{stdout, BufReader, Write};
@@ -188,7 +189,8 @@ fn main() {
         "host={} user={} password={} dbname={} sslmode=disable",
         config.db.host, config.db.user, config.db.password, config.db.name
     );
-    let mut db = PostgresDB::connect(&connect_str).unwrap();
+    let mut conn = postgres::Client::connect(&connect_str, postgres::NoTls).unwrap();
+    let mut db = PostgresDB{ conn: &mut conn };
 
     if matches.is_present("debug") {
         config.debug = true;
@@ -324,13 +326,13 @@ fn main() {
             } else {
                 date_time_from_str_standard("2014-01-01", 9).unwrap()
             };
-            qualinvest_core::update_quote_history(ticker_id, start, end, Box::new(db), &config)
+            qualinvest_core::update_quote_history(ticker_id, start, end, &mut db, &config)
                 .unwrap();
         } else if matches.is_present("ticker-id") {
             let ticker_id = usize::from_str(matches.value_of("ticker-id").unwrap()).unwrap();
             qualinvest_core::update_ticker(ticker_id, &mut db, &config).unwrap();
         } else {
-            let failed_ticker = qualinvest_core::update_quotes(Box::new(db), &config).unwrap();
+            let failed_ticker = qualinvest_core::update_quotes(&mut db, &config).unwrap();
             if failed_ticker.len() > 0 {
                 println!("Some ticker could not be updated: {:?}", failed_ticker);
             }

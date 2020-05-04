@@ -12,6 +12,7 @@ use finql::fx_rates::insert_fx_quote;
 use finql::sqlite_handler::SqliteDB;
 use finql::transaction::{Transaction, TransactionType};
 use finql::{CashAmount, CashFlow};
+use rusqlite::Connection;
 use pdf_store::store_pdf;
 use std::error::Error;
 use std::process::Command;
@@ -265,7 +266,10 @@ pub fn check_consistency(tri: &ParsedTransactionInfo) -> Result<(), ReadPDFError
 
     // temporary storage for fx rates
     // total payment is always in base currency, but main_amount (and maybe fees or taxes) could be in foreign currency.
-    let mut fx_db = SqliteDB::create(":memory:").unwrap();
+    let mut conn = Connection::open(":memory:").unwrap();
+    let mut fx_db = SqliteDB{ conn: &mut conn };
+    fx_db.init().unwrap();
+
     if tri.fx_rate.is_some() {
         insert_fx_quote(
             tri.fx_rate.unwrap(),
@@ -313,7 +317,9 @@ pub fn make_transactions(
 
     // temporary storage for fx rates
     // total payment is always in base currency, but main_amount (and maybe fees or taxes) could be in foreign currency.
-    let mut fx_db = SqliteDB::create(":memory:").unwrap();
+    let mut conn = Connection::open(":memory:").unwrap();
+    let mut fx_db = SqliteDB{ conn: &mut conn };
+    fx_db.init().unwrap();
     if tri.fx_rate.is_some() {
         insert_fx_quote(
             tri.fx_rate.unwrap(),

@@ -91,7 +91,7 @@ pub fn update_quote_history(
     ticker_id: usize,
     start: DateTime<Utc>,
     end: DateTime<Utc>,
-    db: Box<dyn QuoteHandler>,
+    db: &mut dyn QuoteHandler,
     config: &Config,
 ) -> Result<(), MarketError> {
     let mut market = finql::Market::new(db);
@@ -121,7 +121,7 @@ pub fn update_ticker(
 }
 
 pub fn update_quotes(
-    db: Box<dyn QuoteHandler>,
+    db: &mut dyn QuoteHandler,
     config: &Config,
 ) -> Result<Vec<usize>, MarketError> {
     let mut market = finql::Market::new(db);
