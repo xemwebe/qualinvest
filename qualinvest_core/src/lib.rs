@@ -15,6 +15,7 @@ pub struct Config {
     pub db: DbParams,
     pub pdf: PdfParseParams,
     pub market_data: MarketDataProviders,
+    pub server: ServerSettings,
     pub debug: bool,
 }
 
@@ -43,6 +44,13 @@ pub struct MarketDataProviders {
     pub alpha_vantage_token: Option<String>,
     pub gurufocus_token: Option<String>,
     pub eod_historical_data_token: Option<String>,
+}
+
+/// Market data provider settings
+#[derive(Debug, Deserialize)]
+pub struct ServerSettings {
+    pub port: Option<u32>,
+    pub relative_path: Option<String>,
 }
 
 fn add_provider(

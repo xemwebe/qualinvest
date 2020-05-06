@@ -41,8 +41,11 @@ csv = "1.1"
 toml = "0.5"
 rocket = { git="https://github.com/SergioBenitez/Rocket.git" }
 rusqlite = "0.23"
+unic-ucd = "0.9"
+htmlescape = "0.3.1"
+tera = "1.2"
 
 [dependencies.rocket_contrib]
 git="https://github.com/SergioBenitez/Rocket.git"
 default-features = false
-features = ["json", "postgres_pool"]
+features = ["json", "postgres_pool", "tera_templates"]

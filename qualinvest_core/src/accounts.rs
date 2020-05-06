@@ -55,11 +55,23 @@ impl AccountHandler for PostgresDB<'_> {
             .execute("DROP TABLE IF EXISTS account_transactions", &[])?;
         self.conn.execute("DROP TABLE IF EXISTS accounts", &[])?;
         self.conn.execute("DROP TABLE IF EXISTS documents", &[])?;
+        self.conn.execute("DROP TABLE IF EXISTS users", &[])?;
+        self.init_accounts()?;
         Ok(())
     }
 
     /// Set up new table for account management
     fn init_accounts(&mut self) -> Result<(), Error> {
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                display TEXT NOT NULL,
+                salt_hash TEXT NOT NULL,
+                is_admin BOOLEAN NOT NULL DEFAULT False,
+                UNIQUE (name))",
+            &[],
+        )?;
         self.conn.execute(
             "CREATE TABLE IF NOT EXISTS accounts (
                 id SERIAL PRIMARY KEY,
