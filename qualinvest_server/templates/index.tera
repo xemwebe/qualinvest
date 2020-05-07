@@ -5,6 +5,8 @@
 <div class="warning">
 	<h1>Please log in!</h1>
 </div>
+{% elif user.is_admin %}
+<div class="warning"> You are logged in as administrator. </div>
 {% endif %} 
 <h1>Qualinvestor</h1>
 <p>Qualinvestor is a tool to manage a portfolio of investments of common assets 

@@ -52,6 +52,17 @@ pub struct Position {
     pub last_quote_time: Option<DateTime<Utc>>,
 }
 
+/// Calculate the total position as of a given date by applying a specified set of filters
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PositionTotals {
+    value: f64,
+    realized_pnl: f64,
+    unrealized_pnl: f64,
+    dividend: f64,
+    tax: f64,
+    fees: f64
+}
+
 impl Position {
     pub fn new(asset_id: Option<usize>, currency: Currency) -> Position {
         Position {
@@ -122,6 +133,31 @@ impl PortfolioPosition {
             if pos.asset_id.is_some() { pos.add_quote(time, db)?; }
         }
         Ok(())
+    }
+
+    pub fn calc_totals(&mut self) -> PositionTotals {
+        let mut totals = PositionTotals {
+            value: self.cash.position,
+            realized_pnl: self.cash.realized_pnl + self.cash.dividend+self.cash.tax+self.cash.tax,
+            unrealized_pnl: 0.0,
+            dividend: self.cash.dividend,
+            tax: self.cash.tax,
+            fees: self.cash.fees,
+        };
+        for (_,pos) in &self.assets {
+            let pos_value = if let Some(quote) = pos.last_quote {
+                pos.position * quote
+            } else {
+                pos.purchase_value
+            };
+            totals.value += pos_value;
+            totals.realized_pnl += pos.realized_pnl + pos.dividend+pos.tax+pos.tax;
+            totals.unrealized_pnl += pos_value + pos.purchase_value;
+            totals.dividend += pos.dividend;
+            totals.tax += pos.tax;
+            totals.fees += pos.fees;
+        }
+        totals
     }
 }
 
@@ -263,6 +299,9 @@ pub fn calc_delta_position(
     }
     Ok(())
 }
+
+
+
 
 #[cfg(test)]
 mod tests {
@@ -491,7 +530,9 @@ mod tests {
     fn test_add_quote_to_position() {
         let tol = 1e-4;
         // Make new database
-        let mut db = SqliteDB::create(":memory:").unwrap();
+        let mut conn = rusqlite::Connection::open(":memory:").unwrap();
+        let mut db = SqliteDB{ conn: &mut conn };
+        db.init().unwrap();
         // first add some assets
         let eur_id = db
             .insert_asset(&Asset {

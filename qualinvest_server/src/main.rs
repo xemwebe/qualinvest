@@ -13,7 +13,6 @@ use rocket::State;
 use rocket::config::{Value,Environment};
 use rocket::http::{Cookie, Cookies};
 use rocket::response::{NamedFile, Redirect, Flash};
-use rocket::response::content::Html;
 use rocket::request::{FlashMessage, Form};
 use rocket_contrib::json::Json;
 use rocket_contrib::databases::postgres;
@@ -30,6 +29,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tera;
 
+mod filter;
 mod auth;
 mod user;
 mod layout;
@@ -40,10 +40,10 @@ use layout::*;
 #[database("qlinvest_db")]
 struct QlInvestDbConn(postgres::Client);
 
-#[get("/position?<account>")]
-fn position(user_opt: Option<UserCookie>, account: Option<usize>, mut qldb: QlInvestDbConn) -> Result<Json<PortfolioPosition>,Redirect> {
+#[get("/raw_position?<account>")]
+fn raw_position(user_opt: Option<UserCookie>, account: Option<usize>, mut qldb: QlInvestDbConn) -> Result<Json<PortfolioPosition>,Redirect> {
     if user_opt.is_none() {
-        return Err(Redirect::to("/login?redirect=position"));
+        return Err(Redirect::to("/"));
     }
     let currency = Currency::from_str("EUR").unwrap();
     let mut db = PostgresDB{ conn: qldb.0.deref_mut() };
@@ -60,6 +60,33 @@ fn position(user_opt: Option<UserCookie>, account: Option<usize>, mut qldb: QlIn
     position.add_quote(time, &mut db).unwrap();
     
     Ok(Json(position))
+}
+
+#[get("/position?<account>")]
+fn position(user_opt: Option<UserCookie>, account: Option<usize>, mut qldb: QlInvestDbConn, state: State<Config>) -> Result<Template,Redirect> {
+    if user_opt.is_none() {
+        return Err(Redirect::to("/login?redirect=position"));
+    }
+    let user = user_opt.unwrap();
+    let currency = Currency::from_str("EUR").unwrap();
+    let mut db = PostgresDB{ conn: qldb.0.deref_mut() };
+    let transactions = match account {
+        Some(account_id) => db
+            .get_all_transactions_with_account(account_id)
+            .unwrap(),
+        None => db.get_all_transactions().unwrap(),
+    };
+    let mut position = calc_position(currency, &transactions).unwrap();
+    position.get_asset_names(&mut db).unwrap();
+    let time = DateTime::from(Local::now());
+    position.add_quote(time, &mut db).unwrap();
+    let totals = position.calc_totals();
+
+    let mut context = default_context(&state);
+    context.insert("positions", &position);
+    context.insert("totals", &totals);
+    context.insert("user", &user);
+    Ok(layout("position", &context.into_json()))
 }
 
 /// The `logged_in()` method queries the database for the username specified
@@ -154,15 +181,12 @@ fn index(user_opt: Option<UserCookie>, flash_msg_opt: Option<FlashMessage>, stat
     } else {
         ("info", "".to_string())
     };
-    let content = if let Some(user) = user_opt {
-        format!("Welcome {}", user.username)
-    } else {
-        r#"<a href="/login">Login</a>"#.to_string()
-    };
     let mut context = default_context(&state);
     context.insert("alert_type", &alert_type);
     context.insert("alert_message", &alert_msg);
-    context.insert("message", &content);
+    if let Some(user) = user_opt {
+        context.insert("user", &user);
+    } 
     layout("index", &context.into_json())
 }
 
@@ -188,14 +212,12 @@ fn main() {
                 .value_name("file")
                 .help("Sets a custom config file")
                 .takes_value(true)
-                .required(false)
         )
         .arg(
             Arg::with_name("debug")
                 .short("d")
                 .long("debug")
                 .help("Prints additional information for debugging purposes")
-                .required(false)
         ).get_matches();
 
     let config = matches.value_of("config").unwrap_or("qualinvest.toml");
@@ -212,14 +234,18 @@ fn main() {
     database_config.insert("url", Value::from(postgres_url.as_str()));
     databases.insert("qlinvest_db", Value::from(database_config));
 
+    // Set up all filters for tera
+    filter::set_filter();
+
     let rocket_config = rocket::Config::build(Environment::Development)
         .extra("databases", databases)
         .finalize()
         .unwrap();
+    let templates = filter::set_filter();
 
     rocket::custom(rocket_config)
         .attach(QlInvestDbConn::fairing())
-        .attach(Template::fairing())
+        .attach(templates)
         .manage(config)
         .mount("/", routes![
             logged_in,
@@ -230,6 +256,7 @@ fn main() {
             logout,
             index,
             position,
+            raw_position,
             static_files
         ])
         .launch();

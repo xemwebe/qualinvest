@@ -23,6 +23,7 @@ pub struct UserCookie {
     pub userid: usize,
     pub username: String,
     pub display: Option<String>,
+    pub is_admin: bool,
 }
 
 /// The UserForm type is used to process a user attempting to login as an user
@@ -96,6 +97,7 @@ impl AuthorizeForm for UserForm {
             userid: user.id.unwrap(),
             username: user.name,
             display: user.display,
+            is_admin: user.is_admin,
         })
     }
     
@@ -198,7 +200,7 @@ pub trait UserHandler {
     fn delete_user(&mut self, user_id: usize) -> Result<(), DataError>;
 }
 
-impl UserHandler for PostgresDB<'_> {
+impl UserHandler: AccountHandler for PostgresDB<'_> {
     /// Clean database by dropping all tables related to user management and run init_users
     fn clean_users(&mut self) -> Result<(), DataError> {
         self.conn.execute("DROP TABLE IF EXISTS users", &[])

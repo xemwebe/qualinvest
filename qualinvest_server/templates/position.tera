@@ -1,0 +1,83 @@
+{% extends "layout" %}
+{% block pagetitle %}{{super()}}- Position{% endblock pagetitle %}
+{% block jsdata %}
+	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+	<script type="text/javascript">
+		google.charts.load('current', {'packages':['table']});
+		google.charts.setOnLoadCallback(drawTable);
+
+		function drawTable() {
+		var data = new google.visualization.DataTable();
+		data.addColumn('string', 'Asset');
+		data.addColumn('number', 'Position');
+		data.addColumn('number', 'Price');
+	data.addColumn('string', 'Currency');
+	data.addColumn('number', 'Total Value in EUR');
+	data.addColumn('number', 'Percentage');
+	data.addColumn('number', 'P&L');
+	data.addColumn('number', 'Dividends');
+	data.addColumn('number', 'Fees');
+	data.addColumn('number', 'Tax');
+		data.addRows([
+		[	{v: '       ', f: ''},  
+		{v: -1e10, f: '' }, 
+		{v: -1e10, f: '' },
+		{v: '       ', f: 'Totals:'},
+		{v: -1e10, f: "{{totals.value | format_num}}" },
+		{v: -1e10, f: '' },
+		{v: -1e10, f: "{{totals.realized_pnl + totals.unrealized_pnl | format_num}}" },
+		{v: -1e10, f: "{{totals.dividend | format_num}}" },
+		{v: -1e10, f: "{{totals.fees | format_num}}" },
+		{v: -1e10, f: "{{totals.tax | format_num}}" },
+	],
+	{% set totalValue = totals.value %}
+	{% set realized_pnl = positions.cash.realized_pnl+positions.cash.dividend+positions.cash.tax+positions.cash.fees %}
+	[	{v: 'cash', f: 'Cash' },  
+		{v: {{positions.cash.position}}, f: "{{positions.cash.position | format_num }}" }, 
+		{v: 1.0, f: '1.00'},
+		"{{positions.cash.currency}}",
+		{v: {{positions.cash.position}}, f: "{{positions.cash.position | format_num }}" },
+		{v: {{positions.cash.position}}, f: '{{positions.cash.position/totals.value  | format_per_cent }}' },
+		{v: {{realized_pnl}}, f: "{{ realized_pnl | format_num }}" },
+		{v: {{positions.cash.dividend}}, f: "{{positions.cash.dividend | format_num }}" },
+		{v: {{positions.cash.fees}}, f: "{{positions.cash.fees | format_num }}" },
+		{v: {{positions.cash.tax}}, f: "{{positions.cash.tax | format_num }}" },
+	],
+	{% for key, pos in positions.assets %}
+	{% set realized_pnl = pos.realized_pnl+pos.dividend+pos.tax+pos.fees %}
+	{% set pos_value = pos.position*pos.last_quote %}
+	{% set unrealized_pnl = pos_value + pos.purchase_value %}
+	{% set pnl = unrealized_pnl + realized_pnl %}
+		[	{v: "{{pos.name | lower}}", f: "{{pos.name}}" },  
+		{v: {{pos.position}}, f: "{{pos.position | format_num }}" }, 
+		{v: {{pos.last_quote}}, f: "{{pos.last_quote | format_num4}}" },
+		"{{pos.currency}}",
+		{v: {{pos_value}}, f: "{{pos_value | format_num }}" },
+		{v: {{pos_value}}, f: '{{pos_value/totals.value  | format_per_cent }}' },
+		{v: {{pnl}}, f: "{{pnl | format_num }}" },
+		{v: {{pos.dividend}}, f: "{{pos.dividend | format_num }}" },
+		{v: {{pos.fees}}, f: "{{pos.fees | format_num }}" },
+		{v: {{pos.tax}}, f: "{{pos.tax | format_num }}" },
+	],
+	{% endfor %}
+		[	{v: 'zzzzzzz', f: ''},  
+		{v: 1e10, f: '' }, 
+		{v: 1e10, f: '' },
+		{v: 'zzzzzzz', f: 'Totals:'},
+		{v: 1e10, f: "{{totals.value | format_num}}" },
+		{v: 1e10, f: '' },
+		{v: 1e10, f: "{{totals.realized_pnl + totals.unrealized_pnl | format_num}}" },
+		{v: 1e10, f: "{{totals.dividend | format_num}}" },
+		{v: 1e10, f: "{{totals.fees | format_num}}" },
+		{v: 1e10, f: "{{totals.tax | format_num}}" },
+	]
+		]);
+
+		var table = new google.visualization.Table(document.getElementById('table_div'));
+
+		table.draw(data, {sortColumn: 0, width: '100%', height: '100%'});
+		}
+	</script>
+{% endblock jsdata %}
+{% block content %}<div id="table_div"></div>{% endblock content %}
+
