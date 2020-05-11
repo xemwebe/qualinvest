@@ -7,7 +7,7 @@ use rocket::http::{Cookie, Cookies, RawStr};
 use std::collections::HashMap;
 use std::marker::Sized;
 use super::sanitization::*;
-use crate::user::UserHandler;
+use qualinvest_core::user::UserHandler;
 
 #[derive(Debug, Clone)]
 pub struct UserQuery {
@@ -56,13 +56,6 @@ pub trait AuthorizeCookie : CookieId {
 pub struct LoginCont<T: AuthorizeForm> {
     pub form: T,
 }
-
-impl<T: AuthorizeForm + Clone> LoginCont<T> {
-    pub fn form(&self) -> T {
-        self.form.clone()
-    }
-}
-
 
 /// The CookieId trait contains a single method, `cookie_id()`.
 /// The `cookie_id()` function returns the name or id of the cookie.
@@ -189,15 +182,6 @@ pub trait AuthorizeForm : CookieId {
         }
     }
 }
-
-impl<T: AuthorizeCookie + Clone> AuthCont<T> {
-    pub fn cookie_data(&self) -> T {
-        // Todo: change the signature from &self to self
-        //       and remove the .clone() method call
-        self.cookie.clone()
-    }
-}
-
 
 /// # Request Guard
 /// Request guard for the AuthCont (Authentication Container).

@@ -8,6 +8,8 @@ use std::ops::Deref;
 pub mod accounts;
 pub mod position;
 pub mod read_pdf;
+pub mod user;
+pub mod postgres_user;
 
 /// Configuration parameters
 #[derive(Debug, Deserialize)]

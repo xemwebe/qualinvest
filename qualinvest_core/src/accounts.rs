@@ -3,7 +3,9 @@ use finql::data_handler::{DataError, TransactionHandler};
 use finql::postgres_handler::{PostgresDB, RawTransaction};
 use finql::transaction::Transaction;
 use tokio_postgres::error::Error;
+use serde::{Serialize,Deserialize};
 
+#[derive(Debug,Serialize,Deserialize)]
 pub struct Account {
     pub id: Option<usize>,
     pub broker: String,
@@ -21,8 +23,15 @@ pub trait AccountHandler: TransactionHandler {
     /// Insert new account info in database, if it not yet exist
     fn insert_account_if_new(&mut self, account: &Account) -> Result<usize, DataError>;
 
-    /// Insert new account info in database
+    /// Get account id for given account
     fn get_account_id(&mut self, account: &Account) -> Result<usize, DataError>;
+
+    /// Get all accounts form db
+    fn get_all_account_ids(&mut self) -> Result<Vec<usize>, DataError>;
+
+    /// Get list of all accounts
+    fn get_all_accounts(&mut self) -> Result<Vec<Account>, DataError>;
+
     /// Add a transaction to the account
     fn add_transaction_to_account(
         &mut self,
@@ -46,6 +55,18 @@ pub trait AccountHandler: TransactionHandler {
         &mut self,
         account_id: usize,
     ) -> Result<Vec<Transaction>, DataError>;
+
+    /// Get transactions filtered by a list of account ids
+    fn get_all_transactions_with_accounts(
+        &mut self,
+        accounts: &Vec<usize>,
+    ) -> Result<Vec<Transaction>, DataError> {
+        let mut transactions = Vec::new();
+        for i in accounts {
+            transactions.extend(self.get_all_transactions_with_account(*i)?);
+        }
+        Ok(transactions)
+    }
 }
 
 impl AccountHandler for PostgresDB<'_> {
@@ -131,6 +152,42 @@ impl AccountHandler for PostgresDB<'_> {
             .map_err(|e| DataError::InsertFailed(e.to_string()))?;
         let id: i32 = row.get(0);
         Ok(id as usize)
+    }
+
+    fn get_all_account_ids(&mut self) -> Result<Vec<usize>, DataError> {
+        let rows = self
+            .conn
+            .query(
+                "SELECT id FROM accounts",
+                &[],
+            )
+            .map_err(|e| DataError::InsertFailed(e.to_string()))?;
+        let mut ids = Vec::new();
+        for row in rows {
+            let id: i32 = row.get(0);
+            ids.push(id as usize);
+        }
+        Ok(ids)
+    }
+
+    fn get_all_accounts(&mut self) -> Result<Vec<Account>, DataError> {
+        let rows = self
+            .conn
+            .query(
+                "SELECT id, broker, account_name FROM accounts",
+                &[],
+            )
+            .map_err(|e| DataError::InsertFailed(e.to_string()))?;
+        let mut accounts = Vec::new();
+        for row in rows {
+            let id: i32 = row.get(0);
+            accounts.push(Account{
+                id: Some(id as usize),
+                broker: row.get(1),
+                account_name: row.get(2),
+            });
+        }
+        Ok(accounts)
     }
 
     /// Insert transaction to account relation

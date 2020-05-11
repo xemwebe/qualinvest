@@ -30,35 +30,6 @@ pub fn filter_non_characters(string: &str) -> String {
     }
     output
 }
-/// Filters out separators, control codes, unicode surrogates, and a few others
-/// as well as single/double quotes, backslashes, and angular braces
-///
-/// Similar to `filter_non_characters()` execpt it keeps angular braces.
-/// This is to allow text (that could contain html) to be displayed
-/// anywhere on a page safely when combined with the encode_minimal function of
-/// the `htmlescape` crate.
-pub fn filter_non_characters_html(string: &str) -> String {
-    let mut output = String::with_capacity(string.len()+5);
-    for c in string.chars() {
-        match c {
-            '\'' | '"' | '\\' => {},
-            _ => match gc::of(c) {
-                    gc::OtherSymbol |
-                    gc::SpaceSeparator |
-                    gc::LineSeparator |
-                    gc::ParagraphSeparator |
-                    gc::Control |
-                    gc::Format |
-                    gc::Surrogate |
-                    gc::PrivateUse |
-                    gc::Unassigned 
-                        => {},
-                      _ => output.push(c),
-            },
-        }
-    }
-    output
-}
 
 /// Sanitize usernames to prevent xss and other vulnerabilities
 /// Use sanitize() when escaping text that may be included in a html attribute (like value="<text>")
@@ -73,15 +44,6 @@ pub fn filter_non_characters_html(string: &str) -> String {
 pub fn sanitize(string: &str) -> String {
     encode_attribute(&filter_non_characters(string))
 }
-
-/// santize_text() is used when displaying text on a website. 
-/// 
-/// sanitize_text() is similar to sanitize() but only encodes a minimal set of html entities
-/// Use this when escaping a block of text, not text that should be placed inside an html attribute (like value="")
-pub fn sanitize_text(string: &str) -> String {
-    encode_minimal(&filter_non_characters_html(string))
-}
-
 
 /// Used to remove all non-hexadecimal characters from passwords
 /// Passwords must be only hex characters as it is expecting a hash, like sha-256 or md5 for example

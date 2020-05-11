@@ -5,30 +5,25 @@
 #[macro_use] extern crate serde;
 
 use clap::{App, AppSettings, Arg};
-use std::str::FromStr;
 use std::ops::DerefMut;
-use chrono::{DateTime,Local};
 
 use rocket::State;
 use rocket::config::{Value,Environment};
 use rocket::http::{Cookie, Cookies};
 use rocket::response::{NamedFile, Redirect, Flash};
 use rocket::request::{FlashMessage, Form};
-use rocket_contrib::json::Json;
 use rocket_contrib::databases::postgres;
 use rocket_contrib::templates::Template;
 
-use finql::Currency;
-use finql::data_handler::TransactionHandler;
 use finql::postgres_handler::PostgresDB;
-use qualinvest_core::position::{calc_position,PortfolioPosition};
-use qualinvest_core::accounts::AccountHandler;
 use qualinvest_core::Config;
 use std::fs;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tera;
 
+mod position;
+mod helper;
 mod filter;
 mod auth;
 mod user;
@@ -38,56 +33,8 @@ use user::*;
 use layout::*;
 
 #[database("qlinvest_db")]
-struct QlInvestDbConn(postgres::Client);
+pub struct QlInvestDbConn(postgres::Client);
 
-#[get("/raw_position?<account>")]
-fn raw_position(user_opt: Option<UserCookie>, account: Option<usize>, mut qldb: QlInvestDbConn) -> Result<Json<PortfolioPosition>,Redirect> {
-    if user_opt.is_none() {
-        return Err(Redirect::to("/"));
-    }
-    let currency = Currency::from_str("EUR").unwrap();
-    let mut db = PostgresDB{ conn: qldb.0.deref_mut() };
-    let transactions = match account {
-        Some(account_id) => db
-            .get_all_transactions_with_account(account_id)
-            .unwrap(),
-        None => db.get_all_transactions().unwrap(),
-    };
-    let mut position = calc_position(currency, &transactions).unwrap();
-    position.get_asset_names(&mut db).unwrap();
-    
-    let time = DateTime::from(Local::now());
-    position.add_quote(time, &mut db).unwrap();
-    
-    Ok(Json(position))
-}
-
-#[get("/position?<account>")]
-fn position(user_opt: Option<UserCookie>, account: Option<usize>, mut qldb: QlInvestDbConn, state: State<Config>) -> Result<Template,Redirect> {
-    if user_opt.is_none() {
-        return Err(Redirect::to("/login?redirect=position"));
-    }
-    let user = user_opt.unwrap();
-    let currency = Currency::from_str("EUR").unwrap();
-    let mut db = PostgresDB{ conn: qldb.0.deref_mut() };
-    let transactions = match account {
-        Some(account_id) => db
-            .get_all_transactions_with_account(account_id)
-            .unwrap(),
-        None => db.get_all_transactions().unwrap(),
-    };
-    let mut position = calc_position(currency, &transactions).unwrap();
-    position.get_asset_names(&mut db).unwrap();
-    let time = DateTime::from(Local::now());
-    position.add_quote(time, &mut db).unwrap();
-    let totals = position.calc_totals();
-
-    let mut context = default_context(&state);
-    context.insert("positions", &position);
-    context.insert("totals", &totals);
-    context.insert("user", &user);
-    Ok(layout("position", &context.into_json()))
-}
 
 /// The `logged_in()` method queries the database for the username specified
 /// in the cookie.  In this instance all of the data in the database is also
@@ -149,7 +96,6 @@ fn retry_login_flash(redirect: Option<String>, flash_msg: FlashMessage, state: S
     layout("login", &context.into_json())
 }
 
-#[allow(unused_mut)]
 #[post("/login", data = "<form>")]
 fn process_login(form: Form<LoginCont<UserForm>>, mut cookies: Cookies, mut qldb: QlInvestDbConn) -> Result<Redirect, Flash<Redirect>> {
     let mut db = PostgresDB{ conn: qldb.0.deref_mut() };
@@ -196,6 +142,18 @@ fn index(user_opt: Option<UserCookie>, flash_msg_opt: Option<FlashMessage>, stat
 #[get("/static/<file..>", rank=10)]
 fn static_files(file: PathBuf) -> Option<NamedFile> {
     NamedFile::open(Path::new("static/").join(file)).ok()
+}
+
+/// As a first proxy, catch errors here
+#[get("/err/<msg>")]
+fn error_msg(msg: String, user_opt: Option<UserCookie>, state: State<Config>) -> Template {
+    let mut context = default_context(&state);
+    context.insert("alert", "danger");
+    context.insert("alert_message", &msg);
+    if let Some(user) = user_opt {
+        context.insert("user", &user);
+    } 
+    layout("index", &context.into_json())
 }
 
 fn main() {
@@ -255,9 +213,11 @@ fn main() {
             process_login,
             logout,
             index,
-            position,
-            raw_position,
-            static_files
+            position::position,
+            position::process_position_filter,
+            position::raw_position,
+            static_files,
+            error_msg
         ])
         .launch();
 }
