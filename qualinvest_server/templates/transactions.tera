@@ -32,9 +32,8 @@
 	   	{v: {{t.cash_amount}}, f: "{{t.cash_amount | format_num}}" },
 	   	"{{t.cash_currency}}",
 	   	"{{t.cash_date}}",
-		{# {% if t.doc_path %}{v: "{{t.doc_path | base_name}}", f: "<img src='static/pdf_icon.jpg'>"}{% else %}""{% endif %}, #}
-		{% if t.doc_path %}"{{t.doc_path | base_name}}"{% else %}""{% endif %},
-	   	{% if t.note %}"{{t.note | remove_line_break }}"{% else %}""{% endif %},
+		{% if t.doc_path %}{v: "{{t.doc_path | base_name}}", f: "<img style='height:1em;' src='static/pdf_icon.png'> {{t.doc_path | base_name | short_text }}"}{% else %}""{% endif %},
+	   	{% if t.note %}"{{t.note | remove_line_break | short_text }}"{% else %}""{% endif %},
 		{{t.account_id}},
 	   ],
 	  {% endfor %}
@@ -46,7 +45,7 @@
 	var tableHeight = (data.getNumberOfRows()+1.5)*21+1;
 	tableHeight = Math.min(tableHeight, window.innerHeight-150);
 	google.visualization.events.addListener(table,'select',selectHandler);
-	table.draw(view, {sortColumn: 8, sortAscending: false, width: '100%', height: tableHeight, allowHtml: true } );
+	table.draw(view, {sortColumn: 6, sortAscending: false, width: '100%', height: tableHeight, allowHtml: true } );
 
 	// select handler
 	function selectHandler() {

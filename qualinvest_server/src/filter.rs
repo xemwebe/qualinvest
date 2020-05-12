@@ -7,6 +7,7 @@ use rocket::fairing::Fairing;
 use rocket::response::Redirect;
 use num_format::{Locale, WriteFormatted};
 use lazy_static::lazy_static;
+use unicode_segmentation::UnicodeSegmentation;
 use regex::Regex;
 use crate::helper;
 
@@ -72,11 +73,32 @@ fn remove_line_break(value: &Value, _: &HashMap<String, Value>) -> tera::Result<
 
 fn base_name(value: &Value, _: &HashMap<String, Value>) -> tera::Result<Value> {
     match value {
-        Value::String(type_str) => Ok(Value::String( helper::basename(type_str).to_string() )),       
+        Value::String(file) => Ok(Value::String( helper::basename(file).to_string() )),       
         _ => Ok(value.clone())
     }
 }
 
+fn print_str_slice(strs: &[&str]) -> String {
+    let mut s = String::new();
+    for e in strs {
+        s = format!("{}{}", s, e);
+    }
+    s
+}
+
+fn short_text(value: &Value, _: &HashMap<String, Value>) -> tera::Result<Value> {
+    match value {
+        Value::String(s) =>  {
+            if s.len() > 53 {
+                let g = UnicodeSegmentation::graphemes(s.as_str(), true).collect::<Vec<&str>>();
+                Ok(Value::String( format!("{}...", print_str_slice(&g[..51]) )))
+            } else {
+                Ok(value.clone())   
+            }
+        },
+        _ => Ok(value.clone())
+    }
+}
 
 
 pub fn set_filter() -> impl Fairing {
@@ -87,6 +109,7 @@ pub fn set_filter() -> impl Fairing {
         engines.tera.register_filter("type_to_string", type_to_string);
         engines.tera.register_filter("remove_line_break", remove_line_break);
         engines.tera.register_filter("base_name", base_name);
+        engines.tera.register_filter("short_text", short_text);
     })
 }
 
