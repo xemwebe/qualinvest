@@ -23,6 +23,7 @@ use std::path::{Path, PathBuf};
 use tera;
 
 mod position;
+mod transactions;
 mod helper;
 mod filter;
 mod auth;
@@ -214,8 +215,9 @@ fn main() {
             logout,
             index,
             position::position,
-            position::process_position_filter,
             position::raw_position,
+            transactions::transactions,
+            filter::process_filter,
             static_files,
             error_msg
         ])

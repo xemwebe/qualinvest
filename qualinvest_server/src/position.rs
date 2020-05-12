@@ -4,7 +4,6 @@ use chrono::{DateTime,Local};
 
 use rocket::State;
 use rocket::response::Redirect;
-use rocket::request::{Form, FormItems, FormItem, FromForm};
 use rocket_contrib::json::Json;
 use rocket_contrib::templates::Template;
 
@@ -15,8 +14,6 @@ use qualinvest_core::position::{calc_position,PortfolioPosition};
 use qualinvest_core::accounts::AccountHandler;
 use qualinvest_core::user::UserHandler;
 use qualinvest_core::Config;
-use lazy_static::lazy_static;
-use regex::Regex;
 use crate::helper;
 use crate::user::UserCookie;
 use super::{default_context, QlInvestDbConn};
@@ -96,54 +93,3 @@ pub fn position(accounts: Option<String>, user_opt: Option<UserCookie>, mut qldb
     context.insert("valid_accounts", &user_accounts);
     Ok(layout("position", &context.into_json()))
 }
-
-#[derive(Debug)]
-pub struct FilterForm {
-    account_ids: Vec<usize>,
-}
-
-impl FilterForm {
-    fn to_query(&self) -> String {
-        if self.account_ids.len() == 0 {
-            String::new()
-        } else {
-            let mut query  = format!("?accounts={}", self.account_ids[0]);
-            for i in 1..self.account_ids.len() {
-                query = format!("{},{}", query, self.account_ids[i]);
-            }
-            query
-        }
-    }
-}
-
-impl<'f> FromForm<'f> for FilterForm {
-    type Error = &'static str;
-    
-    fn from_form(form_items: &mut FormItems<'f>, _strict: bool) -> Result<Self, Self::Error> {
-        lazy_static! {
-            static ref ACCOUNT_ID: Regex = Regex::new(r"accid([0-9]*)").unwrap();
-        }
-        
-        let mut account_ids = Vec::new();
-        for FormItem { key, .. } in form_items {
-            match ACCOUNT_ID.captures(key.as_str()) {
-                Some(account) =>  { account_ids.push( account[1].parse::<usize>().unwrap()); },
-                None => { return Err("Invalid form parameter found"); }
-            }
-        }
-
-        Ok(
-            FilterForm {
-                account_ids
-            }
-        )
-    }
-}
-
-#[post("/position", data="<form>")]
-pub fn process_position_filter(form: Form<FilterForm>) -> Redirect {
-    let filter_form = form.into_inner();
-    let query_string = format!("/position{}", filter_form.to_query());
-    Redirect::to(query_string) 
-}
-

@@ -1,0 +1,115 @@
+{% extends "layout" %}
+{% block pagetitle %} - Transactions{% endblock  pagetitle %}
+{% block jsdata %}
+	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+	<script type="text/javascript">
+		google.charts.load('current', {'packages':['table']});
+		google.charts.setOnLoadCallback(drawTable);
+
+	function drawTable() {
+	  var data = new google.visualization.DataTable();
+	  data.addColumn('number', 'ID');
+	  data.addColumn('number', 'Group ID');
+	  data.addColumn('string', 'Asset Name');
+	  data.addColumn('number', 'Asset ID');
+	  data.addColumn('number', 'Position');
+	  data.addColumn('string', 'Type');
+	  data.addColumn('number', 'Amount');
+	  data.addColumn('string', 'Currency');
+	  data.addColumn('string', 'Date');
+	  data.addColumn('string', 'Documentation');
+	  data.addColumn('string', 'Note');
+	  data.addColumn('number', 'Account ID');
+
+	  data.addRows([
+	    {% for t in transactions %}[
+		{{t.id}},
+		{{t.group_id}},
+	    {% if t.asset_name %}{v: "{{t.asset_name | lower}}", f: "{{t.asset_name}}" }{% else %}""{% endif %},
+	   	{% if t.asset_id %}{{t.asset_id}}{% else %}null{% endif %},
+	   	{% if t.position %}{v: {{t.position}}, f: "{{t.position | format_num}}" }{% else %}null{% endif %},
+	   	{v: '{{t.trans_type}}', f: "{{t.trans_type | type_to_string}}" },
+	   	{v: {{t.cash_amount}}, f: "{{t.cash_amount | format_num}}" },
+	   	"{{t.cash_currency}}",
+	   	"{{t.cash_date}}",
+		{# {% if t.doc_path %}{v: "{{t.doc_path | base_name}}", f: "<img src='static/pdf_icon.jpg'>"}{% else %}""{% endif %}, #}
+		{% if t.doc_path %}"{{t.doc_path | base_name}}"{% else %}""{% endif %},
+	   	{% if t.note %}"{{t.note | remove_line_break }}"{% else %}""{% endif %},
+		{{t.account_id}},
+	   ],
+	  {% endfor %}
+        ]);
+
+	var view = new google.visualization.DataView(data);
+	view.hideColumns([0,3,11]);
+	var table = new google.visualization.Table(document.getElementById('table_div'));
+	var tableHeight = (data.getNumberOfRows()+1.5)*21+1;
+	tableHeight = Math.min(tableHeight, window.innerHeight-150);
+	google.visualization.events.addListener(table,'select',selectHandler);
+	table.draw(view, {sortColumn: 8, sortAscending: false, width: '100%', height: tableHeight, allowHtml: true } );
+
+	// select handler
+	function selectHandler() {
+		var a = document.getElementById('edit_link');
+		var d = document.getElementById('destroy_link');
+  		var selection = table.getSelection();
+		if (selection.length<1) {
+			a.setAttribute('disabled','true');
+			d.setAttribute('disabled','true');
+		} else {
+			var id = data.getValue(selection[0].row,0);
+			a.href = "{{relpath}}/transactions/"+id+"/edit";
+			a.removeAttribute('disabled');
+			d.href = "{{relpath}}/transactions/"+id+"/destroy";
+			d.removeAttribute('disabled');
+		}
+	}
+      }
+    </script>
+{% endblock jsdata %}
+{% block content %}
+<script>
+function toggleFilter() {
+  var x = document.getElementById("filter");
+  var y = document.getElementById("filter_button");
+  if (x.style.display === "none") {
+    x.style.display = "block";
+    y.textContent = "Hide Filter";
+  } else {
+    x.style.display = "none";
+    y.textContent = "Show Filter";
+  }
+}
+function formChange() {
+	document.getElementById('apply_filter_button').disabled = false;
+}
+</script>
+<div class="row" style="margin-bottom: 20px;">
+	<div class="col-md-1">
+		<a class="btn btn-primary" id="edit_link" href="{{relpath}}/transactions/id/edit" disabled>Edit</a>
+        </div>
+	<div class="col-md-1">
+		<a class="btn btn-primary" id="destroy_link" href="{{relpath}}/transactions/id/destroy" disabled>Delete</a>
+        </div>
+	<div class="col-md-offset-8 col-md-2 text-right">
+		<a class="btn btn-primary" href="{{relpath}}/transactions/new"><i class="fa fa-plus"></i> New Transaction</a>	
+	</div>
+</div>
+<div class="filter-block">
+ 	<button id="filter_button" onclick="toggleFilter()">Show Filter</button>
+	<div class="filter" id="filter" style="display: none">
+		<form action="/filter/transactions" method="post">
+			<input type="submit" id="apply_filter_button" value="Apply Filter" disabled><br>
+			<label for="accounts">Select account(s):</label>
+			<div id="accounts">
+			{% for acc in valid_accounts %}
+			<label><input type="checkbox" name="accid{{acc.id}}" onclick="formChange()"  
+				{% if acc.id in selected_accounts %}checked{% endif %}> {{acc.broker}}: {{acc.account_name}}</label>
+			{% endfor %}
+			</div>
+		</form>
+	</div>
+</div>
+<div id="table_div" style="padding-top: 15px;"></div>
+{% endblock content %}
+

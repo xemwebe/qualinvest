@@ -1,5 +1,5 @@
 {% extends "layout" %}
-{% block pagetitle %}{{super()}}- Position{% endblock pagetitle %}
+{% block pagetitle %}{{super()}} - Position{% endblock pagetitle %}
 {% block jsdata %}
 	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 	<script type="text/javascript">
@@ -99,7 +99,7 @@ function formChange() {
 <div class="filter-block">
  	<button id="filter_button" onclick="toggleFilter()">Show Filter</button>
 	<div class="filter" id="filter" style="display: none">
-		<form action="/position" method="post">
+		<form action="/filter/position" method="post">
 			<input type="submit" id="apply_filter_button" value="Apply Filter" disabled><br>
 			<label for="accounts">Select account(s):</label>
 			<div id="accounts">
