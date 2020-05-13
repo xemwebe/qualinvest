@@ -50,15 +50,12 @@ pub fn position(accounts: Option<String>, user_opt: Option<UserCookie>, mut qldb
     let user = user_opt.unwrap();
     let currency = Currency::from_str("EUR").unwrap();
     let mut db = PostgresDB{ conn: qldb.0.deref_mut() };
-
-    let user_accounts;
-    if user.is_admin {
-        user_accounts = db.get_all_accounts()
-            .map_err(|_| Redirect::to("/err/get_all_account_ids"))?;
-    } else {
-        user_accounts = db.get_user_accounts(user.userid)
-            .map_err(|_| Redirect::to("/err/get_user_accounts"))?;
+    let user_accounts = user.get_accounts(&mut db);
+    if user_accounts.is_none() {
+        return Err(Redirect::to("/err/no_user_account_found"));
     }
+    let user_accounts = user_accounts.unwrap();
+    
     let selected_accounts =
         if let Some(accounts) = accounts {
             let accounts = helper::parse_ids(&accounts);

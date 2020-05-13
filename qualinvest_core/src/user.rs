@@ -64,5 +64,14 @@ pub trait UserHandler: AccountHandler {
         }
         Ok(valid_ids)
     }
+   
+    /// Get the account the transaction given by id belongs to, 
+    /// if the user given by user_id as the right to access this account
+    fn get_transaction_account_if_valid(&mut self, trans_id: usize, user_id: usize) -> Result<Account, DataError>;
+
+
+    /// Remove this transaction and all its dependencies, if it belongs to an account the user has
+    /// access rights for.
+    fn remove_transaction(&mut self, trans_id: usize, user_id: usize)-> Result<(), DataError>;
 }
 

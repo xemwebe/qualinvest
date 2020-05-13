@@ -217,6 +217,10 @@ fn main() {
             position::position,
             position::raw_position,
             transactions::transactions,
+            transactions::new_transaction,
+            transactions::edit_transaction,
+            transactions::delete_transaction,
+            transactions::process_transaction,
             filter::process_filter,
             static_files,
             error_msg

@@ -256,4 +256,75 @@ impl UserHandler for PostgresDB<'_> {
         }
         Ok(accounts)
     }
+
+       
+    /// Get the account the transaction given by id belongs to, 
+    /// if the user given by user_id as the right to access this account
+    fn get_transaction_account_if_valid(&mut self, trans_id: usize, user_id: usize) -> Result<Account, DataError> {
+        let row = self.conn
+            .query_one(r#"SELECT DISTINCT a.id, a.broker, a.account_name
+            FROM
+                accounts a,
+                account_rights ar,
+                account_transactions at,
+                users u
+            WHERE
+                at.account_id = a.id
+                AND at.transaction_id = $1
+                AND u.id = $2
+                AND ar.account_id = a.id
+                AND (ar.user_id = u.id
+                    OR u.is_admin
+                    );
+            "#, &[&(trans_id as i32), &(user_id as i32)])
+            .map_err(|_| DataError::DataAccessFailure("user has no right to access this transaction".to_string()))?;
+        let id: i32 = row.get(0);
+        Ok(Account{
+          id: Some(id as usize),
+          broker: row.get(1),
+          account_name: row.get(2),  
+        })
+        
+    }
+
+    /// Remove this transaction and all its dependencies, if it belongs to an account the user has
+    /// access rights for
+    fn remove_transaction(&mut self, trans_id: usize, user_id: usize)-> Result<(), DataError> {
+        // Get list of related trades
+        let rows = self.conn
+        .query(r#"SELECT DISTINCT t.id FROM transactions t, users u, account_rights ar, accounts a, account_transactions at
+        WHERE (t.id=$1 OR t.related_trans=$1)
+        AND u.id=$2
+        AND (u.is_admin
+            OR
+            (
+                ar.user_id = u.id
+                AND ar.account_id = a.id
+                AND at.account_id = a.id
+                AND at.transaction_id = t.id
+            )
+        );"#, 
+        &[&(trans_id as i32), &(user_id as i32)])
+        .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
+        let mut ids = Vec::new();
+        for row in rows {
+            let id: i32 = row.get(0);
+            ids.push(id);
+        }
+        for id in ids {
+            self.conn
+            .execute("DELETE FROM documents WHERE transaction_id=$1", 
+                &[&id])
+                .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
+            self.conn
+            .execute("DELETE FROM account_transactions WHERE transaction_id=$1", 
+                &[&id])
+                .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
+            self.conn
+            .execute("DELETE FROM transactions WHERE id=$1", 
+                &[&id])
+                .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
+        }
+        Ok(())
+    }
 }

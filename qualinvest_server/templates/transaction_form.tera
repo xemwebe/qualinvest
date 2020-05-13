@@ -1,0 +1,75 @@
+{% extends "layout" %}
+{% block content %}
+<div class="row">
+		<form class="form-horizontal" action="{{relpath}}/transactions{%- if transaction.id -%}}/{{transaction.id}}/edit{%- else -%}/new{%- endif %}" method="post">
+			<div class="form-group">
+				<label class="control-label col-md-2" for="date">Date:</label>
+				<div class="col-md-2">
+				<input class="fpcalendar flatpickr flatpickr-input" name="Date" id="date" type="text" value={{transaction.date}}>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="control-label col-md-2" for="type">Type:</label>
+				<div class="col-md-2">
+				<select class="form-control" id="type" name="type"> 
+					<option value="c" {% if transaction.trans_type == "c" %}selected{% endif %}>Cash</option> 
+					<option value="a" {% if transaction.trans_type == "a" %}selected{% endif %}>Buy/Sell</option> 
+					<option value="d" {% if transaction.trans_type == "d" %}selected{% endif %}>Dividend</option> 
+					<option value="t" {% if transaction.trans_type == "t" %}selected{% endif %}>Tax</option> 
+					<option value="f" {% if transaction.trans_type == "f" %}selected{% endif %}>Fee</option> 
+					<option value="i" {% if transaction.trans_type == "i" %}selected{% endif %}>Interest</option> 
+				</select> 
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="control-label col-md-2" for="asset">Asset:</label>
+				<div class="col-md-5">
+				<select class="form-control" id="asset" name="Asset"> 
+					{% set asset_id = transaction.asset_id %}
+					{% for asset in assets %}
+					<option value="{asset.id}" {% if asset.id == transaction.asset_id %}selected{% endif %}>{{asset.name}}</option> 
+ 					{% endfor %}
+				</select> 
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="control-label col-md-2" for="position">Position:</label>
+				<div class="col-md-2">
+				<input class="form-control" id="position" name="Position" type="text" value={{transaction.position}}>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="control-label col-md-2" for="amount">Amount:</label>
+				<div class="col-md-2">
+				<input class="form-control" id="amount" name="amount" type="text" value={{transaction.cash_amount}}>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="control-label col-md-2" for="currency">Currency:</label>
+				<div class="col-md-2">
+				<select class="form-control" id="currency" name="Currency"> 
+					{% set currency = transaction.currency %}
+					{% for curr in currencies %}
+					<option value="{{curr}}" {% if curr == currency %}selected{% endif %}>{{curr}}</option> 
+ 					{% endfor %}
+				</select> 
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="control-label col-md-2" for="Note">Note:</label><br/>
+				<div class="col-md-5">
+					<textarea id="Note" cols=50 rows=10 name="Note" type="text">{{transaction.note}}</textarea>
+				</div>
+			</div>
+			<div class="row text-right col-md-8">
+				{% if transaction.id %}
+				<button class="btn btn-success" type="submit">Change</button>
+				{% else %}
+				<button class="btn btn-success" type="submit">Create</button>
+				{% endif %}
+				<a class="btn btn-link" href="{{relpath}}/transactions">Cancel</button>
+			</div>
+		</form>
+	</div>
+</div>	
+{% endblock content %}

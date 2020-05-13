@@ -57,9 +57,9 @@
 			d.setAttribute('disabled','true');
 		} else {
 			var id = data.getValue(selection[0].row,0);
-			a.href = "{{relpath}}/transactions/"+id+"/edit";
+			a.href = "{{relpath}}/transactions/edit/"+id;
 			a.removeAttribute('disabled');
-			d.href = "{{relpath}}/transactions/"+id+"/destroy";
+			d.href = "{{relpath}}/transactions/delete/"+id;
 			d.removeAttribute('disabled');
 		}
 	}
@@ -85,10 +85,10 @@ function formChange() {
 </script>
 <div class="row" style="margin-bottom: 20px;">
 	<div class="col-md-1">
-		<a class="btn btn-primary" id="edit_link" href="{{relpath}}/transactions/id/edit" disabled>Edit</a>
+		<a class="btn btn-primary" id="edit_link" href="{{relpath}}/transactions/edit/id" disabled>Edit</a>
         </div>
 	<div class="col-md-1">
-		<a class="btn btn-primary" id="destroy_link" href="{{relpath}}/transactions/id/destroy" disabled>Delete</a>
+		<a class="btn btn-primary" id="destroy_link" href="{{relpath}}/transactions/delete/id" disabled>Delete</a>
         </div>
 	<div class="col-md-offset-8 col-md-2 text-right">
 		<a class="btn btn-primary" href="{{relpath}}/transactions/new"><i class="fa fa-plus"></i> New Transaction</a>	

@@ -4,6 +4,7 @@ use rocket::request::FromRequest;
 use std::collections::HashMap;
 use super::auth::authorization::*;
 use qualinvest_core::user::UserHandler;
+use qualinvest_core::accounts::Account;
 
 /// The UserCookie type is used to indicate a user has logged in as an user
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,6 +13,16 @@ pub struct UserCookie {
     pub username: String,
     pub display: Option<String>,
     pub is_admin: bool,
+}
+
+impl UserCookie {
+    pub fn get_accounts(&self, db: &mut dyn UserHandler) -> Option<Vec<Account>> {
+        if self.is_admin {
+            db.get_all_accounts().ok()
+        } else {
+            db.get_user_accounts(self.userid).ok()
+        }
+    }
 }
 
 /// The UserForm type is used to process a user attempting to login as an user
