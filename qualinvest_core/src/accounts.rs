@@ -86,6 +86,9 @@ pub trait AccountHandler: TransactionHandler {
 
     /// Get transactions view for list of account ids
     fn get_transaction_view_for_accounts(&mut self, accounts: &Vec<usize>) -> Result<Vec<TransactionView>, DataError>;
+
+    /// Change the account a transaction identified by id belongs to
+    fn change_transaction_account(&mut self, transaction_id: usize, old_account_id: usize, new_account_id: usize) -> Result<(), DataError>;
 }
 
 impl AccountHandler for PostgresDB<'_> {
@@ -360,4 +363,15 @@ impl AccountHandler for PostgresDB<'_> {
         }
         Ok(transactions)
     }
+
+    /// Change the account a transaction identified by id belongs to
+    fn change_transaction_account(&mut self, transaction_id: usize, old_account_id: usize, new_account_id: usize) -> Result<(), DataError> {
+        self.conn
+        .execute(
+            "UPDATE account_transactions SET account_id=$3 WHERE transaction_id=$1 AND account_id=$2",
+            &[&(transaction_id as i32), &(old_account_id as i32), &(new_account_id as i32)])
+            .map_err(|e| DataError::UpdateFailed(e.to_string()))?;
+    Ok(())
+    }
+
 }

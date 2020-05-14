@@ -149,8 +149,8 @@ fn static_files(file: PathBuf) -> Option<NamedFile> {
 #[get("/err/<msg>")]
 fn error_msg(msg: String, user_opt: Option<UserCookie>, state: State<Config>) -> Template {
     let mut context = default_context(&state);
-    context.insert("alert", "danger");
-    context.insert("alert_message", &msg);
+    context.insert("alert_type", "danger");
+    context.insert("alert_msg", &msg);
     if let Some(user) = user_opt {
         context.insert("user", &user);
     } 
@@ -215,7 +215,6 @@ fn main() {
             logout,
             index,
             position::position,
-            position::raw_position,
             transactions::transactions,
             transactions::new_transaction,
             transactions::edit_transaction,

@@ -1,6 +1,8 @@
-{% extends "layout" %}
+{% extends "filter" %}
 {% block pagetitle %}{{super()}} - Position{% endblock pagetitle %}
+{% block form_action %}action="/filter/position"{% endblock form_action %}
 {% block jsdata %}
+{{super()}}
 	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 	<script type="text/javascript">
 		google.charts.load('current', {'packages':['table']});
@@ -79,38 +81,8 @@
 		}
 	</script>
 {% endblock jsdata %}
-{% block content %} 
-<script>
-function toggleFilter() {
-  var x = document.getElementById("filter");
-  var y = document.getElementById("filter_button");
-  if (x.style.display === "none") {
-    x.style.display = "block";
-    y.textContent = "Hide Filter";
-  } else {
-    x.style.display = "none";
-    y.textContent = "Show Filter";
-  }
-}
-function formChange() {
-	document.getElementById('apply_filter_button').disabled = false;
-}
-</script>
-<div class="filter-block">
- 	<button id="filter_button" onclick="toggleFilter()">Show Filter</button>
-	<div class="filter" id="filter" style="display: none">
-		<form action="/filter/position" method="post">
-			<input type="submit" id="apply_filter_button" value="Apply Filter" disabled><br>
-			<label for="accounts">Select account(s):</label>
-			<div id="accounts">
-			{% for acc in valid_accounts %}
-			<label><input type="checkbox" name="accid{{acc.id}}" onclick="formChange()"  
-				{% if acc.id in selected_accounts %}checked{% endif %}> {{acc.broker}}: {{acc.account_name}}</label>
-			{% endfor %}
-			</div>
-		</form>
-	</div>
-</div>
+{% block content %}
+{{super()}}
 <div id="table_div" style="padding-top: 15px;"></div>
 {% endblock content %}
 
