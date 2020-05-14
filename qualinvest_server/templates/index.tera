@@ -8,8 +8,8 @@
 {% elif user.is_admin %}
 <div class="warning"> You are logged in as administrator. </div>
 {% endif %} 
-<h1>Qualinvestor</h1>
-<p>Qualinvestor is a tool to manage a portfolio of investments of common assets 
+<h1>Quant Invest</h1>
+<p>Quant Invest is a tool to manage a portfolio of investments of common assets 
 like shares, bonds or loans.</p>
 
 <p>The functionality covers basic book-keeping of positions, 

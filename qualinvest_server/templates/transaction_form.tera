@@ -1,5 +1,7 @@
 {% extends "layout" %}
 {% block jsdata %}{{super()}}
+<link rel="stylesheet" href="https://unpkg.com/flatpickr/dist/flatpickr.min.css">
+<script src="https://unpkg.com/flatpickr"></script>
 <script>
 function setFields() {
 	type_value = document.getElementById('type').value;
@@ -124,5 +126,6 @@ function setFields() {
 </div>	
 <script>
 setFields();
+flatpickr(".fpcalendar", {});
 </script>
 {% endblock content %}

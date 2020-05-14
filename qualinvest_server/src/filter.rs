@@ -10,6 +10,7 @@ use lazy_static::lazy_static;
 use unicode_segmentation::UnicodeSegmentation;
 use regex::Regex;
 use crate::helper;
+use chrono::{Local,NaiveDate};
 
 fn format_num_precision(num: f64, precision: i32) -> String {
     let mut writer = String::new();
@@ -124,12 +125,21 @@ mod tests {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug,Serialize,Deserialize)]
 pub struct FilterForm {
     account_ids: Vec<usize>,
+    start_date: NaiveDate,
+    end_date: NaiveDate,
 }
 
 impl FilterForm {
+    pub fn new() -> FilterForm {
+        FilterForm{
+            account_ids: Vec::new(),
+            start_date: NaiveDate::from_ymd(1900,01,01),
+            end_date: Local::now().naive_local().date(),
+        }
+    }
     fn to_query(&self) -> String {
         if self.account_ids.len() == 0 {
             String::new()
@@ -152,16 +162,28 @@ impl<'f> FromForm<'f> for FilterForm {
         }
         
         let mut account_ids = Vec::new();
-        for FormItem { key, .. } in form_items {
-            match ACCOUNT_ID.captures(key.as_str()) {
-                Some(account) =>  { account_ids.push( account[1].parse::<usize>().unwrap()); },
-                None => { return Err("Invalid form parameter found"); }
+        let mut start_date = NaiveDate::from_ymd(1900,01,01);
+        let mut end_date = Local::now().naive_local().date();
+
+        for FormItem { key, value, .. } in form_items {
+            match key.as_str() {
+                "start_date" =>  { start_date = NaiveDate::parse_from_str(value.as_str(), "%Y-%m-%d")
+                    .map_err(|_| "date parse error" )?; },
+                "end_date" =>  { end_date = NaiveDate::parse_from_str(value.as_str(), "%Y-%m-%d")
+                    .map_err(|_| "date parse error" )?; },
+                _ => match ACCOUNT_ID.captures(key.as_str()) {
+                    Some(account) =>  { account_ids.push( account[1].parse::<usize>().unwrap()); },
+                    None => { return Err("Invalid form parameter found"); }
+                }
+     
             }
         }
 
         Ok(
             FilterForm {
-                account_ids
+                account_ids,
+                start_date,
+                end_date,
             }
         )
     }

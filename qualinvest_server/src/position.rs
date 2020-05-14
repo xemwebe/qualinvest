@@ -16,6 +16,7 @@ use crate::helper;
 use crate::user::UserCookie;
 use super::{default_context, QlInvestDbConn};
 use crate::layout::layout;
+use crate::filter;
 
 #[get("/position?<accounts>")]
 pub fn position(accounts: Option<String>, user_opt: Option<UserCookie>, mut qldb: QlInvestDbConn, state: State<Config>) -> Result<Template,Redirect> {
@@ -64,5 +65,6 @@ pub fn position(accounts: Option<String>, user_opt: Option<UserCookie>, mut qldb
     context.insert("user", &user);
     context.insert("selected_accounts", &selected_accounts);
     context.insert("valid_accounts", &user_accounts);
+    context.insert("filter", &filter::FilterForm::new());
     Ok(layout("position", &context.into_json()))
 }

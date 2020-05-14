@@ -1,20 +1,27 @@
 {% extends "layout" %}
 {% block jsdata %}
 {{super()}}
+<link rel="stylesheet" href="https://unpkg.com/flatpickr/dist/flatpickr.min.css">
+<script src="https://unpkg.com/flatpickr"></script>
 <script>
 function toggleFilter() {
   var x = document.getElementById("filter");
   var y = document.getElementById("filter_button");
+  var z = document.getElementById("period_info");
   if (x.style.display === "none") {
     x.style.display = "block";
+	z.style.display = "none";
     y.textContent = "Hide Filter";
   } else {
     x.style.display = "none";
+	z.style.display = "inline";
     y.textContent = "Show Filter";
   }
 }
 function formChange() {
 	document.getElementById('apply_filter_button').disabled = false;
+	document.getElementById('info_start').textContent = document.getElementById('start_date').value;
+	document.getElementById('info_end').textContent = document.getElementById('end_date').value;
 }
 </script>
 {% endblock jsdata %}
@@ -22,17 +29,38 @@ function formChange() {
 {{super()}}
 <div class="filter-block">
  	<button id="filter_button" onclick="toggleFilter()">Show Filter</button>
+	<div id="period_info" display="inline"> 
+		Start Date: <span id="info_start">{{filter.start_date}}</span> 
+		End Date: <span id="info_end">{{filter.end_date}}</span>
+	</div>
 	<div class="filter" id="filter" style="display: none">
 		<form {% block form_action %}{% endblock form_action %} method="post">
-			<input type="submit" id="apply_filter_button" value="Apply Filter" disabled><br>
-			<label for="accounts">Select account(s):</label>
-			<div id="accounts">
-			{% for acc in valid_accounts %}
-			<label><input type="checkbox" name="accid{{acc.id}}" onclick="formChange()"  
-				{% if acc.id in selected_accounts %}checked{% endif %}> {{acc.broker}}: {{acc.account_name}}</label>
-			{% endfor %}
+			<div class="form-group">
+				<div class="col-md-1">
+					<input type="submit" id="apply_filter_button" value="Apply Filter" disabled>
+				</div>
+				<label class="control-label col-md-1" for="start_date">Start Date:</label>
+				<div class="col-md-2">
+					<input class="fpcalendar flatpickr flatpickr-input" onchange="formChange()" name="start_date" id="start_date" type="text" value={{filter.start_date}}>
+				</div>
+				<label class="control-label col-md-1" for="end_date">End Date:</label>
+				<div class="col-md-2">
+					<input class="fpcalendar flatpickr flatpickr-input" onchange="formChange()" name="end_date" id="end_date" type="text" value={{filter.end_date}}>
+				</div>
+			</div><br>
+			<div class="form-group">
+				<label>Select account(s):
+				<div id="accounts">
+					{% for acc in valid_accounts %}
+						<label><input type="checkbox" name="accid{{acc.id}}" onclick="formChange()"  
+						{% if acc.id in selected_accounts %}checked{% endif %}> {{acc.broker}}: {{acc.account_name}}</label>
+					{% endfor %}
+				</div></label>
 			</div>
 		</form>
 	</div>
 </div>
+<script>
+flatpickr(".fpcalendar", {});
+</script>
 {% endblock content %}

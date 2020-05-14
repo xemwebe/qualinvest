@@ -18,6 +18,7 @@ use crate::helper;
 use crate::user::UserCookie;
 use super::{default_context, QlInvestDbConn};
 use crate::layout::layout;
+use crate::filter;
 use std::str::FromStr;
 
 #[get("/transactions?<accounts>")]
@@ -59,20 +60,10 @@ pub fn transactions(accounts: Option<String>, user_opt: Option<UserCookie>, mut 
     context.insert("selected_accounts", &selected_accounts);
     context.insert("valid_accounts", &user_accounts);
     context.insert("user", &user);
+    context.insert("filter", &filter::FilterForm::new());
     Ok(layout("transactions", &context.into_json()))
 }
 
-#[derive(Debug,Serialize,Deserialize)]
-pub struct NaiveDateForm(NaiveDate);
-
-impl<'v> FromFormValue<'v> for NaiveDateForm {
-    type Error = &'v RawStr;
-
-    fn from_form_value(form_value: &'v RawStr) -> Result<NaiveDateForm, &'v RawStr> {
-        Ok(NaiveDateForm(NaiveDate::parse_from_str(form_value.as_str(), "%Y-%m-%d")
-            .map_err(|_| form_value )?))
-    }
-}
 
 /// Structure for storing information in transaction formular
 #[derive(Debug,Serialize,Deserialize,FromForm)]
@@ -184,6 +175,18 @@ impl TransactionForm {
         };
         Ok(t)
     } 
+}
+
+#[derive(Debug,Serialize,Deserialize)]
+pub struct NaiveDateForm(NaiveDate);
+
+impl<'v> FromFormValue<'v> for NaiveDateForm {
+    type Error = &'v RawStr;
+
+    fn from_form_value(form_value: &'v RawStr) -> Result<NaiveDateForm, &'v RawStr> {
+        Ok(NaiveDateForm(NaiveDate::parse_from_str(form_value.as_str(), "%Y-%m-%d")
+            .map_err(|_| form_value )?))
+    }
 }
 
 #[get("/transactions/edit/<trans_id>")]
