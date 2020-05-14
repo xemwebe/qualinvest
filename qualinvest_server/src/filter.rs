@@ -11,6 +11,9 @@ use unicode_segmentation::UnicodeSegmentation;
 use regex::Regex;
 use crate::helper;
 use chrono::{Local,NaiveDate};
+use crate::user;
+use qualinvest_core::user::UserHandler;
+use qualinvest_core::accounts::Account;
 
 fn format_num_precision(num: f64, precision: i32) -> String {
     let mut writer = String::new();
@@ -127,19 +130,12 @@ mod tests {
 
 #[derive(Debug,Serialize,Deserialize)]
 pub struct FilterForm {
-    account_ids: Vec<usize>,
-    start_date: NaiveDate,
-    end_date: NaiveDate,
+    pub account_ids: Vec<usize>,
+    pub start_date: NaiveDate,
+    pub end_date: NaiveDate,
 }
 
 impl FilterForm {
-    pub fn new() -> FilterForm {
-        FilterForm{
-            account_ids: Vec::new(),
-            start_date: NaiveDate::from_ymd(1900,01,01),
-            end_date: Local::now().naive_local().date(),
-        }
-    }
     fn to_query(&self) -> String {
         if self.account_ids.len() == 0 {
             String::new()
@@ -148,9 +144,44 @@ impl FilterForm {
             for id in &self.account_ids[1..] {
                 query = format!("{},{}", query, *id);
             }
+            query = format!("{}&start={}&end={}",query
+                ,self.start_date.format("%Y-%m-%d").to_string()
+                ,self.end_date.format("%Y-%m-%d").to_string()
+            );
             query
         }
     }
+
+    pub fn from_query(accounts: Option<String>, start: Option<String>, end: Option<String>, user: &user::UserCookie, user_accounts: &Vec<Account>, db: &mut dyn UserHandler) -> Result<FilterForm,Redirect> {
+        let start_date = match start {
+            Some(s) => NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d")
+                .map_err(|_| Redirect::to("/err/invalid_date"))?,
+            None => NaiveDate::from_ymd(1900,01,01)
+        };
+        let end_date = match end {
+            Some(s) => NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d")
+                .map_err(|_| Redirect::to("/err/invalid_date"))?,
+            None => Local::now().naive_local().date()
+        };
+        let account_ids =
+        if let Some(accounts) = accounts {
+            let accounts = helper::parse_ids(&accounts);
+            if user.is_admin {
+                accounts
+            } else {
+                db.valid_accounts(user.userid, &accounts)
+                    .map_err(|_| Redirect::to("/err/valid_accounts"))?
+            }
+        } else {
+            let mut account_ids = Vec::new();
+            for account in user_accounts {
+                account_ids.push(account.id.unwrap());
+            }
+            account_ids
+        };
+        Ok(FilterForm{account_ids,start_date,end_date})
+    }
+
 }
 
 impl<'f> FromForm<'f> for FilterForm {

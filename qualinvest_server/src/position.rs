@@ -10,16 +10,14 @@ use finql::Currency;
 use finql::postgres_handler::PostgresDB;
 use qualinvest_core::position::{calc_position};
 use qualinvest_core::accounts::AccountHandler;
-use qualinvest_core::user::UserHandler;
 use qualinvest_core::Config;
-use crate::helper;
 use crate::user::UserCookie;
 use super::{default_context, QlInvestDbConn};
 use crate::layout::layout;
 use crate::filter;
 
-#[get("/position?<accounts>")]
-pub fn position(accounts: Option<String>, user_opt: Option<UserCookie>, mut qldb: QlInvestDbConn, state: State<Config>) -> Result<Template,Redirect> {
+#[get("/position?<accounts>&<start>&<end>")]
+pub fn position(accounts: Option<String>, start: Option<String>, end: Option<String>, user_opt: Option<UserCookie>, mut qldb: QlInvestDbConn, state: State<Config>) -> Result<Template,Redirect> {
     if user_opt.is_none() {
         return Err(Redirect::to("/login?redirect=position"));
     }
@@ -33,24 +31,9 @@ pub fn position(accounts: Option<String>, user_opt: Option<UserCookie>, mut qldb
     }
     let user_accounts = user_accounts.unwrap();
 
-    let selected_accounts =
-        if let Some(accounts) = accounts {
-            let accounts = helper::parse_ids(&accounts);
-            if user.is_admin {
-                accounts
-            } else {
-                db.valid_accounts(user.userid, &accounts)
-                    .map_err(|_| Redirect::to("/err/valid_accounts"))?
-            }
-        } else {
-            let mut account_ids = Vec::new();
-            for account in &user_accounts {
-                account_ids.push(account.id.unwrap());
-            }
-            account_ids
-        };
+    let filter = filter::FilterForm::from_query(accounts, start, end, &user, &user_accounts, &mut db)?;
 
-    let transactions = db.get_all_transactions_with_accounts(&selected_accounts)
+    let transactions = db.get_all_transactions_with_accounts(&filter.account_ids)
         .map_err(|_| Redirect::to("/err/get_all_transactions_with_accounts"))?;
     let mut position = calc_position(currency, &transactions)
         .map_err(|_| Redirect::to("/err/calc_positions"))?;
@@ -63,8 +46,7 @@ pub fn position(accounts: Option<String>, user_opt: Option<UserCookie>, mut qldb
     context.insert("positions", &position);
     context.insert("totals", &totals);
     context.insert("user", &user);
-    context.insert("selected_accounts", &selected_accounts);
     context.insert("valid_accounts", &user_accounts);
-    context.insert("filter", &filter::FilterForm::new());
+    context.insert("filter", &filter);
     Ok(layout("position", &context.into_json()))
 }
