@@ -249,8 +249,8 @@ pub fn parse_and_store<DB: AccountHandler>(
                 }
                 Err(err) => Err(err),
             }?;
-            let new_path = store_pdf(pdf_file, &hash, &config)?;
-            db.insert_doc(&trans_ids, &hash, &new_path)?;
+            let name = store_pdf(pdf_file, &hash, &config)?;
+            db.insert_doc(&trans_ids, &hash, &name)?;
             Ok(trans_ids.len() as i32)
         }
         Err(err) => Err(err),

@@ -22,6 +22,8 @@ pub fn sha256_hash(file: &str) -> Result<String, ReadPDFError> {
     Ok(hash)
 }
 
+/// Store a copy of the pdf file in the path specified in the configuration.
+/// Return the base name to be stored in the database.
 pub fn store_pdf(
     pdf_file: &str,
     _hash: &str,
@@ -34,7 +36,7 @@ pub fn store_pdf(
         .to_string_lossy();
     let new_path = format!("{}/{}", &config.doc_path, name);
     fs::copy(pdf_file, &new_path)?;
-    Ok(new_path)
+    Ok(name)
 }
 
 #[cfg(test)]
