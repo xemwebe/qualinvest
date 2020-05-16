@@ -1,5 +1,9 @@
-///! # qualinvest
-///! A cloud based tool for quantitative analysis and management of financial asset portfolios
+///! # qualinvest_cli
+///! 
+///! This library is part of a set of tools for quantitative investments.
+///! For mor information, see [qualinvest on github](https://github.com/xemwebe/qualinvest)
+///!
+
 use clap::{App, AppSettings, Arg, SubCommand};
 use finql::data_handler::{QuoteHandler, TransactionHandler};
 use finql::date_time_helper::date_time_from_str_standard;

@@ -1,3 +1,9 @@
+///! # qualinvest_server
+///! 
+///! This library is part of a set of tools for quantitative investments.
+///! For mor information, see [qualinvest on github](https://github.com/xemwebe/qualinvest)
+///!
+
 #![feature(proc_macro_hygiene, decl_macro)]
 
 #[macro_use] extern crate rocket;

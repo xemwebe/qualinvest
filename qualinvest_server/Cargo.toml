@@ -3,6 +3,10 @@ name = "qualinvest_server"
 version = "0.1.0"
 authors = ["Mark Beinker <mwb@quantlink.de>"]
 edition = "2018"
+description = "Http based GUI of the qualinvest project"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/xemwebe/qualinvest"
+keywords = ["finance", "investment", "quantitative", "analysis"]
 
 [dependencies]
 rocket = { git="https://github.com/SergioBenitez/Rocket.git" }
