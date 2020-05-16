@@ -36,7 +36,7 @@ pub fn store_pdf(
         .to_string_lossy();
     let new_path = format!("{}/{}", &config.doc_path, name);
     fs::copy(pdf_file, &new_path)?;
-    Ok(name)
+    Ok(name.to_string())
 }
 
 #[cfg(test)]
