@@ -6,3 +6,5 @@ qualinvest.json
 qualinvest.toml
 /test_data
 
+/dist_package
+qualinvest.tar.gz
