@@ -9,7 +9,7 @@ repository = "https://github.com/xemwebe/qualinvest"
 keywords = ["finance", "investment", "quantitative", "analysis"]
 
 [dependencies]
-rocket = { git="https://github.com/SergioBenitez/Rocket.git" }
+rocket = { version="0.5.0-dev", git="https://github.com/SergioBenitez/Rocket.git" }
 serde = { version = "1.0.*", features = ["derive"] }
 serde_json = "1.0"
 finql = { version = "0.7", path = "../../finql" }
@@ -27,6 +27,7 @@ lazy_static = "1.4"
 unicode-segmentation = "1.6"
 
 [dependencies.rocket_contrib]
+version="0.5.0-dev"
 git="https://github.com/SergioBenitez/Rocket.git"
 default-features = false
 features = ["json","postgres_pool", "tera_templates"]
