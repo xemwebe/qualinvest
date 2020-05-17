@@ -1,6 +1,6 @@
 {% extends "filter" %}
 {% block pagetitle %}{{super()}} - Position{% endblock pagetitle %}
-{% block form_action %}action="/filter/position"{% endblock form_action %}
+{% block form_action %}action="{{relpath}}/filter/position"{% endblock form_action %}
 {% block jsdata %}
 {{super()}}
 	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>

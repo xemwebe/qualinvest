@@ -17,3 +17,9 @@ default_account = false
 alpha_vantage_token = "<token>"
 gurufocus_token = "<token>"
 eod_historical_data_token = "<token>"
+
+[server]
+port = 8000
+relative_path = ""
+
+

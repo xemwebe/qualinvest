@@ -5,6 +5,7 @@ use rocket_contrib::templates::tera::{self, Value};
 use rocket::request::{Form, FormItems, FormItem, FromForm};
 use rocket::fairing::Fairing;
 use rocket::response::Redirect;
+use rocket::State;
 use num_format::{Locale, WriteFormatted};
 use lazy_static::lazy_static;
 use unicode_segmentation::UnicodeSegmentation;
@@ -14,6 +15,7 @@ use chrono::{Local,NaiveDate};
 use crate::user;
 use qualinvest_core::user::UserHandler;
 use qualinvest_core::accounts::Account;
+use super::ServerState;
 
 fn format_num_precision(num: f64, precision: i32) -> String {
     let mut writer = String::new();
@@ -221,9 +223,9 @@ impl<'f> FromForm<'f> for FilterForm {
 }
 
 #[post("/filter/<view>", data="<form>")]
-pub fn process_filter(view: String, form: Form<FilterForm>) -> Redirect {
+pub fn process_filter(view: String, form: Form<FilterForm>, state: State<ServerState>) -> Redirect {
     let filter_form = form.into_inner();
-    let query_string = format!("/{}{}", view, filter_form.to_query());
+    let query_string = format!("{}/{}{}", state.rel_path, view, filter_form.to_query());
     Redirect::to(query_string) 
 }
 

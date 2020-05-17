@@ -10,14 +10,13 @@ use finql::Currency;
 use finql::postgres_handler::PostgresDB;
 use qualinvest_core::position::{calc_position};
 use qualinvest_core::accounts::AccountHandler;
-use qualinvest_core::Config;
 use crate::user::UserCookie;
-use super::{default_context, QlInvestDbConn};
+use super::{QlInvestDbConn,ServerState};
 use crate::layout::layout;
 use crate::filter;
 
 #[get("/position?<accounts>&<start>&<end>")]
-pub fn position(accounts: Option<String>, start: Option<String>, end: Option<String>, user_opt: Option<UserCookie>, mut qldb: QlInvestDbConn, state: State<Config>) -> Result<Template,Redirect> {
+pub fn position(accounts: Option<String>, start: Option<String>, end: Option<String>, user_opt: Option<UserCookie>, mut qldb: QlInvestDbConn, state: State<ServerState>) -> Result<Template,Redirect> {
     if user_opt.is_none() {
         return Err(Redirect::to("/login?redirect=position"));
     }
@@ -42,7 +41,7 @@ pub fn position(accounts: Option<String>, start: Option<String>, end: Option<Str
     position.add_quote(time, &mut db).unwrap();
     let totals = position.calc_totals();
 
-    let mut context = default_context(&state);
+    let mut context = state.default_context();
     context.insert("positions", &position);
     context.insert("totals", &totals);
     context.insert("user", &user);

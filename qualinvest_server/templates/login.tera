@@ -9,7 +9,7 @@
   {% if alert_message %}
 	<div class="alert alert-{{alert_type}}">{{alert_message}}</div>
   {% endif %}
-  <form action="{{login_url}}" method="POST">
+  <form action="{{relpath}}/login" method="POST">
   <div class="form-group">
     <input type="text" class="form-control" name="username" placeholder="Username" {% if user %}value="{{user}}"{% endif %}>
   </div>

@@ -25,7 +25,7 @@
 
 			<div>
 				<ul class="nav navbar-nav navbar-right">
-					{% if not user %}
+					{% if not user or not user.id %}
 					<li><a href="{{relpath}}/login?redir={{relpath}}/"><i class="fa fa-sign-in"></i> Login</a></li>
 					{% else %}
 					<li class="dropdown">
