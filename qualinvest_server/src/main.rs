@@ -14,7 +14,7 @@ use clap::{App, AppSettings, Arg};
 use std::ops::DerefMut;
 
 use rocket::State;
-use rocket::config::{Value,Environment};
+use rocket::config::{LoggingLevel,Value,Environment};
 use rocket::http::{Cookie, Cookies};
 use rocket::response::{NamedFile, Redirect, Flash};
 use rocket::request::{FlashMessage, Form};
@@ -210,10 +210,25 @@ fn main() {
     // Set up all filters for tera
     filter::set_filter();
 
-    let rocket_config = rocket::Config::build(Environment::Development)
+    let rocket_config = if config.debug {
+        rocket::Config::build(Environment::Development)
         .extra("databases", databases)
+        .port(config.server.port.unwrap_or(8000))
         .finalize()
-        .unwrap();
+        .unwrap()
+    } else {
+        if config.server.secret_key.is_none() {
+            println!("Please set a secret key for production environment!");
+            return;
+        }
+        rocket::Config::build(Environment::Production)
+        .extra("databases", databases)
+        .port(config.server.port.unwrap_or(8000))
+        .secret_key(config.server.secret_key.unwrap())
+        .log_level(LoggingLevel::Off)
+        .finalize()
+        .unwrap()
+    };
     let templates = filter::set_filter();
 
     let mount_path = match config.server.relative_path {

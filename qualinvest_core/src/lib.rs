@@ -57,8 +57,9 @@ pub struct MarketDataProviders {
 /// Market data provider settings
 #[derive(Debug, Deserialize)]
 pub struct ServerSettings {
-    pub port: Option<u32>,
+    pub port: Option<u16>,
     pub relative_path: Option<String>,
+    pub secret_key: Option<String>,
 }
 
 fn add_provider(
