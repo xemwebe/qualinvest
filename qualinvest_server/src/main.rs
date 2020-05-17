@@ -124,7 +124,7 @@ fn process_login(form: Form<LoginCont<UserForm>>, mut cookies: Cookies, mut qldb
 fn logout(user: Option<UserCookie>, mut cookies: Cookies, state: State<ServerState>) -> Result<Flash<Redirect>, Redirect> {
     if let Some(_) = user {
         cookies.remove_private(Cookie::named(UserCookie::cookie_id()));
-        Ok(Flash::success(Redirect::to("/"), "Successfully logged out."))
+        Ok(Flash::success(Redirect::to(format!("{}/",state.rel_path)), "Successfully logged out."))
     } else {
         Err(Redirect::to(format!("{}/login", state.rel_path)))
     }
@@ -145,7 +145,7 @@ fn index(user_opt: Option<UserCookie>, flash_msg_opt: Option<FlashMessage>, stat
     };
     let mut context = state.default_context();
     context.insert("alert_type", &alert_type);
-    context.insert("alert_message", &alert_msg);
+    context.insert("alert_msg", &alert_msg);
     if let Some(user) = user_opt {
         context.insert("user", &user);
     } 
@@ -174,7 +174,6 @@ fn error_msg(msg: String, user_opt: Option<UserCookie>, state: State<ServerState
 
 fn main() {
     let matches = App::new("qualinvest")
-        .setting(AppSettings::ArgRequiredElseHelp)
         .setting(AppSettings::ColoredHelp)
         .version("0.3.0")
         .author("Mark Beinker <mwb@quantlink.de>")
