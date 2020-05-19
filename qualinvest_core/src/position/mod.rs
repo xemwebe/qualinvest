@@ -65,6 +65,7 @@ pub struct PositionTotals {
     trading_pnl: f64,
     unrealized_pnl: f64,
     dividend: f64,
+    interest: f64,
     tax: f64,
     fees: f64
 }
@@ -156,6 +157,7 @@ impl PortfolioPosition {
             trading_pnl: self.cash.trading_pnl,
             unrealized_pnl: 0.0,
             dividend: self.cash.dividend,
+            interest: self.cash.interest,
             tax: self.cash.tax,
             fees: self.cash.fees,
         };
@@ -169,6 +171,7 @@ impl PortfolioPosition {
             totals.trading_pnl += pos.trading_pnl;
             totals.unrealized_pnl += pos_value + pos.purchase_value;
             totals.dividend += pos.dividend;
+            totals.interest += pos.interest;
             totals.tax += pos.tax;
             totals.fees += pos.fees;
         }
