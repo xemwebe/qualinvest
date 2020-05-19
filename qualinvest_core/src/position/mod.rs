@@ -1,14 +1,16 @@
 use finql::data_handler::{AssetHandler, QuoteHandler, DataError};
+use finql::postgres_handler::PostgresDB;
 use finql::transaction::{Transaction, TransactionType};
 use finql::Currency;
 use finql::fx_rates::get_fx_rate;
+use crate::accounts::AccountHandler;
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use chrono::{DateTime, Local, Utc};
+use chrono::{NaiveDate,DateTime, Local, Utc};
+use chrono::offset::TimeZone;
 use std::convert::From;
 use std::{error, fmt};
-
 
 /// Errors related to position calculation
 #[derive(Debug)]
@@ -16,6 +18,8 @@ pub enum PositionError {
     ForeignCurrency,
     NoQuote(DataError),
     NoFxRate(DataError),
+    NoTransaction(DataError),
+    NoAsset(DataError),
 }
 
 impl fmt::Display for PositionError {
@@ -29,6 +33,8 @@ impl error::Error for PositionError {
         match self {
             Self::NoQuote(err) => Some(err),
             Self::NoFxRate(err) => Some(err),
+            Self::NoTransaction(err) => Some(err),
+            Self::NoAsset(err) => Some(err),
             _ => None,
         }
     }
@@ -159,6 +165,37 @@ impl PortfolioPosition {
         }
         totals
     }
+
+    /// Reset all pnl relevant figures, i.e. set purchase value to position * price and
+    /// realised p&l, dividends, interest, tax, fee to 0 and eleminate 0 positions
+    fn reset_pnl(&mut self) {
+        self.remove_zero_positions();
+        self.cash.realized_pnl = 0.0;
+        self.cash.dividend = 0.0;
+        self.cash.interest = 0.0;
+        self.cash.fees = 0.0;
+        self.cash.tax = 0.0;
+        for mut pos in self.assets.iter_mut() {
+            pos.1.realized_pnl = 0.0;
+            pos.1.dividend = 0.0;
+            pos.1.interest = 0.0;
+            pos.1.fees = 0.0;
+            pos.1.tax = 0.0;
+            pos.1.purchase_value = pos.1.position * pos.1.last_quote.unwrap_or(0.0);
+        }
+    }
+
+    fn remove_zero_positions(&mut self) {
+        let mut zero_positions = Vec::new();
+        for pos in self.assets.iter() {
+            if pos.1.position == 0.0 {
+                zero_positions.push(pos.0.clone());
+            }
+        }
+        for key in zero_positions {
+            self.assets.remove(&key);
+        }
+    }
 }
 
 /// Search for transaction referred to by transaction_ref and return associated asset_id
@@ -182,7 +219,7 @@ fn get_asset_id(transactions: &Vec<Transaction>, trans_ref: Option<usize>) -> Op
     None
 }
 
-/// Calculation of position since inception
+/// Calculate the total position since inception caused by a given set of transactions.
 pub fn calc_position(
     base_currency: Currency,
     transactions: &Vec<Transaction>,
@@ -192,13 +229,15 @@ pub fn calc_position(
     Ok(positions)
 }
 
+
+/// Given a PortfolioPosition, calculate changes to position by a given set of transactions.
 pub fn calc_delta_position(
     positions: &mut PortfolioPosition,
     transactions: &Vec<Transaction>,
 ) -> Result<(), PositionError> {
     let base_currency = positions.cash.currency;
     for trans in transactions {
-        // currently, we assume that all cash flows are in one account have the same currency
+        // currently, we assume that all cash flows are in the same currency
         if trans.cash_flow.amount.currency != base_currency {
             return Err(PositionError::ForeignCurrency);
         }
@@ -300,8 +339,36 @@ pub fn calc_delta_position(
     Ok(())
 }
 
+/// Calculate position and P&L since inception
+pub fn calculate_position_and_pnl(currency: Currency, account_ids: &Vec<usize>, time: NaiveDate, db: &mut PostgresDB) -> Result<(PortfolioPosition, PositionTotals), PositionError> {
+    let transactions = db.get_transactions_before_time(account_ids, time);
+    let mut position = if let Ok(transactions) = transactions {
+        calc_position(currency, &transactions)?
+    } else {
+        PortfolioPosition::new(currency)
+    };
+    position.get_asset_names(db).map_err(|e| PositionError::NoAsset(e))?;
+    let date_time: DateTime<Utc> = DateTime::<Utc>::from(Local.from_local_datetime(&time.and_hms(23,59,59)).unwrap());
+    position.add_quote(date_time, db)?;
+    let totals = position.calc_totals();
+    Ok((position, totals))
+}
 
 
+/// Calculate position and P&L changes for a given time range
+pub fn calculate_position_for_period(currency: Currency, account_ids: &Vec<usize>, start: NaiveDate, end: NaiveDate, db: &mut PostgresDB) -> Result<(PortfolioPosition, PositionTotals), PositionError> {
+    let (mut position, _) = calculate_position_and_pnl(currency, account_ids, start, db)?;
+    position.reset_pnl();
+    let transactions = db.get_transactions_in_range(account_ids, start, end);
+    if let Ok(transactions) = transactions {
+        calc_delta_position(&mut position, &transactions)?;
+    }
+    position.get_asset_names(db).map_err(|e| PositionError::NoAsset(e))?;
+    let end_date_time: DateTime<Utc> = DateTime::<Utc>::from(Local.from_local_datetime(&end.and_hms(23,59,59)).unwrap());
+    position.add_quote(end_date_time, db)?;
+    let totals = position.calc_totals();
+    Ok((position, totals))
+}
 
 #[cfg(test)]
 mod tests {

@@ -4,6 +4,7 @@ use finql::postgres_handler::{PostgresDB, RawTransaction};
 use finql::transaction::Transaction;
 use tokio_postgres::error::Error;
 use serde::{Serialize,Deserialize};
+use chrono::{NaiveDate};
 
 #[derive(Debug,Serialize,Deserialize)]
 pub struct Account {
@@ -72,6 +73,21 @@ pub trait AccountHandler: TransactionHandler {
         account_id: usize,
     ) -> Result<Vec<Transaction>, DataError>;
 
+    /// Get transactions filtered by account id before time
+    fn get_all_transactions_with_account_before(
+        &mut self,
+        account_id: usize,
+        time: NaiveDate,
+    ) -> Result<Vec<Transaction>, DataError>;
+
+    /// Get transactions filtered by account id in time range
+    fn get_all_transactions_with_account_in_range (
+        &mut self,
+        account_id: usize,
+        start: NaiveDate,
+        end: NaiveDate,
+    ) -> Result<Vec<Transaction>, DataError>;
+
     /// Get transactions filtered by a list of account ids
     fn get_all_transactions_with_accounts(
         &mut self,
@@ -84,6 +100,32 @@ pub trait AccountHandler: TransactionHandler {
         Ok(transactions)
     }
 
+    /// Get transactions filtered by a list of account ids and cash dates before time
+    fn get_transactions_before_time(
+        &mut self,
+        accounts: &Vec<usize>,
+        time: NaiveDate,
+    ) -> Result<Vec<Transaction>, DataError> {
+        let mut transactions = Vec::new();
+        for i in accounts {
+            transactions.extend(self.get_all_transactions_with_account_before(*i, time)?);
+        }
+        Ok(transactions)
+    }
+
+    /// Get transactions filtered by a list of account ids and cash dates in time range
+    fn get_transactions_in_range(
+        &mut self,
+        accounts: &Vec<usize>,
+        start: NaiveDate,
+        end: NaiveDate,
+    ) -> Result<Vec<Transaction>, DataError> {
+        let mut transactions = Vec::new();
+        for i in accounts {
+            transactions.extend(self.get_all_transactions_with_account_in_range(*i, start, end)?);
+        }
+        Ok(transactions)
+    }
     /// Get transactions view for list of account ids
     fn get_transaction_view_for_accounts(&mut self, accounts: &Vec<usize>) -> Result<Vec<TransactionView>, DataError>;
 
@@ -277,6 +319,73 @@ impl AccountHandler for PostgresDB<'_> {
         t.cash_amount, t.cash_currency, t.cash_date, t.related_trans, t.position, t.note 
         FROM transactions t, account_transactions a WHERE a.account_id = $1 and a.transaction_id = t.id",
                 &[&(account_id as i32)],
+            )
+            .map_err(|e| DataError::NotFound(e.to_string()))?
+        {
+            let transaction = RawTransaction {
+                id: row.get(0),
+                trans_type: row.get(1),
+                asset: row.get(2),
+                cash_amount: row.get(3),
+                cash_currency: row.get(4),
+                cash_date: row.get(5),
+                related_trans: row.get(6),
+                position: row.get(7),
+                note: row.get(8),
+            };
+            transactions.push(transaction.to_transaction()?);
+        }
+        Ok(transactions)
+    }
+
+    /// Get transactions filtered by account id before time
+    fn get_all_transactions_with_account_before(
+        &mut self,
+        account_id: usize,
+        time: NaiveDate,
+    ) -> Result<Vec<Transaction>, DataError> {
+        let mut transactions = Vec::new();
+        for row in self
+            .conn
+            .query(
+                "SELECT t.id, t.trans_type, t.asset_id, 
+        t.cash_amount, t.cash_currency, t.cash_date, t.related_trans, t.position, t.note 
+        FROM transactions t, account_transactions a WHERE a.account_id = $1 AND a.transaction_id = t.id AND t.cash_date < $2",
+                &[&(account_id as i32), &time],
+            )
+            .map_err(|e| DataError::NotFound(e.to_string()))?
+        {
+            let transaction = RawTransaction {
+                id: row.get(0),
+                trans_type: row.get(1),
+                asset: row.get(2),
+                cash_amount: row.get(3),
+                cash_currency: row.get(4),
+                cash_date: row.get(5),
+                related_trans: row.get(6),
+                position: row.get(7),
+                note: row.get(8),
+            };
+            transactions.push(transaction.to_transaction()?);
+        }
+        Ok(transactions)
+    }
+
+    /// Get transactions filtered by account id in time range
+    fn get_all_transactions_with_account_in_range(
+        &mut self,
+        account_id: usize,
+        start: NaiveDate,
+        end: NaiveDate,
+    ) -> Result<Vec<Transaction>, DataError> {
+        let mut transactions = Vec::new();
+        for row in self
+            .conn
+            .query(
+                "SELECT t.id, t.trans_type, t.asset_id, 
+        t.cash_amount, t.cash_currency, t.cash_date, t.related_trans, t.position, t.note 
+        FROM transactions t, account_transactions a WHERE a.account_id = $1 AND a.transaction_id = t.id AND t.cash_date BETWEEN $2 AND $3",
+                &[&(account_id as i32), &start, &end],
             )
             .map_err(|e| DataError::NotFound(e.to_string()))?
         {

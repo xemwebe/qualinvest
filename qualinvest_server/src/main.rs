@@ -161,7 +161,7 @@ fn static_files(file: PathBuf) -> Option<NamedFile> {
 }
 
 /// As a first proxy, catch errors here
-#[get("/err/<msg>")]
+#[get("/err?<msg>")]
 fn error_msg(msg: String, user_opt: Option<UserCookie>, state: State<ServerState>) -> Template {
     let mut context = state.default_context();
     context.insert("alert_type", "danger");
@@ -195,7 +195,11 @@ fn main() {
 
     let config = matches.value_of("config").unwrap_or("qualinvest.toml");
     let config_file = fs::read_to_string(config).unwrap();
-    let config: Config = toml::from_str(&config_file).unwrap();
+    let mut config: Config = toml::from_str(&config_file).unwrap();
+    
+    if matches.is_present("debug") {
+        config.debug = true;
+    }
 
     // Set up database
     let postgres_url = format!(

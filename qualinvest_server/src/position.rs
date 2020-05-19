@@ -1,6 +1,5 @@
 use std::str::FromStr;
 use std::ops::DerefMut;
-use chrono::{DateTime,Local};
 
 use rocket::State;
 use rocket::response::Redirect;
@@ -8,17 +7,17 @@ use rocket_contrib::templates::Template;
 
 use finql::Currency;
 use finql::postgres_handler::PostgresDB;
-use qualinvest_core::position::{calc_position};
-use qualinvest_core::accounts::AccountHandler;
 use crate::user::UserCookie;
 use super::{QlInvestDbConn,ServerState};
 use crate::layout::layout;
 use crate::filter;
+use qualinvest_core::position::calculate_position_for_period;
+use super::{rocket_uri_macro_login,rocket_uri_macro_error_msg};
 
 #[get("/position?<accounts>&<start>&<end>")]
 pub fn position(accounts: Option<String>, start: Option<String>, end: Option<String>, user_opt: Option<UserCookie>, mut qldb: QlInvestDbConn, state: State<ServerState>) -> Result<Template,Redirect> {
     if user_opt.is_none() {
-        return Err(Redirect::to("/login?redirect=position"));
+        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(login: redirect="position"))));
     }
     let user = user_opt.unwrap();
 
@@ -26,20 +25,13 @@ pub fn position(accounts: Option<String>, start: Option<String>, end: Option<Str
     let mut db = PostgresDB{ conn: qldb.0.deref_mut() };
     let user_accounts = user.get_accounts(&mut db);
     if user_accounts.is_none() {
-        return Err(Redirect::to("/err/no_user_account_found"));
+        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="No user account found"))));
     }
     let user_accounts = user_accounts.unwrap();
 
     let filter = filter::FilterForm::from_query(accounts, start, end, &user, &user_accounts, &mut db)?;
-
-    let transactions = db.get_all_transactions_with_accounts(&filter.account_ids)
-        .map_err(|_| Redirect::to("/err/get_all_transactions_with_accounts"))?;
-    let mut position = calc_position(currency, &transactions)
-        .map_err(|_| Redirect::to("/err/calc_positions"))?;
-    position.get_asset_names(&mut db).unwrap();
-    let time = DateTime::from(Local::now());
-    position.add_quote(time, &mut db).unwrap();
-    let totals = position.calc_totals();
+    let (position, totals) = calculate_position_for_period(currency, &filter.account_ids, filter.start_date, filter.end_date, &mut db)
+        .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg=format!("Calculation of position failed: {:?}",e)))))?;
 
     let mut context = state.default_context();
     context.insert("positions", &position);

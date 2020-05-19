@@ -16,7 +16,7 @@ like shares, bonds or loans.</p>
 paid fees and tax and calculation of a couple of performance figures, 
 eg. realised and unrealised p&amp;l over specific time periods. 
 Market data is automatically retreived from various, 
-configurable source in the public domain.</p>
+configurable sources.</p>
 
 <p>Data is stored persistently in an attached PostgreSQL database. 
 The application itsself is writen in <a href="https://www.rust-lang.org/" target="_blank">rust</a>.</p>
