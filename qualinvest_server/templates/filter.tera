@@ -18,10 +18,46 @@ function toggleFilter() {
     y.textContent = "Show Filter";
   }
 }
+
 function formChange() {
 	document.getElementById('apply_filter_button').disabled = false;
 	document.getElementById('info_start').textContent = document.getElementById('start_date').value;
 	document.getElementById('info_end').textContent = document.getElementById('end_date').value;
+}
+
+function fmtDate(d) {
+	var d = String(d.getDate()).padStart(2, '0');
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var y = d.getFullYear();
+
+	return y+'-'+m+'-'+d;
+}
+
+function setRange() {
+	var sel_range = document.getElementById('range_select').value;
+	var start = document.getElementById('start_date');
+	var end = document.getElementById('end_date');
+	if(sel_range === 'custom') {
+		start.disable=false;
+		end.disable=false;
+		return;
+	}
+
+	start.disable=true;
+	end.disable=true;
+	var today = new Date();
+	end.value = fmtDate(today);
+	switch(sel_range) {
+		case 'daily':
+			start.value = fmtDate(new Date(today.getDate()-1));
+			break;
+		case 'mtd':
+			start.value = fmtDate(new Date(new Date(today.getFullYear(), today.getMonth(), 1)-1));
+			break;
+		case 'ytd':
+			start.value = fmtDate(new Date(today.getFullYear()-1, 11, 31));
+			break;
+	}
 }
 </script>
 {% endblock jsdata %}
@@ -38,6 +74,14 @@ function formChange() {
 			<div class="form-group">
 				<div class="col-md-1">
 					<input type="submit" id="apply_filter_button" value="Apply Filter" disabled>
+				</div>
+				<div class="col-md-1">
+					<select class="form-control" id="range_select" onchange="setRange()"> 
+						<option value="custom" >Custom</option> 
+						<option value="daily" selected>Daily</option> 
+						<option value="mtd" >Month-to-Date</option> 
+						<option value="ytd" >Year-to-Date</option> 
+					</select> 
 				</div>
 				<label class="control-label col-md-1" for="start_date">Start Date:</label>
 				<div class="col-md-2">
