@@ -27,13 +27,13 @@
 		{v: '       ', f: 'Totals:'},
 		{v: -1e10, f: "{{totals.value | format_num}}" },
 		{v: -1e10, f: '' },
-		{v: -1e10, f: "{{totals.realized_pnl + totals.unrealized_pnl | format_num}}" },
+		{v: -1e10, f: "{{totals.trading_pnl + totals.unrealized_pnl + totals.dividend + totals.fees + totals.tax | format_num}}" },
 		{v: -1e10, f: "{{totals.dividend | format_num}}" },
 		{v: -1e10, f: "{{totals.fees | format_num}}" },
 		{v: -1e10, f: "{{totals.tax | format_num}}" },
 	],
 	{% set totalValue = totals.value %}
-	{% set realized_pnl = positions.cash.realized_pnl+positions.cash.dividend+positions.cash.tax+positions.cash.fees %}
+	{% set realized_pnl = positions.cash.trading_pnl+positions.cash.dividend+positions.cash.interest+positions.cash.tax+positions.cash.fees %}
 	[	{v: 'cash', f: 'Cash' },  
 		{v: {{positions.cash.position}}, f: "{{positions.cash.position | format_num }}" }, 
 		{v: 1.0, f: '1.00'},
@@ -46,7 +46,7 @@
 		{v: {{positions.cash.tax}}, f: "{{positions.cash.tax | format_num }}" },
 	],
 	{% for key, pos in positions.assets %}
-	{% set realized_pnl = pos.realized_pnl+pos.dividend+pos.tax+pos.fees %}
+	{% set realized_pnl = pos.trading_pnl+pos.interest+pos.dividend+pos.tax+pos.fees %}
 	{% set pos_value = pos.position*pos.last_quote %}
 	{% set unrealized_pnl = pos_value + pos.purchase_value %}
 	{% set pnl = unrealized_pnl + realized_pnl %}
@@ -68,7 +68,7 @@
 		{v: 'zzzzzzz', f: 'Totals:'},
 		{v: 1e10, f: "{{totals.value | format_num}}" },
 		{v: 1e10, f: '' },
-		{v: 1e10, f: "{{totals.realized_pnl + totals.unrealized_pnl | format_num}}" },
+		{v: 1e10, f: "{{totals.trading_pnl + totals.unrealized_pnl + totals.dividend + totals.fees + totals.tax | format_num}}" },
 		{v: 1e10, f: "{{totals.dividend | format_num}}" },
 		{v: 1e10, f: "{{totals.fees | format_num}}" },
 		{v: 1e10, f: "{{totals.tax | format_num}}" },

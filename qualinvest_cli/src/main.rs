@@ -301,7 +301,7 @@ fn main() {
         
         if matches.is_present("quote") {
             let time = DateTime::from(Local::now());
-            position.add_quote(time, &mut db).unwrap();
+            position.add_quote(time, &mut db);
         }
 
         if matches.is_present("json") {

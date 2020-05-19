@@ -48,7 +48,7 @@ pub struct Position {
     pub position: f64,
     pub purchase_value: f64,
     // realized p&l from buying/selling assets
-    pub realized_pnl: f64,
+    pub trading_pnl: f64,
     pub interest: f64,
     pub dividend: f64,
     pub fees: f64,
@@ -62,7 +62,7 @@ pub struct Position {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PositionTotals {
     value: f64,
-    realized_pnl: f64,
+    trading_pnl: f64,
     unrealized_pnl: f64,
     dividend: f64,
     tax: f64,
@@ -76,7 +76,7 @@ impl Position {
             name: String::new(),
             position: 0.0,
             purchase_value: 0.0,
-            realized_pnl: 0.0,
+            trading_pnl: 0.0,
             currency,
             interest: 0.0,
             dividend: 0.0,
@@ -87,28 +87,38 @@ impl Position {
         }
     }
 
-    pub fn add_quote(
-        &mut self,
-        time: DateTime<Utc>,
-        db: &mut dyn QuoteHandler,
-    ) -> Result<(), PositionError> {
-        let (last_quote, last_quote_time) = if let Some(asset_id) = self.asset_id {
-            let (quote, currency) = db
-                .get_last_quote_before_by_id(asset_id, time)
-                .map_err(|e| PositionError::NoQuote(e))?;
-            if currency == self.currency {
-                (quote.price, quote.time)
+    /// Add quote information to position
+    /// Set appropriate defaults, if no quote can be found
+    pub fn add_quote(&mut self, time: DateTime<Utc>, db: &mut dyn QuoteHandler) {
+        if let Some(asset_id) = self.asset_id {
+            let quote_and_curr =  db.get_last_quote_before_by_id(asset_id, time);
+            if let Ok((quote, currency)) = quote_and_curr {
+                if currency == self.currency {
+                    // Quote has correct currency, just use that
+                    self.last_quote = Some(quote.price);
+                    self.last_quote_time = Some(quote.time);
+                } else {
+                    // Convert price to base position currency
+                    let fx_rate = get_fx_rate(currency, self.currency, time, db);
+                    if let Ok(fx_rate) = fx_rate {
+                        self.last_quote = Some(quote.price * fx_rate);
+                        self.last_quote_time = Some(quote.time);
+                    } else {
+                        // Couldn't convert currency, use default
+                        self.last_quote = None;
+                        self.last_quote_time = None;
+                    }
+                }
             } else {
-                let fx_rate = get_fx_rate(currency, self.currency, time, db)
-                    .map_err(|e| PositionError::NoFxRate(e))?;
-                (quote.price * fx_rate, quote.time)
+                // No price found
+                self.last_quote = None;
+                self.last_quote_time = None;
             }
         } else {
-            (1.0, DateTime::<Utc>::from(Local::now()))
+            // No asset ID, must some technical account, set price to 1.0
+            self.last_quote = Some(1.0);
+            self.last_quote_time = Some(DateTime::<Utc>::from(Local::now()));
         };
-        self.last_quote = Some(last_quote);
-        self.last_quote_time = Some(last_quote_time);
-        Ok(())
     }
 }
 
@@ -134,17 +144,16 @@ impl PortfolioPosition {
         Ok(())
     }
 
-    pub fn add_quote(&mut self, time: DateTime<Utc>, db: &mut dyn QuoteHandler) -> Result<(), PositionError> {
+    pub fn add_quote(&mut self, time: DateTime<Utc>, db: &mut dyn QuoteHandler) {
         for (_, pos) in &mut self.assets {
-            if pos.asset_id.is_some() { pos.add_quote(time, db)?; }
+            pos.add_quote(time, db);
         }
-        Ok(())
     }
 
     pub fn calc_totals(&mut self) -> PositionTotals {
         let mut totals = PositionTotals {
             value: self.cash.position,
-            realized_pnl: self.cash.realized_pnl + self.cash.dividend+self.cash.tax+self.cash.tax,
+            trading_pnl: self.cash.trading_pnl,
             unrealized_pnl: 0.0,
             dividend: self.cash.dividend,
             tax: self.cash.tax,
@@ -157,7 +166,7 @@ impl PortfolioPosition {
                 pos.purchase_value
             };
             totals.value += pos_value;
-            totals.realized_pnl += pos.realized_pnl + pos.dividend+pos.tax+pos.tax;
+            totals.trading_pnl += pos.trading_pnl;
             totals.unrealized_pnl += pos_value + pos.purchase_value;
             totals.dividend += pos.dividend;
             totals.tax += pos.tax;
@@ -167,16 +176,16 @@ impl PortfolioPosition {
     }
 
     /// Reset all pnl relevant figures, i.e. set purchase value to position * price and
-    /// realised p&l, dividends, interest, tax, fee to 0 and eleminate 0 positions
+    /// realized p&l, dividends, interest, tax, fee to 0 and eliminate 0 positions
     fn reset_pnl(&mut self) {
         self.remove_zero_positions();
-        self.cash.realized_pnl = 0.0;
+        self.cash.trading_pnl = 0.0;
         self.cash.dividend = 0.0;
         self.cash.interest = 0.0;
         self.cash.fees = 0.0;
         self.cash.tax = 0.0;
         for mut pos in self.assets.iter_mut() {
-            pos.1.realized_pnl = 0.0;
+            pos.1.trading_pnl = 0.0;
             pos.1.dividend = 0.0;
             pos.1.interest = 0.0;
             pos.1.fees = 0.0;
@@ -189,7 +198,7 @@ impl PortfolioPosition {
         let mut zero_positions = Vec::new();
         for pos in self.assets.iter() {
             if pos.1.position == 0.0 {
-                zero_positions.push(pos.0.clone());
+                zero_positions.push(*pos.0);
             }
         }
         for key in zero_positions {
@@ -267,7 +276,7 @@ pub fn calc_delta_position(
                             let eff_price = -pos.purchase_value / pos.position;
                             let sell_price = -amount / position;
                             let pnl = -position * (sell_price - eff_price);
-                            pos.realized_pnl += pnl;
+                            pos.trading_pnl += pnl;
                             pos.position += position;
                             pos.purchase_value += amount - pnl;
                         }
@@ -349,7 +358,7 @@ pub fn calculate_position_and_pnl(currency: Currency, account_ids: &Vec<usize>, 
     };
     position.get_asset_names(db).map_err(|e| PositionError::NoAsset(e))?;
     let date_time: DateTime<Utc> = DateTime::<Utc>::from(Local.from_local_datetime(&time.and_hms(23,59,59)).unwrap());
-    position.add_quote(date_time, db)?;
+    position.add_quote(date_time, db);
     let totals = position.calc_totals();
     Ok((position, totals))
 }
@@ -365,7 +374,7 @@ pub fn calculate_position_for_period(currency: Currency, account_ids: &Vec<usize
     }
     position.get_asset_names(db).map_err(|e| PositionError::NoAsset(e))?;
     let end_date_time: DateTime<Utc> = DateTime::<Utc>::from(Local.from_local_datetime(&end.and_hms(23,59,59)).unwrap());
-    position.add_quote(end_date_time, db)?;
+    position.add_quote(end_date_time, db);
     let totals = position.calc_totals();
     Ok((position, totals))
 }
