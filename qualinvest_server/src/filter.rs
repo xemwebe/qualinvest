@@ -18,11 +18,14 @@ use qualinvest_core::accounts::Account;
 use super::ServerState;
 
 fn format_num_precision(num: f64, precision: i32) -> String {
+    let fac10 = 10_f64.powi(precision);
+    let rounded_num = (num*fac10).round() as i64;
+    let i_fac10 = fac10 as i64;
+    let int_part = rounded_num/i_fac10;
+    let decimal_part = rounded_num-int_part*i_fac10;
     let mut writer = String::new();
-    let int_part = num.floor();
-    let decimal_part = ((num-int_part)*10_f64.powi(precision)).round();
     writer.write_formatted(&(int_part as i64), &Locale::en).unwrap();
-    format!("{}.{}", writer, decimal_part)
+    format!("{int_part}.{decimal_part:0<width$}", int_part=writer, decimal_part=decimal_part, width=precision as usize)
 }
 
 fn format_num(value: &Value, _: &HashMap<String, Value>) -> tera::Result<Value> {
