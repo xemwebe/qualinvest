@@ -193,7 +193,7 @@ impl PortfolioPosition {
             pos.1.interest = 0.0;
             pos.1.fees = 0.0;
             pos.1.tax = 0.0;
-            pos.1.purchase_value = pos.1.position * pos.1.last_quote.unwrap_or(0.0);
+            pos.1.purchase_value = - pos.1.position * pos.1.last_quote.unwrap_or(0.0);
         }
     }
 
