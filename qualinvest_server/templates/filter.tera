@@ -23,41 +23,47 @@ function formChange() {
 	document.getElementById('apply_filter_button').disabled = false;
 	document.getElementById('info_start').textContent = document.getElementById('start_date').value;
 	document.getElementById('info_end').textContent = document.getElementById('end_date').value;
+	if(!presetRange) {
+		document.getElementById('range_select').value = 'custom'
+	}
+	presetRange = false;
 }
 
 function fmtDate(d) {
-	var d = String(d.getDate()).padStart(2, '0');
-    var m = String(d.getMonth() + 1).padStart(2, '0');
-    var y = d.getFullYear();
+	var day = String(d.getDate()).padStart(2, '0');
+    var month = String(d.getMonth() + 1).padStart(2, '0');
+    var year = d.getFullYear();
 
-	return y+'-'+m+'-'+d;
+	return year+'-'+month+'-'+day;
 }
 
 function setRange() {
 	var sel_range = document.getElementById('range_select').value;
 	var start = document.getElementById('start_date');
 	var end = document.getElementById('end_date');
-	if(sel_range === 'custom') {
-		start.disable=false;
-		end.disable=false;
-		return;
-	}
 
-	start.disable=true;
-	end.disable=true;
+	presetRange = true;
 	var today = new Date();
+	calendars[1].setDate(today);
 	end.value = fmtDate(today);
 	switch(sel_range) {
 		case 'daily':
-			start.value = fmtDate(new Date(today.getDate()-1));
+			today.setDate(today.getDate() - 1);
+			calendars[0].setDate(today);
+			start.value = fmtDate(today);
 			break;
 		case 'mtd':
-			start.value = fmtDate(new Date(new Date(today.getFullYear(), today.getMonth(), 1)-1));
+			start_date = new Date(new Date(today.getFullYear(), today.getMonth(), 1)-1);
+			calendars[0].setDate(start_date);
+			start.value = fmtDate(start_date);
 			break;
 		case 'ytd':
+			start_date = new Date(today.getFullYear()-1, 11, 31);
+			calendars[0].setDate(start_date);
 			start.value = fmtDate(new Date(today.getFullYear()-1, 11, 31));
 			break;
 	}
+	formChange();
 }
 </script>
 {% endblock jsdata %}
@@ -105,6 +111,7 @@ function setRange() {
 	</div>
 </div>
 <script>
-flatpickr(".fpcalendar", {});
+const calendars = flatpickr(".fpcalendar", {});
+var presetRange = false;
 </script>
 {% endblock content %}
