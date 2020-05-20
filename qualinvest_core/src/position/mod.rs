@@ -92,7 +92,7 @@ impl Position {
     /// Set appropriate defaults, if no quote can be found
     pub fn add_quote(&mut self, time: DateTime<Utc>, db: &mut dyn QuoteHandler) {
         if let Some(asset_id) = self.asset_id {
-            let quote_and_curr =  db.get_last_quote_before_by_id(asset_id, time);
+            let quote_and_curr =  db.get_last_price_before_by_id(asset_id, time);
             if let Ok((quote, currency)) = quote_and_curr {
                 if currency == self.currency {
                     // Quote has correct currency, just use that
@@ -106,13 +106,13 @@ impl Position {
                         self.last_quote_time = Some(quote.time);
                     } else {
                         // Couldn't convert currency, use default
-                        self.last_quote = None;
+                        self.last_quote = Some(-self.purchase_value/self.position);
                         self.last_quote_time = None;
                     }
                 }
             } else {
                 // No price found
-                self.last_quote = None;
+                self.last_quote = Some(-self.purchase_value/self.position);
                 self.last_quote_time = None;
             }
         } else {
@@ -165,7 +165,7 @@ impl PortfolioPosition {
             let pos_value = if let Some(quote) = pos.last_quote {
                 pos.position * quote
             } else {
-                pos.purchase_value
+                -pos.purchase_value
             };
             totals.value += pos_value;
             totals.trading_pnl += pos.trading_pnl;

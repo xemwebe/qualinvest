@@ -25,7 +25,7 @@ fn format_num_precision(num: f64, precision: i32) -> String {
     let decimal_part = (rounded_num-int_part*i_fac10).abs();
     let mut writer = String::new();
     writer.write_formatted(&(int_part as i64), &Locale::en).unwrap();
-    format!("{int_part}.{decimal_part:0<width$}", int_part=writer, decimal_part=decimal_part, width=precision as usize)
+    format!("{int_part}.{decimal_part:0>width$}", int_part=writer, decimal_part=decimal_part, width=precision as usize)
 }
 
 fn format_num(value: &Value, _: &HashMap<String, Value>) -> tera::Result<Value> {
@@ -158,25 +158,25 @@ impl FilterForm {
     }
 
     pub fn from_query(accounts: Option<String>, start: Option<String>, end: Option<String>, user: &user::UserCookie, user_accounts: &Vec<Account>, db: &mut dyn UserHandler) -> Result<FilterForm,Redirect> {
-        let start_date = match start {
-            Some(s) => NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d")
-                .map_err(|_| Redirect::to("/err/invalid_date"))?,
-            None => NaiveDate::from_ymd(1900,01,01)
-        };
         let end_date = match end {
             Some(s) => NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d")
                 .map_err(|_| Redirect::to("/err/invalid_date"))?,
             None => Local::now().naive_local().date()
         };
+        let start_date = match start {
+            Some(s) => NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d")
+                .map_err(|_| Redirect::to("/err/invalid_date"))?,
+            None => end_date.pred()
+        };
         let account_ids =
-        if let Some(accounts) = accounts {
-            let accounts = helper::parse_ids(&accounts);
-            if user.is_admin {
-                accounts
-            } else {
-                db.valid_accounts(user.userid, &accounts)
-                    .map_err(|_| Redirect::to("/err/valid_accounts"))?
-            }
+            if let Some(accounts) = accounts {
+                let accounts = helper::parse_ids(&accounts);
+                if user.is_admin {
+                    accounts
+                } else {
+                    db.valid_accounts(user.userid, &accounts)
+                        .map_err(|_| Redirect::to("/err/valid_accounts"))?
+                }
         } else {
             let mut account_ids = Vec::new();
             for account in user_accounts {

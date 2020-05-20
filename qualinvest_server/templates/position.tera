@@ -66,7 +66,7 @@
 	{% set pnl = unrealized_pnl + realized_pnl %}
 		[	{v: "{{pos.name | lower}}", f: "{{pos.name}}" },  
 		{v: {{pos.position}}, f: "{{pos.position | format_num }}" }, 
-		{v: {{pos.last_quote}}, f: "{{pos.last_quote | format_num4}}" },
+		{v: {% if pos.last_quote is number %}{{pos.last_quote}}{% else %}0{% endif %}, f: "{{pos.last_quote | format_num4}}" },
 		"{{pos.currency}}",
 		{v: {{pos_value}}, f: "{{pos_value | format_num }}" },
 		{v: {{pos_value}}, f: '{{pos_value/totalValue  | format_per_cent }}' },

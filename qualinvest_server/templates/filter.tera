@@ -83,8 +83,8 @@ function setRange() {
 				</div>
 				<div class="col-md-1">
 					<select class="form-control" id="range_select" onchange="setRange()"> 
-						<option value="custom" >Custom</option> 
-						<option value="daily" selected>Daily</option> 
+						<option value="custom" selected>Custom</option> 
+						<option value="daily" >Daily</option> 
 						<option value="mtd" >Month-to-Date</option> 
 						<option value="ytd" >Year-to-Date</option> 
 					</select> 
