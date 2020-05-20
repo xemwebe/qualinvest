@@ -92,7 +92,7 @@ impl Position {
     /// Set appropriate defaults, if no quote can be found
     pub fn add_quote(&mut self, time: DateTime<Utc>, db: &mut dyn QuoteHandler) {
         if let Some(asset_id) = self.asset_id {
-            let quote_and_curr =  db.get_last_price_before_by_id(asset_id, time);
+            let quote_and_curr =  db.get_last_quote_before_by_id(asset_id, time);
             if let Ok((quote, currency)) = quote_and_curr {
                 if currency == self.currency {
                     // Quote has correct currency, just use that
