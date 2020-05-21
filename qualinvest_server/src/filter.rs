@@ -166,7 +166,7 @@ impl FilterForm {
         let start_date = match start {
             Some(s) => NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d")
                 .map_err(|_| Redirect::to("/err/invalid_date"))?,
-            None => end_date.pred()
+            None => end_date
         };
         let account_ids =
             if let Some(accounts) = accounts {

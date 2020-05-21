@@ -48,19 +48,18 @@ function setRange() {
 	end.value = fmtDate(today);
 	switch(sel_range) {
 		case 'daily':
-			today.setDate(today.getDate() - 1);
 			calendars[0].setDate(today);
 			start.value = fmtDate(today);
 			break;
 		case 'mtd':
-			start_date = new Date(new Date(today.getFullYear(), today.getMonth(), 1)-1);
+			start_date = new Date(today.getFullYear(), today.getMonth(), 1);
 			calendars[0].setDate(start_date);
 			start.value = fmtDate(start_date);
 			break;
 		case 'ytd':
-			start_date = new Date(today.getFullYear()-1, 11, 31);
+			start_date = new Date(today.getFullYear(), 0, 1);
 			calendars[0].setDate(start_date);
-			start.value = fmtDate(new Date(today.getFullYear()-1, 11, 31));
+			start.value = fmtDate(start_date);
 			break;
 	}
 	formChange();

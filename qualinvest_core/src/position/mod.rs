@@ -89,7 +89,8 @@ impl Position {
     }
 
     /// Add quote information to position
-    /// Set appropriate defaults, if no quote can be found
+    /// If no quote is available (or no conversion to position currency), calculate
+    /// from purchase value.
     pub fn add_quote(&mut self, time: DateTime<Utc>, db: &mut dyn QuoteHandler) {
         if let Some(asset_id) = self.asset_id {
             let quote_and_curr =  db.get_last_quote_before_by_id(asset_id, time);
@@ -351,23 +352,30 @@ pub fn calc_delta_position(
     Ok(())
 }
 
-/// Calculate position and P&L since inception
-pub fn calculate_position_and_pnl(currency: Currency, account_ids: &Vec<usize>, time: NaiveDate, db: &mut PostgresDB) -> Result<(PortfolioPosition, PositionTotals), PositionError> {
-    let transactions = db.get_transactions_before_time(account_ids, time);
+/// Calculate position and P&L since inception.
+/// All transaction with cash flow dates before the given date a taken into account and valued
+/// using the latest available quote before midnight of that date.
+pub fn calculate_position_and_pnl(currency: Currency, account_ids: &Vec<usize>, date: NaiveDate, db: &mut PostgresDB) -> Result<(PortfolioPosition, PositionTotals), PositionError> {
+    let transactions = db.get_transactions_before_time(account_ids, date);
     let mut position = if let Ok(transactions) = transactions {
         calc_position(currency, &transactions)?
     } else {
         PortfolioPosition::new(currency)
     };
     position.get_asset_names(db).map_err(|e| PositionError::NoAsset(e))?;
-    let date_time: DateTime<Utc> = DateTime::<Utc>::from(Local.from_local_datetime(&time.and_hms(23,59,59)).unwrap());
+    let date_time: DateTime<Utc> = DateTime::<Utc>::from(Local.from_local_datetime(&date.and_hms(0,0,0)).unwrap());
     position.add_quote(date_time, db);
     let totals = position.calc_totals();
     Ok((position, totals))
 }
 
 
-/// Calculate position and P&L changes for a given time range
+/// Calculate position and P&L changes for a given range of dates.
+/// The date range is inclusive, i.e. all transactions with cash flow dates on or after `start`
+/// and on or before `end` a taken into account. The initial positions at `start` are valued
+/// with the latest quotes before that date, the final position is valued with the latest
+/// quotes before the date after `end`. With this method, P&L is additive, i.e. adding the 
+/// P&L figures of directly succeeding date periods should sum up to the P&L of the joined period.
 pub fn calculate_position_for_period(currency: Currency, account_ids: &Vec<usize>, start: NaiveDate, end: NaiveDate, db: &mut PostgresDB) -> Result<(PortfolioPosition, PositionTotals), PositionError> {
     let (mut position, _) = calculate_position_and_pnl(currency, account_ids, start, db)?;
     position.reset_pnl();
@@ -376,7 +384,7 @@ pub fn calculate_position_for_period(currency: Currency, account_ids: &Vec<usize
         calc_delta_position(&mut position, &transactions)?;
     }
     position.get_asset_names(db).map_err(|e| PositionError::NoAsset(e))?;
-    let end_date_time: DateTime<Utc> = DateTime::<Utc>::from(Local.from_local_datetime(&end.and_hms(23,59,59)).unwrap());
+    let end_date_time: DateTime<Utc> = DateTime::<Utc>::from(Local.from_local_datetime(&end.succ().and_hms(0,0,0)).unwrap());
     position.add_quote(end_date_time, db);
     let totals = position.calc_totals();
     Ok((position, totals))
