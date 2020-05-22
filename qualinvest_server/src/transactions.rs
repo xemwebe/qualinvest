@@ -1,3 +1,5 @@
+/// Viewing and editing of transactions
+
 use std::ops::DerefMut;
 
 use rocket::State;

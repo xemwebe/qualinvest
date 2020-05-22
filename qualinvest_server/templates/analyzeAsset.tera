@@ -1,0 +1,119 @@
+{% extends "layout" %}
+{% block pagetitle %}{{super()}} - Asset analyzer{% endblock %}
+{% block jsdata %}
+	{{super()}}
+	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+	<script type="text/javascript">
+		google.charts.load('current', 
+			{'packages':['line', 'table'], 'language':'de'});
+		google.charts.setOnLoadCallback(drawChart);
+		google.charts.setOnLoadCallback(drawTable);
+
+	function drawChart() {
+		var data = new google.visualization.DataTable();
+		data.addColumn('date', 'Date');
+		data.addColumn('number', 'comdirect');
+
+		data.addRows([
+		{% if quotes %}
+			{% for quote in quotes %}[
+			new Date('{{quote.time}}'), 
+			{{quote.price}}
+			],
+			{% endfor %}
+		{% endif %}
+			]);
+		var options = {
+		height: 500,
+		chart: {
+		title: 'Asset prices of {% if asset %}{{asset.name}}{% else %}unknown{% endif %}',
+		},
+		vAxis: {
+				title: 'Price',
+			format: '#,###.##'
+		},
+		legend: {
+				position: 'none'
+		}
+		};
+		{% if quotes %}
+		function resize() {
+			var chart = new google.charts.Line(document.getElementById('chart_div'));
+			chart.draw(data, google.charts.Line.convertOptions(options));
+		} 
+		window.onload = resize();
+		window.addEventListener('resize', resize, false);
+		{% endif %}
+	}
+
+	function drawTable() {
+		var data = new google.visualization.DataTable();
+		data.addColumn('string', 'Date');
+		data.addColumn('string', 'Type');
+		data.addColumn('number', 'Position');
+		data.addColumn('number', 'Amount');
+		data.addColumn('string', 'Currency');
+		data.addColumn('string', 'Note');
+		data.addColumn('string', 'Document');
+
+		data.addRows([
+		{% if transactions %}
+			{% for t in transactions%}[
+			'{{ t.cash_date }}',
+			{v: '{{t.trans_type | lower}}', f: '{{t.trans_type | type_to_string}}' },
+			{v: {% if t.position %}{{t.position}}{% else %}0{% endif %}, f: '{{t.position | format_num}}' },
+			{v: {{t.cash_amount}}, f: '{{t.cash_amount | format_num}}' },
+			{v: '{{t.cash_currency}}', f: '{{t.cash_currency}}' },
+			'{{t.note}}',
+			'{{t.doc_path}}',
+			],
+			{% endfor %}
+		{% endif %}
+			]);
+		var view = new google.visualization.DataView(data);
+		var table = new google.visualization.Table(document.getElementById('asset_transactions'));
+		table.draw(view, {sortColumn: 0, sortAscending: false, width: '100%'} );
+		}	
+
+	function asset_change() {
+		var asset_id = document.getElementById("asset").value;
+		window.location.href = "{{relpath}}/asset?asset_id=" + asset_id;
+	}
+	</script>
+{% endblock %}
+{% block content %}
+<div class="row" style="margin-bottom: 20px;">
+	<div class="col-md-3 form-group" id="asset_form">
+		<label class="control-label col-md-2" for="asset_id">Asset:</label>
+		<div class="col-md-5">
+		<select class="form-control col-md-6" id="asset" name="asset_id" onchange="asset_change()"> 
+		{% if assets %}
+			<option value=null {% if not asset_id %}selected{% endif%}></option>
+			{% for asset in assets %}
+				<option value="{{asset.id}}" {% if asset_id and asset.id == asset_id %}selected{% endif %}>{{asset.name}}</option> 
+			{% endfor %}
+		{% endif %}
+		</select> 
+		</div>
+	</div>
+	<div class="col-md-1">
+		<a class="btn btn-primary" id="codi_link" href="https://www.comdirect.de/inf/aktien/detail/uebersicht.html?ID_NOTATION={%- if codiID -%}{{codiID}}{%- endif -%}" {% if not codiID %}disabled{% endif %} target="_blank">comdirect</a>
+    </div>
+	<div class="col-md-1">
+		<a class="btn btn-primary" id="gf_link" href="https://www.gurufocus.com/stock/{%- if gfID -%}{{gfID}}{% endif %}" {% if not gfID %}disabled{% endif %} target="_blank">gurufocus</a>
+    </div>
+	<div class="col-md-offset-5 col-md-2 text-right">
+		<a class="btn btn-primary" href="{{relpath}}/assets/new"><i class="fa fa-plus"></i> New Asset</a>	
+	</div>
+</div>
+<div class="row">
+	<div class="col-lg-6 col-sm-12 left">
+	 	<p>
+			<div id="chart_div"></div>
+		</p>
+	</div>
+	<div class="col-lg-6 col-sm-12 left">
+		<p><div id="asset_transactions"></div></p>
+	</div>
+</div>
+{% endblock %}

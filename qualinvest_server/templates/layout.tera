@@ -20,6 +20,7 @@
 				<a class="navbar-brand" href="{{relpath}}/">QuantInvest</a>
 				<a class="navbar-brand" href="{{relpath}}/transactions">Transactions</a>
 				<a class="navbar-brand" href="{{relpath}}/position">Position</a>
+				<a class="navbar-brand" href="{{relpath}}/asset">Asset Analyzer</a>
 				{% if user and user.is_admin %}<a class="navbar-brand" href="{{relpath}}/assets">Assets</a>{% endif %}
 			</div>
 

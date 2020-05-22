@@ -126,8 +126,15 @@ pub trait AccountHandler: TransactionHandler {
         }
         Ok(transactions)
     }
-    /// Get transactions view for list of account ids
-    fn get_transaction_view_for_accounts(&mut self, accounts: &Vec<usize>) -> Result<Vec<TransactionView>, DataError>;
+
+    /// Get transactions view for list of account ids that a related to a given asset
+    fn get_transaction_view_for_accounts_and_asset(&mut self, accounts: &Vec<usize>, asset_id: usize) -> Result<Vec<TransactionView>, DataError>;
+
+    /// Get transactions view by accounts
+    fn get_transaction_view_for_accounts(
+        &mut self,
+        accounts: &Vec<usize>,
+    ) -> Result<Vec<TransactionView>, DataError>;
 
     /// Change the account a transaction identified by id belongs to
     fn change_transaction_account(&mut self, transaction_id: usize, old_account_id: usize, new_account_id: usize) -> Result<(), DataError>;
@@ -434,6 +441,72 @@ impl AccountHandler for PostgresDB<'_> {
     JOIN account_transactions at ON at.transaction_id = t.id
     WHERE at.account_id IN ("#.to_string();
         query_string = format!("{}{}",query_string, accounts[0]);
+        for id in &accounts[1..] {
+            query_string = format!("{},{}",query_string, *id);
+        }
+        query_string = format!("{}{}", query_string,
+        r#")
+    ORDER BY t.cash_date desc, group_id, t.id;
+        "#);
+        let mut transactions = Vec::new();
+        for row in self.conn.query(query_string.as_str(),&[])
+            .map_err(|e| DataError::NotFound(e.to_string()))?
+        {
+            let id: i32 = row.get(0);
+            let group_id: i32 = row.get(1);
+            let asset_id: Option<i32> = row.get(3);
+            let asset_id = match asset_id {
+                Some(id) => Some(id as usize),
+                None => None,
+            };
+            let account_id: i32 = row.get(11);
+            let date: chrono::NaiveDate = row.get(8);
+            let cash_date = date.format("%Y-%m-%d").to_string();          
+            transactions.push( TransactionView {
+                id: id as usize,
+                group_id: group_id as usize,
+                asset_name: row.get(2),
+                asset_id,
+                position: row.get(4),
+                trans_type: row.get(5),
+                cash_amount: row.get(6),
+                cash_currency: row.get(7),
+                cash_date, 
+                note: row.get(9),
+                doc_path: row.get(10), 
+                account_id: account_id as usize,
+            });
+        }
+        Ok(transactions)
+    }
+
+
+    /// Get transactions view for list of account ids that a related to a given asset
+    fn get_transaction_view_for_accounts_and_asset(&mut self, accounts: &Vec<usize>, asset_id: usize) -> Result<Vec<TransactionView>, DataError> {
+        if accounts.len() == 0 {
+            return Err(DataError::DataAccessFailure("transaction view requires account list".to_string()));
+        }
+        let mut query_string = r#"SELECT
+        t.id
+        ,(CASE WHEN t.related_trans IS null THEN t.id 
+         ELSE t.related_trans
+         END) AS group_id
+        , a.name
+        , a.id AS asset_id
+        , t.position
+        , t.trans_type
+        , t.cash_amount
+        , t.cash_currency
+        , t.cash_date
+        , t.note
+        , d.path
+        , at.account_id
+    FROM transactions t
+    LEFT JOIN assets a ON a.id = t.asset_id
+    LEFT JOIN documents d ON d.transaction_id = t.id
+    JOIN account_transactions at ON at.transaction_id = t.id
+    WHERE "#.to_string();
+        query_string = format!("{} a.id = {} AND at.account_id IN ({}",query_string, asset_id, accounts[0]);
         for id in &accounts[1..] {
             query_string = format!("{},{}",query_string, *id);
         }

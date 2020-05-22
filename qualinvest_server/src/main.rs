@@ -28,6 +28,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tera;
 
+mod asset;
 mod position;
 mod transactions;
 mod helper;
@@ -260,6 +261,7 @@ fn main() {
             transactions::edit_transaction,
             transactions::delete_transaction,
             transactions::process_transaction,
+            asset::analyze_asset,
             filter::process_filter,
             static_files,
             error_msg
