@@ -47,6 +47,7 @@ pub struct QlInvestDbConn(postgres::Client);
 #[derive(Debug)]
 pub struct ServerState {
     rel_path: String,
+    doc_path: String,
 }
 
 impl ServerState {
@@ -242,6 +243,7 @@ fn main() {
     };
     let server_state = ServerState {
         rel_path: mount_path.clone(),
+        doc_path: config.pdf.doc_path.clone(),
     };
     rocket::custom(rocket_config)
         .attach(QlInvestDbConn::fairing())
@@ -261,6 +263,8 @@ fn main() {
             transactions::edit_transaction,
             transactions::delete_transaction,
             transactions::process_transaction,
+            transactions::pdf_upload,
+            transactions::pdf_upload_form,
             asset::analyze_asset,
             filter::process_filter,
             static_files,

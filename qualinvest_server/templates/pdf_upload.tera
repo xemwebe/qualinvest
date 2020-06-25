@@ -1,0 +1,55 @@
+{% extends "layout" %}
+{% block content %}
+<div class="row">
+	<div class="col-md-offset-1 col-md 10">
+		<h2>Upload transaction document</h2>
+	</div>
+</div>
+<div class="row">
+		<form class="form-horizontal" action="{{relpath}}/transactions/upload" method="post">
+			<div class="form-group">
+                <label class="control-label col-md-2">
+                    Warning for duplicates: 
+                </label><input class="col-md-1" type="checkbox" name="warn_old">
+			</div>
+			<div class="form-group">
+                <label class="control-label col-md-2" for="consistency_check">
+                    Do consistency checks: 
+                </label>
+                <input class="col-md-1" type="checkbox" id="consistency_check" name="consistency_check">
+			</div>			
+            <div class="form-group">
+                <label class="control-label col-md-2" for="rename_asset">
+                    Rename asset if name differs: 
+                </label>
+                <input class="col-md-1" type="checkbox" id="rename_asset" name="rename_asset">
+			</div>			
+            <div class="form-group" id="default_account_form">
+				<label class="control-label col-md-2" for="default_account">Default account:</label>
+				<div class="col-md-2">
+				<select class="form-control" id="default_account" name="default_account"> 
+					{% set account_id = default_account_id %}
+					{% for account in accounts %}
+					<option value="{{account.id}}" {% if account.id == default_account_id %}selected{% endif %}>{{account.broker}}:{{account.account_name}}</option> 
+ 					{% endfor %}
+				</select> 
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="control-label col-md-2" for="doc_path">Path of PFD file:</label>
+				<div class="col-md-2">
+					<input class="form-control" id="doc_path" name="doc_path" type="text">
+				</select> 
+				</div>
+			</div>
+			<div class="row text-right col-md-4">
+				<button class="btn btn-success" type="submit">Upload</button>
+			</div>
+		</form>
+	</div>
+</div>	
+<script>
+setFields();
+flatpickr(".fpcalendar", {});
+</script>
+{% endblock content %}

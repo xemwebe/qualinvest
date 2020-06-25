@@ -100,8 +100,8 @@ fn main() {
             .arg(
                 Arg::with_name("default-account")
                     .long("default-account")
-                    .help("If account details could not be found, use the account 'unassigned'")
-                    .takes_value(false),
+                    .help("Specify (existing) account id to which transactions should be assigned if no account details could not be found")
+                    .takes_value(true),
             ))
         .subcommand(
             SubCommand::with_name("position")
@@ -232,9 +232,16 @@ fn main() {
         if matches.is_present("warn-old") {
             config.pdf.warn_old = true;
         }
-        if matches.is_present("default-account") {
-            config.pdf.default_account = true;
-        }
+        config.pdf.default_account = match matches.value_of("default-account") {
+            Some(s) => {
+                let num = s.parse::<usize>();
+                if num.is_err() {
+                    println!("Default account id could not be read");
+                }
+                Some(num.unwrap())
+            },
+            None => None,
+        };
         if matches.is_present("ignore-consistency-check") {
             config.pdf.consistency_check = false;
         }

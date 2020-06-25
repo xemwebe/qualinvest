@@ -12,6 +12,8 @@ use chrono::{Local,NaiveDate};
 use finql::postgres_handler::PostgresDB;
 use qualinvest_core::accounts::{Account,AccountHandler};
 use qualinvest_core::user::UserHandler;
+use qualinvest_core::PdfParseParams;
+use qualinvest_core::read_pdf::parse_and_store;
 use finql::transaction::{Transaction,TransactionType};
 use finql::data_handler::{TransactionHandler,AssetHandler};
 use finql::{CashAmount,CashFlow,Currency};
@@ -77,7 +79,7 @@ impl TransactionForm {
                 id: None,
                 asset_id: None,
                 position: None,
-                trans_type: "a".to_string(),
+                trans_type: "7a".to_string(),
                 cash_amount: 0.0,
                 currency: "EUR".to_string(),
                 date: NaiveDateForm(Local::now().naive_local().date()),
@@ -230,6 +232,59 @@ pub fn new_transaction(user: UserCookie, mut qldb: QlInvestDbConn, state: State<
     Ok(layout("new_transaction", &context.into_json()))
 }
 
+#[get("/transactions/upload")]
+pub fn pdf_upload_form(user: UserCookie, mut qldb: QlInvestDbConn, state: State<ServerState>) -> Result<Template,Redirect> {
+    let mut db = PostgresDB{ conn: qldb.0.deref_mut() };
+    let user_accounts = user.get_accounts(&mut db);
+    if user_accounts.is_none()
+    {
+        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="no_user_accounts"))));
+    }
+    let user_accounts = user_accounts.unwrap();
+    let default_account_id: Option<usize> = None;
+
+    let mut context = state.default_context();   
+    context.insert("user", &user);
+    context.insert("default_account_id", &default_account_id);
+    context.insert("accounts", &user_accounts);
+    Ok(layout("pdf_upload", &context.into_json()))
+}
+
+/// Structure for storing information in transaction formular
+#[derive(Debug,Serialize,Deserialize,FromForm)]
+pub struct UploadForm {
+    pub doc_path: String,
+    pub is_directory: bool,
+    pub warn_old: bool,
+    pub default_account: Option<usize>,
+    pub consistency_check: bool,
+    pub rename_asset: bool,
+}
+
+impl UploadForm {
+    fn get_config(&self, doc_path: &String) -> PdfParseParams {
+        PdfParseParams {
+            doc_path: doc_path.clone(),
+            warn_old: self.warn_old,
+            consistency_check: self.consistency_check,
+            rename_asset: self.rename_asset,
+            default_account: self.default_account,
+        }    
+    }    
+}
+
+#[post("/transactions/upload", data = "<form>")]
+pub fn pdf_upload(form: Form<UploadForm>, user: UserCookie, mut qldb: QlInvestDbConn, state: State<ServerState>) -> Result<Redirect,Redirect> {
+    let mut db = PostgresDB{ conn: qldb.0.deref_mut() };
+
+    let pdf_data = form.into_inner();
+    let pdf_config = pdf_data.get_config(&state.doc_path);
+    let filename = "".to_string();
+    parse_and_store(&filename, &mut db, &pdf_config)
+        .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg=&format!("Upload failed: {}", e)))))?;
+
+    Ok(Redirect::to(format!("{}{}", state.rel_path, uri!(transactions: _,_,_))))
+}
 
 #[get("/transactions/delete/<trans_id>")]
 pub fn delete_transaction(trans_id: usize, user: UserCookie, mut qldb: QlInvestDbConn, state: State<ServerState>) -> Result<Redirect,Redirect> {

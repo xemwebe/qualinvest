@@ -519,7 +519,7 @@ mod tests {
         assert_fuzzy_eq!(asset_pos_1.purchase_value, -52.0, tol);
         assert_fuzzy_eq!(asset_pos_1.position, 50.0, tol);
         assert_fuzzy_eq!(asset_pos_1.fees, -8.0, tol);
-        assert_fuzzy_eq!(asset_pos_1.realized_pnl, 8.0, tol);
+        assert_fuzzy_eq!(asset_pos_1.trading_pnl, 8.0, tol);
         assert_eq!(asset_pos_1.currency, eur);
 
         transactions.push(Transaction {
@@ -600,7 +600,7 @@ mod tests {
         assert_fuzzy_eq!(asset_pos_1.purchase_value, -192.0, tol);
         assert_fuzzy_eq!(asset_pos_1.position, 200.0, tol);
         assert_fuzzy_eq!(asset_pos_1.fees, -8.0, tol);
-        assert_fuzzy_eq!(asset_pos_1.realized_pnl, 8.0, tol);
+        assert_fuzzy_eq!(asset_pos_1.trading_pnl, 8.0, tol);
 
         // fees and taxes not associated to any transaction
         assert_fuzzy_eq!(positions.cash.fees, -7.0, tol);
@@ -695,13 +695,13 @@ mod tests {
 
         finql::fx_rates::insert_fx_quote(2.0, usd, eur, time, &mut db).unwrap();
         let time = finql::helpers::make_time(2019, 12, 30, 12, 0, 0).unwrap();
-        eur_position.add_quote(time, &mut db).unwrap();
+        eur_position.add_quote(time, &mut db);
         assert_fuzzy_eq!(eur_position.last_quote.unwrap(), 12.34, tol);
         assert_eq!(
             eur_position.last_quote_time.unwrap().format("%F %H:%M:%S").to_string(),
             "2019-12-30 09:00:00"
         );
-        usd_position.add_quote(time, &mut db).unwrap();
+        usd_position.add_quote(time, &mut db);
         assert_fuzzy_eq!(usd_position.last_quote.unwrap(), 86.42, tol);
         assert_eq!(
             usd_position.last_quote_time.unwrap().format("%F %H:%M:%S").to_string(),

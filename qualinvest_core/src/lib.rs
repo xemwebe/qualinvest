@@ -43,7 +43,7 @@ pub struct PdfParseParams {
     pub warn_old: bool,
     pub consistency_check: bool,
     pub rename_asset: bool,
-    pub default_account: bool,
+    pub default_account: Option<usize>,
 }
 
 /// Market data provider settings

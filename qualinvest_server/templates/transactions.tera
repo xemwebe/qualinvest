@@ -73,11 +73,14 @@
 <div class="row" style="margin-bottom: 20px;">
 	<div class="col-md-1">
 		<a class="btn btn-primary" id="edit_link" href="{{relpath}}/transactions/edit/id" disabled>Edit</a>
-        </div>
+    </div>
 	<div class="col-md-1">
 		<a class="btn btn-primary" id="destroy_link" href="{{relpath}}/transactions/delete/id" disabled>Delete</a>
-        </div>
-	<div class="col-md-offset-8 col-md-2 text-right">
+    </div>
+	<div class="col-md-1">
+		<a class="btn btn-primary" href="{{relpath}}/transactions/upload">Upload PDF(s)</a>	
+	</div>
+	<div class="col-md-8 text-right">
 		<a class="btn btn-primary" href="{{relpath}}/transactions/new"><i class="fa fa-plus"></i> New Transaction</a>	
 	</div>
 </div>
