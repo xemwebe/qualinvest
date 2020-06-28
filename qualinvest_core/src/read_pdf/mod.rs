@@ -13,10 +13,11 @@ use finql::sqlite_handler::SqliteDB;
 use finql::transaction::{Transaction, TransactionType};
 use finql::{CashAmount, CashFlow};
 use rusqlite::Connection;
-use pdf_store::store_pdf;
+use pdf_store::store_pdf_as_name;
 use std::error::Error;
 use std::process::Command;
 use std::{fmt, io, num, string};
+use std::path::Path;
 
 pub mod pdf_store;
 mod read_account_info;
@@ -132,7 +133,7 @@ pub fn rounded_equal(x: f64, y: f64, precision: i32) -> bool {
     return (x * factor).round() == (y * factor).round();
 }
 
-pub fn text_from_pdf(file: &str) -> Result<String, ReadPDFError> {
+pub fn text_from_pdf(file: &Path) -> Result<String, ReadPDFError> {
     let output = Command::new("pdftotext")
         .arg("-layout")
         .arg("-q")
@@ -174,11 +175,20 @@ pub fn german_string_to_date(date_string: &str) -> Result<NaiveDate, ReadPDFErro
     NaiveDate::parse_from_str(date_string, "%d.%m.%Y").map_err(|_| ReadPDFError::ParseDate)
 }
 
+/// transform a user provided filename into some safe file name
+pub fn sanitize_pdf_name(file: &str) -> Result<String, ReadPDFError> {
+    let path = Path::new(file);
+    let stem = path.file_stem().ok_or(ReadPDFError::NotFound("no valid file name"))?;
+    return Ok(format!("{:?}.pdf", stem));
+}
+
 pub fn parse_and_store<DB: AccountHandler>(
-    pdf_file: &str,
+    pdf_file: &Path,
+    user_file_name: &str,
     db: &mut DB,
     config: &PdfParseParams,
 ) -> Result<i32, ReadPDFError> {
+    let file_name = sanitize_pdf_name(user_file_name)?;
     let hash = sha256_hash(pdf_file)?;
     match db.lookup_hash(&hash) {
         Ok((ids, _path)) => {
@@ -191,7 +201,8 @@ pub fn parse_and_store<DB: AccountHandler>(
         }
         Err(_) => {}
     }
-    //println!("Start parsing document {}", pdf_file);
+
+    // Start parsing document
     let text = text_from_pdf(pdf_file);
     match text {
         Ok(text) => {
@@ -248,8 +259,8 @@ pub fn parse_and_store<DB: AccountHandler>(
                 }
                 Err(err) => Err(err),
             }?;
-            let name = store_pdf(pdf_file, &hash, &config)?;
-            db.insert_doc(&trans_ids, &hash, &name)?;
+            store_pdf_as_name(pdf_file, &file_name, &hash, &config)?;
+            db.insert_doc(&trans_ids, &hash, &file_name)?;
             Ok(trans_ids.len() as i32)
         }
         Err(err) => Err(err),

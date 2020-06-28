@@ -7,7 +7,7 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 
-pub fn sha256_hash(file: &str) -> Result<String, ReadPDFError> {
+pub fn sha256_hash(file: &Path) -> Result<String, ReadPDFError> {
     let input = File::open(file)?;
     let mut reader = BufReader::new(input);
 
@@ -23,20 +23,16 @@ pub fn sha256_hash(file: &str) -> Result<String, ReadPDFError> {
 }
 
 /// Store a copy of the pdf file in the path specified in the configuration.
-/// Return the base name to be stored in the database.
-pub fn store_pdf(
-    pdf_file: &str,
+/// The pdf will be stored with the given name, which is assumed to have been sanitized.
+pub fn store_pdf_as_name(
+    path: &Path,
+    name: &str,
     _hash: &str,
     config: &PdfParseParams,
-) -> Result<String, ReadPDFError> {
-    let path = Path::new(pdf_file);
-    let name = path
-        .file_name()
-        .ok_or(ReadPDFError::NotFound("no valid file name"))?
-        .to_string_lossy();
+) -> Result<(), ReadPDFError> {
     let new_path = format!("{}/{}", &config.doc_path, name);
-    fs::copy(pdf_file, &new_path)?;
-    Ok(name.to_string())
+    fs::copy(path, &new_path)?;
+    Ok(())
 }
 
 #[cfg(test)]

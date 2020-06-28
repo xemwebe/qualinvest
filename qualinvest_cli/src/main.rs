@@ -212,11 +212,11 @@ fn main() {
     }
 
     if let Some(matches) = matches.subcommand_matches("hash") {
-        let pdf_file = matches.value_of("INPUT").unwrap();
+        let pdf_file = std::path::Path::new(matches.value_of("INPUT").unwrap());
         match sha256_hash(&pdf_file) {
             Err(err) => {
                 println!(
-                    "Failed to calculate hash of file {} with error {:?}",
+                    "Failed to calculate hash of file {:?} with error {:?}",
                     pdf_file, err
                 );
             }
@@ -261,7 +261,8 @@ fn main() {
             for file in glob(&pattern).expect("Failed to read directory") {
                 count_docs += 1;
                 let filename = file.unwrap().to_str().unwrap().to_owned();
-                let transactions = parse_and_store(&filename, &mut db, &config.pdf);
+                let path = std::path::Path::new(&filename);
+                let transactions = parse_and_store(&path, &filename, &mut db, &config.pdf);
                 match transactions {
                     Err(err) => {
                         count_failed += 1;
@@ -280,7 +281,8 @@ fn main() {
         } else {
             // parse single file
             let pdf_file = matches.value_of("parse-pdf").unwrap();
-            let transactions = parse_and_store(&pdf_file, &mut db, &config.pdf);
+            let path = std::path::Path::new(pdf_file);
+            let transactions = parse_and_store(&path, &pdf_file, &mut db, &config.pdf);
             match transactions {
                 Err(err) => {
                     println!("Failed to parse file {} with error {:?}", pdf_file, err);

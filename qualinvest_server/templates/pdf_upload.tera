@@ -1,12 +1,30 @@
 {% extends "layout" %}
+{% block jsdata %}{{super()}}
+<script type="text/javascript">
+    function updateFileName(obj) {
+        var label = obj.parentNode;
+
+        var fileName = '';
+		if( obj.files && obj.files.length > 1 )
+			fileName = ( "{count} Files selected." ).replace( '{count}', obj.files.length );
+		else
+			fileName = obj.value.split( '\\' ).pop();
+
+		if( fileName )
+			label.querySelector( 'span' ).innerHTML = fileName;
+		else
+			label.innerHTML = "Choose transaction pdf for upload...";
+    }
+</script>
+{% endblock jsdata %}
 {% block content %}
 <div class="row">
 	<div class="col-md-offset-1 col-md 10">
-		<h2>Upload transaction document</h2>
+		<h2>Upload transaction document(s)</h2>
 	</div>
 </div>
 <div class="row">
-		<form class="form-horizontal" action="{{relpath}}/transactions/upload" method="post">
+		<form class="form-horizontal" enctype="multipart/form-data" action="{{relpath}}/pdf_upload" method="post">
 			<div class="form-group">
                 <label class="control-label col-md-2">
                     Warning for duplicates: 
@@ -29,27 +47,24 @@
 				<div class="col-md-2">
 				<select class="form-control" id="default_account" name="default_account"> 
 					{% set account_id = default_account_id %}
+					<option  {% if default_account_id %}selected{% endif %}></option>
 					{% for account in accounts %}
-					<option value="{{account.id}}" {% if account.id == default_account_id %}selected{% endif %}>{{account.broker}}:{{account.account_name}}</option> 
+					<option value={{account.id}} {% if account.id == default_account_id %}selected{% endif %}>{{account.broker}}:{{account.account_name}}</option> 
  					{% endfor %}
 				</select> 
 				</div>
 			</div>
 			<div class="form-group">
-				<label class="control-label col-md-2" for="doc_path">Path of PFD file:</label>
+	    		<label class="control-label col-md-2" for="doc_name">Transaction pdf for upload:</label>
 				<div class="col-md-2">
-					<input class="form-control" id="doc_path" name="doc_path" type="text">
-				</select> 
+					<input type="file" name="doc_name" required hidden="true" onchange="updateFileName(this);" multiple/>	
 				</div>
 			</div>
-			<div class="row text-right col-md-4">
+    		<div class="row text-right col-md-4">
 				<button class="btn btn-success" type="submit">Upload</button>
 			</div>
 		</form>
 	</div>
 </div>	
-<script>
-setFields();
-flatpickr(".fpcalendar", {});
-</script>
+
 {% endblock content %}

@@ -10,3 +10,27 @@
     padding-left: 15px;
     margin-bottom: 15px;
 }
+
+label.upLabel input[type="file"] {
+    position: absolute;
+    top: -1000px;
+    background: green;
+}
+.upLabel {
+    border: 1px solid #AAA;
+    padding: 2px 5px;
+    margin: 2px;
+    display: inline-block;
+}
+.upLabel:hover {
+    background: #CCC;
+}
+.upLabel:active {
+    background: #CCF;
+}
+.upLabel:invalid+span {
+    color: #4A4;
+}
+.upLabel:valid+span {
+    color: #4A4;
+}

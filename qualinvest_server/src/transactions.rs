@@ -1,4 +1,10 @@
 /// Viewing and editing of transactions
+extern crate multipart;
+
+use multipart::server::Multipart;
+use multipart::server::save::Entries;
+use multipart::server::save::SaveResult::*;
+use mime;
 
 use std::ops::DerefMut;
 
@@ -261,29 +267,86 @@ pub struct UploadForm {
     pub rename_asset: bool,
 }
 
-impl UploadForm {
-    fn get_config(&self, doc_path: &String) -> PdfParseParams {
-        PdfParseParams {
-            doc_path: doc_path.clone(),
-            warn_old: self.warn_old,
-            consistency_check: self.consistency_check,
-            rename_asset: self.rename_asset,
-            default_account: self.default_account,
-        }    
-    }    
-}
+#[post("/pdf_upload", data = "<data>")]
+/// Uploading pdf documents via web form
+/// ToDo: Include check that user is allowed to add transactions to the parsed accounts
+pub fn pdf_upload(cont_type: &rocket::http::ContentType, data: rocket::Data, user: UserCookie, mut qldb: QlInvestDbConn, state: State<ServerState>) 
+    -> Result<Redirect, Redirect> {
 
-#[post("/transactions/upload", data = "<form>")]
-pub fn pdf_upload(form: Form<UploadForm>, user: UserCookie, mut qldb: QlInvestDbConn, state: State<ServerState>) -> Result<Redirect,Redirect> {
+    if !cont_type.is_form_data() {
+        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="Malformed form data."))));
+    }
+
+    let (_, boundary) = cont_type.params().find(|&(k, _)| k == "boundary").ok_or(
+            Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="Malformed form data.")))
+        )?;
+
+    let mut out = Vec::new();
     let mut db = PostgresDB{ conn: qldb.0.deref_mut() };
 
-    let pdf_data = form.into_inner();
-    let pdf_config = pdf_data.get_config(&state.doc_path);
-    let filename = "".to_string();
-    parse_and_store(&filename, &mut db, &pdf_config)
-        .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg=&format!("Upload failed: {}", e)))))?;
+    match Multipart::with_body(data.open(), boundary).save().temp() {
+        Full(entries) => process_entries(entries, &mut db, &state.doc_path, &mut out),
+        _ => out.push(format!("{}{}", state.rel_path, uri!(error_msg: msg="Invalid document type"))),
+    }
+    
+    Ok(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg=&out.join("\n")))))
+}
 
-    Ok(Redirect::to(format!("{}{}", state.rel_path, uri!(transactions: _,_,_))))
+/// Process the multi-part pdf upload and return a string of error messages, if any.
+fn process_entries(entries: Entries, db: &mut PostgresDB, doc_path: &String, errors: &mut Vec<String>) {
+    let mut pdf_config = qualinvest_core::PdfParseParams{
+        doc_path: doc_path.clone(),
+        warn_old: false,
+        consistency_check: false,
+        rename_asset: false,
+        default_account: None,
+    };
+
+    // List of documents contains tuple of file name and full path
+    let mut documents = Vec::new();
+    for (name, field) in entries.fields {
+        match &*name {
+            "default_account" => {
+                match &field[0].data {
+                    multipart::server::save::SavedData::Text(account) => 
+                        pdf_config.default_account = account.parse::<usize>().ok(),
+                    _ => errors.push("Invalid default account setting".to_string()),
+                }
+            },
+            "warn_old" => pdf_config.warn_old = true,
+            "consistency_check" => pdf_config.consistency_check = true,
+            "rename_asset" => pdf_config.rename_asset = true,
+            "doc_name" => {
+                for f in &field {
+                    match &f.data {
+                        multipart::server::save::SavedData::File(path, _size) => {
+                            let doc_name = &f.headers.filename;
+                            if doc_name.is_none() || &f.headers.content_type != &Some(mime::APPLICATION_PDF) {
+                                errors.push("Invalid pdf document".to_string());
+                            } else {
+                                documents.push( (path.clone(), doc_name.as_ref().unwrap().clone()) );
+                            }
+                        },
+                        _ => errors.push("Invalid pdf document".to_string()),
+                    }    
+                }
+            },
+            _ => errors.push("Unsupported field name".to_string()),
+        }
+    }
+
+    // call pdf parse for each pdf found
+    for (path, pdf_name) in documents {
+        let transactions = parse_and_store(&path, &pdf_name, db, &pdf_config);
+        match transactions {
+            Err(err) => {
+                errors.push(format!("Failed to parse file {} with error {:?}", pdf_name, err));
+            }
+            Ok(count) => {
+                errors.push(format!("{} transaction(s) stored in database.", count));
+            }
+        }
+    }
 }
 
 #[get("/transactions/delete/<trans_id>")]
