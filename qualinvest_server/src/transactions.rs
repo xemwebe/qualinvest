@@ -42,14 +42,14 @@ pub fn transactions(accounts: Option<String>, start: Option<String>, end: Option
     let user_accounts = user.get_accounts(&mut db);
     if user_accounts.is_none() {
 //        return Err(Flash::error(Redirect::to(format!("{}{}", state.rel_path, uri!(transactions: accounts, start, end), "Please ask the administrator to set up an account for you first.")));
-        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="no_user_account"))));
+        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="no user account"))));
     }
     let user_accounts = user_accounts.unwrap();
 
     let filter = filter::FilterForm::from_query(accounts, start, end, &user, &user_accounts, &mut db)?;
 
     let transactions = db.get_transaction_view_for_accounts(&filter.account_ids)
-        .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="get_transaction_view_for_accounts"))))?;
+        .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="get transaction view for accounts"))))?;
 
     let mut context = state.default_context();
     context.insert("transactions", &transactions);

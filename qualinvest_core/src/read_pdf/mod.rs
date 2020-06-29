@@ -18,6 +18,7 @@ use std::error::Error;
 use std::process::Command;
 use std::{fmt, io, num, string};
 use std::path::Path;
+use sanitize_filename::sanitize;
 
 pub mod pdf_store;
 mod read_account_info;
@@ -175,20 +176,13 @@ pub fn german_string_to_date(date_string: &str) -> Result<NaiveDate, ReadPDFErro
     NaiveDate::parse_from_str(date_string, "%d.%m.%Y").map_err(|_| ReadPDFError::ParseDate)
 }
 
-/// transform a user provided filename into some safe file name
-pub fn sanitize_pdf_name(file: &str) -> Result<String, ReadPDFError> {
-    let path = Path::new(file);
-    let stem = path.file_stem().ok_or(ReadPDFError::NotFound("no valid file name"))?;
-    return Ok(format!("{:?}.pdf", stem));
-}
-
 pub fn parse_and_store<DB: AccountHandler>(
     pdf_file: &Path,
     user_file_name: &str,
     db: &mut DB,
     config: &PdfParseParams,
 ) -> Result<i32, ReadPDFError> {
-    let file_name = sanitize_pdf_name(user_file_name)?;
+    let file_name = sanitize(&user_file_name);
     let hash = sha256_hash(pdf_file)?;
     match db.lookup_hash(&hash) {
         Ok((ids, _path)) => {

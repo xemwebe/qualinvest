@@ -48,6 +48,7 @@ num-format = "0.4"
 unicode-segmentation = "1.6"
 multipart = "0.17"
 mime = "0.3"
+sanitize-filename = "0.2.1"
 
 [dependencies.rocket_contrib]
 version="0.5.0-dev"
