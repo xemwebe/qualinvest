@@ -16,7 +16,7 @@ pub struct UserCookie {
 }
 
 impl UserCookie {
-    pub fn get_accounts(&self, db: &mut dyn UserHandler) -> Option<Vec<Account>> {
+    pub fn get_accounts(&self, db: &dyn UserHandler) -> Option<Vec<Account>> {
         if self.is_admin {
             db.get_all_accounts().ok()
         } else {
@@ -71,7 +71,7 @@ impl AuthorizeForm for UserForm {
     type CookieType = UserCookie;
     
     /// Authenticate the credentials inside the login form
-    fn authenticate(&self, db: &mut dyn UserHandler) -> Result<Self::CookieType, AuthFail> {
+    fn authenticate(&self, db: &dyn UserHandler) -> Result<Self::CookieType, AuthFail> {
         let user = db.get_user_by_credentials(&self.username, &self.password).
             ok_or(AuthFail::new(self.username.clone(), "Authentication failed.".to_string()))?;
         if user.id.is_none() { return Err(AuthFail::new(self.username.clone(), "Authentication failed.".to_string())); }

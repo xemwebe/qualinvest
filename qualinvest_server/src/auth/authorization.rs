@@ -82,7 +82,7 @@ pub trait AuthorizeForm : CookieId {
     /// a message indicating why it failed in the `AuthFail` struct
     /// 
     /// Must be implemented on the login form structure
-    fn authenticate(&self, db: &mut dyn UserHandler) -> Result<Self::CookieType, AuthFail>;
+    fn authenticate(&self, db: &dyn UserHandler) -> Result<Self::CookieType, AuthFail>;
     
     /// Create a new login form Structure with 
     /// the specified username and password.
@@ -142,7 +142,7 @@ pub trait AuthorizeForm : CookieId {
     /// this is so that the user can see why it failed but when they refresh
     /// it will disappear, enabling a clean start, but with the user name
     /// from the url's query string (determined by `fail_url()`)
-    fn flash_redirect(&self, ok_redir: impl Into<String>, err_redir: impl Into<String>, cookies: &mut Cookies, db: &mut dyn UserHandler) -> Result<Redirect, Flash<Redirect>> {
+    fn flash_redirect(&self, ok_redir: impl Into<String>, err_redir: impl Into<String>, cookies: &mut Cookies, db: &dyn UserHandler) -> Result<Redirect, Flash<Redirect>> {
         match self.authenticate(db) {
             Ok(cooky) => {
                 let cid = Self::cookie_id();
@@ -163,7 +163,7 @@ pub trait AuthorizeForm : CookieId {
     
     /// Redirect the user to one page on successful authentication or
     /// another page if authentication fails.
-    fn redirect(&self, ok_redir: &str, err_redir: &str, cookies: &mut Cookies, db: &mut dyn UserHandler) -> Result<Redirect, Redirect> {
+    fn redirect(&self, ok_redir: &str, err_redir: &str, cookies: &mut Cookies, db: &dyn UserHandler) -> Result<Redirect, Redirect> {
         match self.authenticate(db) {
             Ok(cooky) => {
                 let cid = Self::cookie_id();

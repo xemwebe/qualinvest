@@ -10,3 +10,15 @@ Currently, it consists of three components:
 * qualinvest_server: A http based GUI interface with multiple user support. Each user has only access to the specified set of accounts and the transactions in that accounts. Currently, view and management of transactions is supported as well as viewing position and P&L. 
 
 Please note that the toolbox is still in an early development stage and will be extended by more useful functionality in the near future. Though, if you miss a feature, please send me a note to help me prioritize the future developments.
+
+# Install instructions
+
+The tools can be build basically by means of the `cargo` utilities, but with some extra preparation.
+
+Since we use the compile-time-check feature by means of the `sqlx`-macros, a PostgreSQL database for testing needs to be setup prior to compilation, with the module `pgcrypto` enabled and all tables setup (but empty). Once the tools are build, all tables can be create for a new, empty database automatically by the command:
+
+```bash
+qualinvest_core --init-database --config config.toml
+```
+
+where the config file contains the credentials for the new, empty database.

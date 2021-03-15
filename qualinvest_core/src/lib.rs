@@ -4,12 +4,16 @@
 ///! For mor information, see [qualinvest on github](https://github.com/xemwebe/qualinvest)
 ///!
 
-use chrono::{DateTime, Utc};
-use finql::data_handler::QuoteHandler;
-use finql::market::MarketError;
-use finql::quote::MarketDataSource;
-use serde::Deserialize;
+use std::sync::Arc;
+use std::str::FromStr;
 use std::ops::Deref;
+
+use serde::Deserialize;
+use chrono::{DateTime, Utc};
+
+use finql_data::QuoteHandler;
+use finql::market::MarketError;
+use finql::market_quotes::{MarketDataSource,MarketQuoteError};
 
 pub mod accounts;
 pub mod position;
@@ -65,7 +69,7 @@ pub struct ServerSettings {
 fn add_provider(
     market: &mut finql::Market,
     token: &Option<String>,
-    source: finql::quote::MarketDataSource,
+    source: MarketDataSource,
 ) {
     match token {
         Some(token) => {
@@ -80,7 +84,7 @@ fn add_provider(
 
 fn set_market_providers(market: &mut finql::Market, providers: &MarketDataProviders) {
     // yahoo is always present
-    let yahoo = finql::quote::MarketDataSource::Yahoo;
+    let yahoo = MarketDataSource::Yahoo;
     market.add_provider(
         yahoo.to_string(),
         yahoo.get_provider(String::new()).unwrap(),
@@ -100,48 +104,50 @@ fn set_market_providers(market: &mut finql::Market, providers: &MarketDataProvid
         &providers.eod_historical_data_token,
         MarketDataSource::EodHistData,
     );
-    let codi = finql::quote::MarketDataSource::Comdirect;
+    let codi = MarketDataSource::Comdirect;
     market.add_provider(codi.to_string(), codi.get_provider(String::new()).unwrap());
 }
 
-pub fn update_quote_history(
+pub async fn update_quote_history(
     ticker_id: usize,
     start: DateTime<Utc>,
     end: DateTime<Utc>,
-    db: &mut dyn QuoteHandler,
+    db: Arc<Box<dyn QuoteHandler+Send+Sync>>,
     config: &Config,
 ) -> Result<(), MarketError> {
     let mut market = finql::Market::new(db);
     set_market_providers(&mut market, &config.market_data);
-    market.update_quote_history(ticker_id, start, end)
+    market.update_quote_history(ticker_id, start, end).await
 }
 
-pub fn update_ticker(
+pub async fn update_ticker(
     ticker_id: usize,
-    db: &mut dyn QuoteHandler,
+    db: &dyn QuoteHandler,
     config: &Config,
 ) -> Result<(), MarketError> {
-    let ticker = db.get_ticker_by_id(ticker_id)?;
-    let token = match ticker.source {
+    let ticker = db.get_ticker_by_id(ticker_id).await?;
+    let ticker_source = MarketDataSource::from_str(&ticker.source)
+        .map_err(|_| MarketError::MarketQuoteError(MarketQuoteError::FetchFailed("invalid ticker source".to_string())))?;
+    let token = match ticker_source {
         MarketDataSource::AlphaVantage => config.market_data.alpha_vantage_token.clone(),
         MarketDataSource::GuruFocus => config.market_data.gurufocus_token.clone(),
         MarketDataSource::EodHistData => config.market_data.eod_historical_data_token.clone(),
         _ => Some(String::new()),
     };
     if let Some(token) = token {
-        let provider = ticker.source.get_provider(token);
+        let provider = ticker_source.get_provider(token);
         if let Some(provider) = provider {
-            finql::market_quotes::update_ticker(provider.deref(), &ticker, db)?;
+            finql::market_quotes::update_ticker(provider.deref(), &ticker, db).await?;
         }
     }
     Ok(())
 }
 
-pub fn update_quotes(
-    db: &mut dyn QuoteHandler,
+pub async fn update_quotes(
+    db: Arc<Box<dyn QuoteHandler+Send+Sync>>,
     config: &Config,
 ) -> Result<Vec<usize>, MarketError> {
     let mut market = finql::Market::new(db);
     set_market_providers(&mut market, &config.market_data);
-    market.update_quotes()
+    market.update_quotes().await
 }

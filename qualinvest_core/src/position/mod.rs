@@ -1,16 +1,16 @@
-use finql::data_handler::{AssetHandler, QuoteHandler, DataError};
-use finql::postgres_handler::PostgresDB;
-use finql::transaction::{Transaction, TransactionType};
-use finql::Currency;
-use finql::fx_rates::get_fx_rate;
-use crate::accounts::AccountHandler;
-
-use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use chrono::{NaiveDate,DateTime, Local, Utc};
-use chrono::offset::TimeZone;
 use std::convert::From;
 use std::{error, fmt};
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
+use chrono::{NaiveDate,DateTime, Local, Utc};
+use chrono::offset::TimeZone;
+
+use finql_data::{AssetHandler, QuoteHandler, DataError,Transaction, 
+    TransactionType, Currency};
+use finql_postgres::PostgresDB;
+
+use crate::accounts::AccountHandler;
 
 /// Errors related to position calculation
 #[derive(Debug)]
@@ -91,9 +91,9 @@ impl Position {
     /// Add quote information to position
     /// If no quote is available (or no conversion to position currency), calculate
     /// from purchase value.
-    pub fn add_quote(&mut self, time: DateTime<Utc>, db: &mut dyn QuoteHandler) {
+    pub async fn add_quote(&mut self, time: DateTime<Utc>, db: &dyn QuoteHandler) {
         if let Some(asset_id) = self.asset_id {
-            let quote_and_curr =  db.get_last_quote_before_by_id(asset_id, time);
+            let quote_and_curr =  db.get_last_quote_before_by_id(asset_id, time).await;
             if let Ok((quote, currency)) = quote_and_curr {
                 if currency == self.currency {
                     // Quote has correct currency, just use that
@@ -138,17 +138,17 @@ impl PortfolioPosition {
         }
     }
 
-    pub fn get_asset_names(&mut self, db: &mut dyn AssetHandler) -> Result<(), DataError> {
+    pub async fn get_asset_names(&mut self, db: &dyn AssetHandler) -> Result<(), DataError> {
         for (id, mut pos) in &mut self.assets {
-            let asset = db.get_asset_by_id(*id)?;
+            let asset = db.get_asset_by_id(*id).await?;
             pos.name = asset.name;
         }
         Ok(())
     }
 
-    pub fn add_quote(&mut self, time: DateTime<Utc>, db: &mut dyn QuoteHandler) {
+    pub fn add_quote(&mut self, time: DateTime<Utc>, fx_converter: &dyn QuoteHandler) {
         for (_, pos) in &mut self.assets {
-            pos.add_quote(time, db);
+            pos.add_quote(time, fx_converter);
         }
     }
 
@@ -355,14 +355,15 @@ pub fn calc_delta_position(
 /// Calculate position and P&L since inception.
 /// All transaction with cash flow dates before the given date a taken into account and valued
 /// using the latest available quote before midnight of that date.
-pub fn calculate_position_and_pnl(currency: Currency, account_ids: &Vec<usize>, date: NaiveDate, db: &mut PostgresDB) -> Result<(PortfolioPosition, PositionTotals), PositionError> {
-    let transactions = db.get_transactions_before_time(account_ids, date);
+pub async fn calculate_position_and_pnl(currency: Currency, account_ids: &Vec<usize>, date: NaiveDate, db: &PostgresDB) 
+    -> Result<(PortfolioPosition, PositionTotals), PositionError> {
+    let transactions = db.get_transactions_before_time(account_ids, date).await;
     let mut position = if let Ok(transactions) = transactions {
         calc_position(currency, &transactions)?
     } else {
         PortfolioPosition::new(currency)
     };
-    position.get_asset_names(db).map_err(|e| PositionError::NoAsset(e))?;
+    position.get_asset_names(db).await.map_err(|e| PositionError::NoAsset(e))?;
     let date_time: DateTime<Utc> = DateTime::<Utc>::from(Local.from_local_datetime(&date.and_hms(0,0,0)).unwrap());
     position.add_quote(date_time, db);
     let totals = position.calc_totals();
@@ -376,14 +377,14 @@ pub fn calculate_position_and_pnl(currency: Currency, account_ids: &Vec<usize>, 
 /// with the latest quotes before that date, the final position is valued with the latest
 /// quotes before the date after `end`. With this method, P&L is additive, i.e. adding the 
 /// P&L figures of directly succeeding date periods should sum up to the P&L of the joined period.
-pub fn calculate_position_for_period(currency: Currency, account_ids: &Vec<usize>, start: NaiveDate, end: NaiveDate, db: &mut PostgresDB) -> Result<(PortfolioPosition, PositionTotals), PositionError> {
-    let (mut position, _) = calculate_position_and_pnl(currency, account_ids, start, db)?;
+pub async fn calculate_position_for_period(currency: Currency, account_ids: &Vec<usize>, start: NaiveDate, end: NaiveDate, db: &mut PostgresDB) -> Result<(PortfolioPosition, PositionTotals), PositionError> {
+    let (mut position, _) = calculate_position_and_pnl(currency, account_ids, start, db).await?;
     position.reset_pnl();
-    let transactions = db.get_transactions_in_range(account_ids, start, end);
+    let transactions = db.get_transactions_in_range(account_ids, start, end).await;
     if let Ok(transactions) = transactions {
         calc_delta_position(&mut position, &transactions)?;
     }
-    position.get_asset_names(db).map_err(|e| PositionError::NoAsset(e))?;
+    position.get_asset_names(db).await.map_err(|e| PositionError::NoAsset(e))?;
     let end_date_time: DateTime<Utc> = DateTime::<Utc>::from(Local.from_local_datetime(&end.succ().and_hms(0,0,0)).unwrap());
     position.add_quote(end_date_time, db);
     let totals = position.calc_totals();
@@ -393,14 +394,13 @@ pub fn calculate_position_for_period(currency: Currency, account_ids: &Vec<usize
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::NaiveDate;
-    use finql::assert_fuzzy_eq;
-    use finql::{CashAmount, CashFlow};
-    use finql::asset::Asset;
-    use finql::data_handler::asset_handler::AssetHandler;
-    use finql::quote::{MarketDataSource, Quote, Ticker};
-    use finql::sqlite_handler::SqliteDB;
+
     use std::str::FromStr;
+
+    use chrono::NaiveDate;
+
+    use finql::assert_fuzzy_eq;
+    use finql_data::{Asset, AssetHandler, CashAmount, CashFlow, MarketDataSource, Quote, Ticker};
 
     #[test]
     fn test_portfolio_position() {

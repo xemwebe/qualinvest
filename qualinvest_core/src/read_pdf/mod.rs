@@ -2,21 +2,17 @@
 ///! This requires the extern tool `pdftotext`
 ///! which is part of [XpdfReader](https://www.xpdfreader.com/pdftotext-man.html).
 use super::accounts::{Account, AccountHandler};
-use crate::PdfParseParams;
-use chrono::NaiveDate;
-use chrono::{Datelike, TimeZone, Utc};
-use finql::asset::Asset;
-use finql::currency;
-use finql::data_handler::DataError;
-use finql::fx_rates::insert_fx_quote;
-use finql::sqlite_handler::SqliteDB;
-use finql::transaction::{Transaction, TransactionType};
-use finql::{CashAmount, CashFlow};
-use rusqlite::Connection;
-use pdf_store::store_pdf;
 use std::error::Error;
 use std::process::Command;
 use std::{fmt, io, num, string};
+
+use chrono::NaiveDate;
+use chrono::{Datelike, TimeZone, Utc};
+use finql_data::{Asset, Transaction, TransactionType, CashAmount, CashFlow, DataError, CurrencyError};
+use finql::fx_rates::SimpleCurrencyConverter;
+
+use crate::PdfParseParams;
+use pdf_store::store_pdf;
 
 pub mod pdf_store;
 mod read_account_info;
@@ -30,7 +26,7 @@ pub enum ReadPDFError {
     IoError(io::Error),
     ParseError(string::FromUtf8Error),
     ParseFloat(num::ParseFloatError),
-    ParseCurrency(currency::CurrencyError),
+    ParseCurrency(CurrencyError),
     DBError(DataError),
     CurrencyMismatch,
     ParseDate,
@@ -74,6 +70,12 @@ impl From<io::Error> for ReadPDFError {
 impl From<DataError> for ReadPDFError {
     fn from(error: DataError) -> Self {
         Self::DBError(error)
+    }
+}
+
+impl From<CurrencyError> for ReadPDFError {
+    fn from(error: CurrencyError) -> Self {
+        Self::ParseCurrency(error)
     }
 }
 
@@ -174,13 +176,13 @@ pub fn german_string_to_date(date_string: &str) -> Result<NaiveDate, ReadPDFErro
     NaiveDate::parse_from_str(date_string, "%d.%m.%Y").map_err(|_| ReadPDFError::ParseDate)
 }
 
-pub fn parse_and_store<DB: AccountHandler>(
+pub async fn parse_and_store<DB: AccountHandler>(
     pdf_file: &str,
     db: &mut DB,
     config: &PdfParseParams,
 ) -> Result<i32, ReadPDFError> {
     let hash = sha256_hash(pdf_file)?;
-    match db.lookup_hash(&hash) {
+    match db.lookup_hash(&hash).await {
         Ok((ids, _path)) => {
             if ids.len() > 0 {
                 if config.warn_old {
@@ -207,7 +209,7 @@ pub fn parse_and_store<DB: AccountHandler>(
                 account_name,
             };
             let acc_id = db
-                .insert_account_if_new(&account)
+                .insert_account_if_new(&account).await
                 .map_err(|err| ReadPDFError::DBError(err))?;
             account.id = Some(acc_id);
 
@@ -215,19 +217,19 @@ pub fn parse_and_store<DB: AccountHandler>(
             let tri = parse_transactions(&text)?;
             // If not disable, perform consistency check
             if config.consistency_check {
-                check_consistency(&tri)?;
+                check_consistency(&tri).await?;
             }
             // Generate list of transactions
-            let transactions = make_transactions(&tri);
+            let transactions = make_transactions(&tri).await;
             let trans_ids = match transactions {
                 Ok((transactions, asset)) => {
                     let asset_id = if asset.name == "" {
-                        db.get_asset_by_isin(&asset.isin.unwrap())
+                        db.get_asset_by_isin(&asset.isin.unwrap()).await
                             .map_err(|_| ReadPDFError::NotFound("could not find ISIN in db"))?
                             .id
                             .unwrap()
                     } else {
-                        db.insert_asset_if_new(&asset, config.rename_asset)
+                        db.insert_asset_if_new(&asset, config.rename_asset).await
                             .map_err(|err| ReadPDFError::DBError(err))?
                     };
                     let mut trans_ids = Vec::new();
@@ -238,11 +240,11 @@ pub fn parse_and_store<DB: AccountHandler>(
                             trans.set_transaction_ref(trans_ids[0]);
                         }
                         let trans_id = db
-                            .insert_transaction(&trans)
+                            .insert_transaction(&trans).await
                             .map_err(|err| ReadPDFError::DBError(err))?;
                         trans_ids.push(trans_id);
                         let _ = db
-                            .add_transaction_to_account(acc_id, trans_id)
+                            .add_transaction_to_account(acc_id, trans_id).await
                             .map_err(|err| ReadPDFError::DBError(err))?;
                     }
                     Ok(trans_ids)
@@ -250,7 +252,7 @@ pub fn parse_and_store<DB: AccountHandler>(
                 Err(err) => Err(err),
             }?;
             let name = store_pdf(pdf_file, &hash, &config)?;
-            db.insert_doc(&trans_ids, &hash, &name)?;
+            db.insert_doc(&trans_ids, &hash, &name).await?;
             Ok(trans_ids.len() as i32)
         }
         Err(err) => Err(err),
@@ -259,25 +261,20 @@ pub fn parse_and_store<DB: AccountHandler>(
 
 // Check if main payment plus all fees and taxes add up to total payment
 // Add up all payments separate by currencies, convert into total currency, and check if the add up to zero.
-pub fn check_consistency(tri: &ParsedTransactionInfo) -> Result<(), ReadPDFError> {
+pub async fn check_consistency(tri: &ParsedTransactionInfo) -> Result<(), ReadPDFError> {
     let time = Utc
         .ymd(tri.valuta.year(), tri.valuta.month(), tri.valuta.day())
         .and_hms_milli(18, 0, 0, 0);
 
     // temporary storage for fx rates
     // total payment is always in base currency, but main_amount (and maybe fees or taxes) could be in foreign currency.
-    let mut conn = Connection::open(":memory:").unwrap();
-    let mut fx_db = SqliteDB{ conn: &mut conn };
-    fx_db.init().unwrap();
-
+    let mut fx_converter = SimpleCurrencyConverter::new();
     if tri.fx_rate.is_some() {
-        insert_fx_quote(
-            tri.fx_rate.unwrap(),
+        fx_converter.insert_fx_rate(
             tri.total_amount.currency,
             tri.main_amount.currency,
-            time,
-            &mut fx_db,
-        )?;
+            tri.fx_rate.unwrap(),
+        );
     }
 
     // Add up all payment components and check whether they equal the final payment
@@ -292,7 +289,7 @@ pub fn check_consistency(tri: &ParsedTransactionInfo) -> Result<(), ReadPDFError
     for accrued in &tri.accruals {
         add_by_currency(accrued, &mut check_sum, &mut foreign_check_sum);
     }
-    check_sum.add(foreign_check_sum, time, &mut fx_db, true)?;
+    check_sum.add(foreign_check_sum, time, &mut fx_converter, true).await?;
 
     // Final sum should be nearly zero
     if !rounded_equal(check_sum.amount, 0.0, 4) {
@@ -307,7 +304,7 @@ pub fn check_consistency(tri: &ParsedTransactionInfo) -> Result<(), ReadPDFError
 }
 
 // Transaction in foreign currency will be converted to currency of total payment amount
-pub fn make_transactions(
+pub async fn make_transactions(
     tri: &ParsedTransactionInfo,
 ) -> Result<(Vec<Transaction>, Asset), ReadPDFError> {
     let mut transactions = Vec::new();
@@ -317,17 +314,13 @@ pub fn make_transactions(
 
     // temporary storage for fx rates
     // total payment is always in base currency, but main_amount (and maybe fees or taxes) could be in foreign currency.
-    let mut conn = Connection::open(":memory:").unwrap();
-    let mut fx_db = SqliteDB{ conn: &mut conn };
-    fx_db.init().unwrap();
+    let mut fx_converter = SimpleCurrencyConverter::new();
     if tri.fx_rate.is_some() {
-        insert_fx_quote(
-            tri.fx_rate.unwrap(),
+        fx_converter.insert_fx_rate(
             tri.total_amount.currency,
             tri.main_amount.currency,
-            time,
-            &mut fx_db,
-        )?;
+            tri.fx_rate.unwrap(),
+        );
     }
 
     // Construct main transaction
@@ -363,7 +356,7 @@ pub fn make_transactions(
         currency: tri.total_amount.currency,
     };
     for fee in &tri.extra_fees {
-        total_fee.add(*fee, time, &mut fx_db, true)?;
+        total_fee.add(*fee, time, &mut fx_converter, true).await?;
     }
     if total_fee.amount != 0.0 {
         transactions.push(Transaction {
@@ -384,7 +377,7 @@ pub fn make_transactions(
         currency: tri.total_amount.currency,
     };
     for tax in &tri.extra_taxes {
-        total_tax.add(*tax, time, &mut fx_db, true)?;
+        total_tax.add(*tax, time, &mut fx_converter, true).await?;
     }
     if total_tax.amount != 0.0 {
         transactions.push(Transaction {
@@ -405,7 +398,8 @@ pub fn make_transactions(
         currency: tri.total_amount.currency,
     };
     for accrued in &tri.accruals {
-        total_accrued.add(*accrued, time, &mut fx_db, true)?;
+        total_accrued.add(*accrued, time, &mut fx_converter, true).await
+        .map_err(|_| ReadPDFError::CurrencyMismatch)?;
     }
     if total_accrued.amount != 0.0 {
         transactions.push(Transaction {
