@@ -4,18 +4,17 @@
 ///! For mor information, see [qualinvest on github](https://github.com/xemwebe/qualinvest)
 ///!
 
-use clap::{App, AppSettings, Arg, SubCommand};
-use finql::data_handler::{QuoteHandler, TransactionHandler};
-use finql::date_time_helper::date_time_from_str_standard;
-use finql::postgres_handler::PostgresDB;
-use finql::quote::Ticker;
-use finql::Currency;
-use postgres;
-use glob::glob;
 use std::fs;
 use std::io::{stdout, BufReader, Write};
 use std::str::FromStr;
+
 use chrono::{DateTime, Local, Utc};
+use glob::glob;
+use clap::{App, AppSettings, Arg, SubCommand};
+
+use finql_data::{Ticker, Currency, QuoteHandler, TransactionHandler};
+use finql::date_time_helper::date_time_from_str_standard;
+use finql_postgres::PostgresDB;
 
 use qualinvest_core::accounts::AccountHandler;
 use qualinvest_core::position::calc_position;

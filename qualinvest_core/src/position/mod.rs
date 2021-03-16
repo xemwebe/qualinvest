@@ -1,14 +1,17 @@
 use std::convert::From;
 use std::{error, fmt};
 use std::collections::BTreeMap;
+use std::sync::Arc;
+use std::ops::Deref;
 
 use serde::{Deserialize, Serialize};
 use chrono::{NaiveDate,DateTime, Local, Utc};
 use chrono::offset::TimeZone;
 
 use finql_data::{AssetHandler, QuoteHandler, DataError,Transaction, 
-    TransactionType, Currency};
+    TransactionType, Currency, CurrencyConverter};
 use finql_postgres::PostgresDB;
+use finql::Market;
 
 use crate::accounts::AccountHandler;
 
@@ -91,9 +94,9 @@ impl Position {
     /// Add quote information to position
     /// If no quote is available (or no conversion to position currency), calculate
     /// from purchase value.
-    pub async fn add_quote(&mut self, time: DateTime<Utc>, db: &dyn QuoteHandler) {
+    pub async fn add_quote(&mut self, time: DateTime<Utc>, market: &Market) {
         if let Some(asset_id) = self.asset_id {
-            let quote_and_curr =  db.get_last_quote_before_by_id(asset_id, time).await;
+            let quote_and_curr =  market.db().get_last_quote_before_by_id(asset_id, time).await;
             if let Ok((quote, currency)) = quote_and_curr {
                 if currency == self.currency {
                     // Quote has correct currency, just use that
@@ -101,7 +104,7 @@ impl Position {
                     self.last_quote_time = Some(quote.time);
                 } else {
                     // Convert price to base position currency
-                    let fx_rate = get_fx_rate(currency, self.currency, time, db);
+                    let fx_rate = market.fx_rate(currency, self.currency, time).await;
                     if let Ok(fx_rate) = fx_rate {
                         self.last_quote = Some(quote.price * fx_rate);
                         self.last_quote_time = Some(quote.time);
@@ -146,9 +149,9 @@ impl PortfolioPosition {
         Ok(())
     }
 
-    pub fn add_quote(&mut self, time: DateTime<Utc>, fx_converter: &dyn QuoteHandler) {
+    pub async fn add_quote(&mut self, time: DateTime<Utc>, market: &Market) {
         for (_, pos) in &mut self.assets {
-            pos.add_quote(time, fx_converter);
+            pos.add_quote(time, market).await;
         }
     }
 
@@ -355,7 +358,7 @@ pub fn calc_delta_position(
 /// Calculate position and P&L since inception.
 /// All transaction with cash flow dates before the given date a taken into account and valued
 /// using the latest available quote before midnight of that date.
-pub async fn calculate_position_and_pnl(currency: Currency, account_ids: &Vec<usize>, date: NaiveDate, db: &PostgresDB) 
+pub async fn calculate_position_and_pnl(currency: Currency, account_ids: &Vec<usize>, date: NaiveDate, db: Arc<PostgresDB>) 
     -> Result<(PortfolioPosition, PositionTotals), PositionError> {
     let transactions = db.get_transactions_before_time(account_ids, date).await;
     let mut position = if let Ok(transactions) = transactions {
@@ -363,9 +366,11 @@ pub async fn calculate_position_and_pnl(currency: Currency, account_ids: &Vec<us
     } else {
         PortfolioPosition::new(currency)
     };
-    position.get_asset_names(db).await.map_err(|e| PositionError::NoAsset(e))?;
+    position.get_asset_names(db.deref()).await.map_err(|e| PositionError::NoAsset(e))?;
     let date_time: DateTime<Utc> = DateTime::<Utc>::from(Local.from_local_datetime(&date.and_hms(0,0,0)).unwrap());
-    position.add_quote(date_time, db);
+    let quote_handler: Arc<dyn QuoteHandler+Send+Sync> = db;
+    let market = Market::new(quote_handler);
+    position.add_quote(date_time, &market).await;
     let totals = position.calc_totals();
     Ok((position, totals))
 }
@@ -377,16 +382,20 @@ pub async fn calculate_position_and_pnl(currency: Currency, account_ids: &Vec<us
 /// with the latest quotes before that date, the final position is valued with the latest
 /// quotes before the date after `end`. With this method, P&L is additive, i.e. adding the 
 /// P&L figures of directly succeeding date periods should sum up to the P&L of the joined period.
-pub async fn calculate_position_for_period(currency: Currency, account_ids: &Vec<usize>, start: NaiveDate, end: NaiveDate, db: &mut PostgresDB) -> Result<(PortfolioPosition, PositionTotals), PositionError> {
-    let (mut position, _) = calculate_position_and_pnl(currency, account_ids, start, db).await?;
+pub async fn calculate_position_for_period(currency: Currency, account_ids: &Vec<usize>, 
+        start: NaiveDate, end: NaiveDate, db: Arc<PostgresDB>) 
+            -> Result<(PortfolioPosition, PositionTotals), PositionError> {
+    let (mut position, _) = calculate_position_and_pnl(currency, account_ids, start, db.clone()).await?;
     position.reset_pnl();
     let transactions = db.get_transactions_in_range(account_ids, start, end).await;
     if let Ok(transactions) = transactions {
         calc_delta_position(&mut position, &transactions)?;
     }
-    position.get_asset_names(db).await.map_err(|e| PositionError::NoAsset(e))?;
+    position.get_asset_names(db.deref().deref()).await.map_err(|e| PositionError::NoAsset(e))?;
     let end_date_time: DateTime<Utc> = DateTime::<Utc>::from(Local.from_local_datetime(&end.succ().and_hms(0,0,0)).unwrap());
-    position.add_quote(end_date_time, db);
+    let quote_handler = db as Arc<dyn QuoteHandler+Send+Sync>;
+    let market = Market::new(quote_handler);
+    position.add_quote(end_date_time, &market).await;
     let totals = position.calc_totals();
     Ok((position, totals))
 }

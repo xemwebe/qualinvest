@@ -2,6 +2,7 @@
 use async_trait::async_trait;
 use serde::{Serialize,Deserialize};
 use chrono::{NaiveDate};
+use sqlx::Row;
 
 use finql_data::{DataError, TransactionHandler, Transaction};
 use finql_postgres::{PostgresDB, transaction_handler::RawTransaction};
@@ -424,34 +425,36 @@ impl AccountHandler for PostgresDB {
     ORDER BY t.cash_date desc, group_id, t.id;
         "#);
         let mut transactions = Vec::new();
-        for row in sqlx::query!(query_string.as_str())
+        for row in sqlx::query(&query_string)
             .fetch_all(&self.pool).await
             .map_err(|e| DataError::NotFound(e.to_string()))?
         {
-            let id: i32 = row.id;
-            let group_id: i32 = row.group_id;
-            let asset_id: Option<i32> = row.asset_id;
+            {
+            let id: i32 = row.try_get("id").map_err(|e| DataError::NotFound(e.to_string()))?;
+            let group_id: i32 = row.try_get("group_id").map_err(|e| DataError::NotFound(e.to_string()))?;
+            let asset_id: Option<i32> = row.try_get("asset_id").map_err(|e| DataError::NotFound(e.to_string()))?;
             let asset_id = match asset_id {
                 Some(id) => Some(id as usize),
                 None => None,
             };
-            let account_id: i32 = row.account_id;
-            let date: chrono::NaiveDate = row.cash_date;
+            let account_id: i32 = row.try_get("account_id").map_err(|e| DataError::NotFound(e.to_string()))?;
+            let date: chrono::NaiveDate = row.try_get("cash_date").map_err(|e| DataError::NotFound(e.to_string()))?;
             let cash_date = date.format("%Y-%m-%d").to_string();          
             transactions.push( TransactionView {
                 id: id as usize,
                 group_id: group_id as usize,
-                asset_name: row.name,
+                asset_name: row.try_get("name").map_err(|e| DataError::NotFound(e.to_string()))?,
                 asset_id,
-                position: row.position,
-                trans_type: row.trans_type,
-                cash_amount: row.cash_amount,
-                cash_currency: row.cash_currency,
+                position: row.try_get("position").map_err(|e| DataError::NotFound(e.to_string()))?,
+                trans_type: row.try_get("trans_type").map_err(|e| DataError::NotFound(e.to_string()))?,
+                cash_amount: row.try_get("cash_amount").map_err(|e| DataError::NotFound(e.to_string()))?,
+                cash_currency: row.try_get("cash_currency").map_err(|e| DataError::NotFound(e.to_string()))?,
                 cash_date, 
-                note: row.note,
-                doc_path: row.doc_path, 
+                note: row.try_get("note").map_err(|e| DataError::NotFound(e.to_string()))?,
+                doc_path: row.try_get("doc_path").map_err(|e| DataError::NotFound(e.to_string()))?, 
                 account_id: account_id as usize,
             });
+        }
         }
         Ok(transactions)
     }
@@ -491,32 +494,32 @@ impl AccountHandler for PostgresDB {
     ORDER BY t.cash_date desc, group_id, t.id;
         "#);
         let mut transactions = Vec::new();
-        for row in sqlx::query!(query_string.as_str())
+        for row in sqlx::query(query_string.as_str())
             .fetch_all(&self.pool).await
             .map_err(|e| DataError::NotFound(e.to_string()))?
         {
-            let id: i32 = row.id;
-            let group_id: i32 = row.group_id;
-            let asset_id: Option<i32> = row.asset_it;
+            let id: i32 = row.try_get("id").map_err(|e| DataError::NotFound(e.to_string()))?;
+            let group_id: i32 = row.try_get("group_id").map_err(|e| DataError::NotFound(e.to_string()))?;
+            let asset_id: Option<i32> = row.try_get("asset_id").map_err(|e| DataError::NotFound(e.to_string()))?;
             let asset_id = match asset_id {
                 Some(id) => Some(id as usize),
                 None => None,
             };
-            let account_id: i32 = row.account_id;
-            let date: chrono::NaiveDate = row.cash_date;
+            let account_id: i32 = row.try_get("account_id").map_err(|e| DataError::NotFound(e.to_string()))?;
+            let date: chrono::NaiveDate = row.try_get("cash_date").map_err(|e| DataError::NotFound(e.to_string()))?;
             let cash_date = date.format("%Y-%m-%d").to_string();          
             transactions.push( TransactionView {
                 id: id as usize,
                 group_id: group_id as usize,
-                asset_name: row.name,
+                asset_name: row.try_get("name").map_err(|e| DataError::NotFound(e.to_string()))?,
                 asset_id,
-                position: row.position,
-                trans_type: row.trans_type,
-                cash_amount: row.cash_amount,
-                cash_currency: row.cash_currency,
+                position: row.try_get("position").map_err(|e| DataError::NotFound(e.to_string()))?,
+                trans_type: row.try_get("trans_type").map_err(|e| DataError::NotFound(e.to_string()))?,
+                cash_amount: row.try_get("cash_amount").map_err(|e| DataError::NotFound(e.to_string()))?,
+                cash_currency: row.try_get("cash_currency").map_err(|e| DataError::NotFound(e.to_string()))?,
                 cash_date, 
-                note: row.note,
-                doc_path: row.doc_path, 
+                note: row.try_get("note").map_err(|e| DataError::NotFound(e.to_string()))?,
+                doc_path: row.try_get("doc_path").map_err(|e| DataError::NotFound(e.to_string()))?, 
                 account_id: account_id as usize,
             });
         }

@@ -112,7 +112,7 @@ pub async fn update_quote_history(
     ticker_id: usize,
     start: DateTime<Utc>,
     end: DateTime<Utc>,
-    db: Arc<Box<dyn QuoteHandler+Send+Sync>>,
+    db: Arc<dyn QuoteHandler+Send+Sync>,
     config: &Config,
 ) -> Result<(), MarketError> {
     let mut market = finql::Market::new(db);
@@ -144,7 +144,7 @@ pub async fn update_ticker(
 }
 
 pub async fn update_quotes(
-    db: Arc<Box<dyn QuoteHandler+Send+Sync>>,
+    db: Arc<dyn QuoteHandler+Send+Sync>,
     config: &Config,
 ) -> Result<Vec<usize>, MarketError> {
     let mut market = finql::Market::new(db);
