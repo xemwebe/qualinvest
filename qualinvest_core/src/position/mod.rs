@@ -702,15 +702,15 @@ mod tests {
         usd_position.name = "US Stock".to_string();
         usd_position.position = 1000.0;
 
-        finql::fx_rates::insert_fx_quote(2.0, usd, eur, time, &mut db).unwrap();
+        finql::fx_rates::insert_fx_quote(2.0, usd, eur, time, &db).unwrap();
         let time = finql::helpers::make_time(2019, 12, 30, 12, 0, 0).unwrap();
-        eur_position.add_quote(time, &mut db).unwrap();
+        eur_position.add_quote(time, &db).unwrap();
         assert_fuzzy_eq!(eur_position.last_quote.unwrap(), 12.34, tol);
         assert_eq!(
             eur_position.last_quote_time.unwrap().format("%F %H:%M:%S").to_string(),
             "2019-12-30 09:00:00"
         );
-        usd_position.add_quote(time, &mut db).unwrap();
+        usd_position.add_quote(time, &db).unwrap();
         assert_fuzzy_eq!(usd_position.last_quote.unwrap(), 86.42, tol);
         assert_eq!(
             usd_position.last_quote_time.unwrap().format("%F %H:%M:%S").to_string(),

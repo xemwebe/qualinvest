@@ -1,36 +1,36 @@
 use std::str::FromStr;
-use std::ops::DerefMut;
 
 use rocket::State;
 use rocket::response::Redirect;
 use rocket_contrib::templates::Template;
 
-use finql::Currency;
-use finql::postgres_handler::PostgresDB;
+use finql_data::Currency;
+use finql_postgres::PostgresDB;
 use crate::user::UserCookie;
-use super::{QlInvestDbConn,ServerState};
 use crate::layout::layout;
 use crate::filter;
 use qualinvest_core::position::calculate_position_for_period;
 use super::{rocket_uri_macro_login,rocket_uri_macro_error_msg};
+use super::ServerState;
 
 #[get("/position?<accounts>&<start>&<end>")]
-pub fn position(accounts: Option<String>, start: Option<String>, end: Option<String>, user_opt: Option<UserCookie>, mut qldb: QlInvestDbConn, state: State<ServerState>) -> Result<Template,Redirect> {
+pub async fn position(accounts: Option<String>, start: Option<String>, end: Option<String>, user_opt: Option<UserCookie>, 
+    state: State<'_,ServerState>) -> Result<Template,Redirect> {
     if user_opt.is_none() {
         return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(login: redirect="position"))));
     }
     let user = user_opt.unwrap();
 
     let currency = Currency::from_str("EUR").unwrap();
-    let mut db = PostgresDB{ conn: qldb.0.deref_mut() };
-    let user_accounts = user.get_accounts(&mut db);
+    let db = state.postgres_db;
+    let user_accounts = user.get_accounts(&db).await;
     if user_accounts.is_none() {
         return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="No user account found"))));
     }
     let user_accounts = user_accounts.unwrap();
 
-    let filter = filter::FilterForm::from_query(accounts, start, end, &user, &user_accounts, &mut db)?;
-    let (position, totals) = calculate_position_for_period(currency, &filter.account_ids, filter.start_date, filter.end_date, &mut db)
+    let filter = filter::FilterForm::from_query(accounts, start, end, &user, &user_accounts, &db).await?;
+    let (position, totals) = calculate_position_for_period(currency, &filter.account_ids, filter.start_date.date, filter.end_date.date, &db).await
         .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg=format!("Calculation of position failed: {:?}",e)))))?;
 
     let mut context = state.default_context();

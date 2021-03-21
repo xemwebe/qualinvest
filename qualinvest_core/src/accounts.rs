@@ -94,26 +94,14 @@ pub trait AccountHandler: TransactionHandler {
     async fn get_all_transactions_with_accounts(
         &self,
         accounts: &Vec<usize>,
-    ) -> Result<Vec<Transaction>, DataError> {
-        let mut transactions = Vec::new();
-        for i in accounts {
-            transactions.extend(self.get_all_transactions_with_account(*i).await?);
-        }
-        Ok(transactions)
-    }
+    ) -> Result<Vec<Transaction>, DataError>;
 
     /// Get transactions filtered by a list of account ids and cash dates before time
     async fn get_transactions_before_time(
         &self,
         accounts: &Vec<usize>,
         time: NaiveDate,
-    ) -> Result<Vec<Transaction>, DataError> {
-        let mut transactions = Vec::new();
-        for i in accounts {
-            transactions.extend(self.get_all_transactions_with_account_before(*i, time).await?);
-        }
-        Ok(transactions)
-    }
+    ) -> Result<Vec<Transaction>, DataError>;
 
     /// Get transactions filtered by a list of account ids and cash dates in time range
     async fn get_transactions_in_range(
@@ -121,13 +109,7 @@ pub trait AccountHandler: TransactionHandler {
         accounts: &Vec<usize>,
         start: NaiveDate,
         end: NaiveDate,
-    ) -> Result<Vec<Transaction>, DataError> {
-        let mut transactions = Vec::new();
-        for i in accounts {
-            transactions.extend(self.get_all_transactions_with_account_in_range(*i, start, end).await?);
-        }
-        Ok(transactions)
-    }
+    ) -> Result<Vec<Transaction>, DataError>;
 
     /// Get transactions view for list of account ids that a related to a given asset
     async fn get_transaction_view_for_accounts_and_asset(&self, accounts: &Vec<usize>, asset_id: usize) -> Result<Vec<TransactionView>, DataError>;
@@ -387,6 +369,46 @@ impl AccountHandler for PostgresDB {
         }
         Ok(transactions)
     }
+
+    /// Get transactions filtered by a list of account ids
+    async fn get_all_transactions_with_accounts(
+        &self,
+        accounts: &Vec<usize>,
+    ) -> Result<Vec<Transaction>, DataError> {
+        let mut transactions = Vec::new();
+        for i in accounts {
+            transactions.extend(self.get_all_transactions_with_account(*i).await?);
+        }
+        Ok(transactions)
+    }
+
+    /// Get transactions filtered by a list of account ids and cash dates before time
+    async fn get_transactions_before_time(
+        &self,
+        accounts: &Vec<usize>,
+        time: NaiveDate,
+    ) -> Result<Vec<Transaction>, DataError> {
+        let mut transactions = Vec::new();
+        for i in accounts {
+            transactions.extend(self.get_all_transactions_with_account_before(*i, time).await?);
+        }
+        Ok(transactions)
+    }
+
+    /// Get transactions filtered by a list of account ids and cash dates in time range
+    async fn get_transactions_in_range(
+        &self,
+        accounts: &Vec<usize>,
+        start: NaiveDate,
+        end: NaiveDate,
+    ) -> Result<Vec<Transaction>, DataError> {
+        let mut transactions = Vec::new();
+        for i in accounts {
+            transactions.extend(self.get_all_transactions_with_account_in_range(*i, start, end).await?);
+        }
+        Ok(transactions)
+    }
+
 
     /// Get transactions view by accounts
     async fn get_transaction_view_for_accounts(

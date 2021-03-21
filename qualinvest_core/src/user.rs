@@ -54,19 +54,7 @@ pub trait UserHandler: AccountHandler {
     async fn get_user_accounts(&self, user_id: usize) -> Result<Vec<Account>, DataError>;
 
     /// Remove all ids form ids the user has no access to
-    async fn valid_accounts(&self, user_id: usize, ids: &Vec<usize>) -> Result<Vec<usize>, DataError> {
-        let user_accounts = self.get_user_accounts(user_id).await?;
-        let mut valid_ids = Vec::new();
-        for id in ids {
-            for account in &user_accounts {
-                if account.id.unwrap() == *id {
-                    valid_ids.push(*id);
-                    continue;
-                }
-            };
-        }
-        Ok(valid_ids)
-    }
+    async fn valid_accounts(&self, user_id: usize, ids: &Vec<usize>) -> Result<Vec<usize>, DataError>;
    
     /// Get the account the transaction given by id belongs to, 
     /// if the user given by user_id as the right to access this account

@@ -1,35 +1,30 @@
 /// Viewing and analyzing assets
 
-use std::ops::DerefMut;
-
 use rocket::State;
 use rocket::response::Redirect;
 use rocket_contrib::templates::Template;
 
-use finql::postgres_handler::PostgresDB;
-use finql::data_handler::asset_handler::AssetHandler;
-use finql::data_handler::quote_handler::QuoteHandler;
+use finql_data::{AssetHandler, QuoteHandler};
 use qualinvest_core::accounts::AccountHandler;
 
 use super::rocket_uri_macro_login;
 use super::rocket_uri_macro_error_msg;
 use crate::user::UserCookie;
-use super::{QlInvestDbConn,ServerState};
 use crate::layout::layout;
-
+use super::ServerState;
 
 #[get("/asset?<asset_id>")]
-pub fn analyze_asset(asset_id: Option<usize>, user_opt: Option<UserCookie>, mut qldb: QlInvestDbConn, state: State<ServerState>) -> Result<Template,Redirect> {
+pub async fn analyze_asset(asset_id: Option<usize>, user_opt: Option<UserCookie>, state: State<'_,ServerState>) -> Result<Template,Redirect> {
     if user_opt.is_none() {
         return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(login: redirect="asset"))));
     }
     let user = user_opt.unwrap();
 
-    let mut db = PostgresDB{ conn: qldb.0.deref_mut() };
-    let assets = db.get_all_assets()
+    let db = state.postgres_db.clone();
+    let assets = db.get_all_assets().await
         .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="found no assets"))))?;
 
-    let user_accounts = user.get_accounts(&mut db);
+    let user_accounts = user.get_accounts(&db).await;
 
     let mut context = state.default_context();
     context.insert("assets", &assets);
@@ -37,11 +32,11 @@ pub fn analyze_asset(asset_id: Option<usize>, user_opt: Option<UserCookie>, mut 
     context.insert("user", &user);
     
     if let Some(asset_id) = asset_id {
-        let ticker = db.get_all_ticker_for_asset(asset_id)
+        let ticker = db.get_all_ticker_for_asset(asset_id).await
             .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="found no ticker"))))?;
         let mut all_quotes = Vec::new();
         for t in ticker {
-            let mut quotes = db.get_all_quotes_for_ticker(t.id.unwrap())
+            let mut quotes = db.get_all_quotes_for_ticker(t.id.unwrap()).await
                 .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="found no quotes"))))?;
             all_quotes.append(&mut quotes);
         }
@@ -51,7 +46,7 @@ pub fn analyze_asset(asset_id: Option<usize>, user_opt: Option<UserCookie>, mut 
             for a in user_accounts {
                 account_ids.push(a.id.unwrap());
             }
-            let transactions = db.get_transaction_view_for_accounts_and_asset(&account_ids, asset_id)
+            let transactions = db.get_transaction_view_for_accounts_and_asset(&account_ids, asset_id).await
             .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="found no quotes"))))?;
             context.insert("transactions", &transactions);
         }

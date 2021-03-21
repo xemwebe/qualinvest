@@ -1,5 +1,3 @@
-#![feature(proc_macro_hygiene, decl_macro)]
-
 ///! # qualinvest_server
 ///! 
 ///! This library is part of a set of tools for quantitative investments.
@@ -7,26 +5,25 @@
 ///!
 
 #[macro_use] extern crate rocket;
-#[macro_use] extern crate rocket_contrib;
 #[macro_use] extern crate serde;
 
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use clap::{App, AppSettings, Arg};
-use std::ops::DerefMut;
 
 use rocket::State;
-use rocket::config::{LoggingLevel,Value,Environment};
-use rocket::http::{Cookie, Cookies};
+use rocket::http::{Cookie, CookieJar};
 use rocket::response::{NamedFile, Redirect, Flash};
-use rocket::request::{FlashMessage, Form};
-use rocket_contrib::databases::postgres;
+use rocket::request::{FlashMessage};
+use rocket::form::Form;
 use rocket_contrib::templates::Template;
-
-use finql::postgres_handler::PostgresDB;
-use qualinvest_core::Config;
-use std::fs;
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use rocket::figment::Figment;
+use tera::Value;
 use tera;
+
+use finql_postgres::PostgresDB;
+use qualinvest_core::Config;
 
 mod asset;
 mod position;
@@ -36,17 +33,15 @@ mod filter;
 mod auth;
 mod user;
 mod layout;
+mod form_types;
 use auth::authorization::*;
 use user::*;
 use layout::*;
 
-#[database("qlinvest_db")]
-pub struct QlInvestDbConn(postgres::Client);
-
-
 #[derive(Debug)]
 pub struct ServerState {
     rel_path: String,
+    postgres_db: Arc<PostgresDB>,
 }
 
 impl ServerState {
@@ -114,15 +109,16 @@ fn retry_login_flash(redirect: Option<String>, flash_msg: FlashMessage, state: S
 }
 
 #[post("/login", data = "<form>")]
-fn process_login(form: Form<LoginCont<UserForm>>, mut cookies: Cookies, mut qldb: QlInvestDbConn, state: State<ServerState>) -> Result<Redirect, Flash<Redirect>> {
-    let mut db = PostgresDB{ conn: qldb.0.deref_mut() };
+fn process_login(form: Form<LoginCont<UserForm>>, mut cookies: CookieJar, 
+        state: State<'_,ServerState>) -> Result<Redirect, Flash<Redirect>> {
+    let db = state.postgres_db;
     let inner = form.into_inner();
     let login = inner.form;
-    login.flash_redirect(login.redirect.clone(), format!("{}/login", state.rel_path), &mut cookies, &mut db)
+    login.flash_redirect(login.redirect.clone(), format!("{}/login", state.rel_path), &mut cookies, &db)
 }
 
 #[get("/logout")]
-fn logout(user: Option<UserCookie>, mut cookies: Cookies, state: State<ServerState>) -> Result<Flash<Redirect>, Redirect> {
+fn logout(user: Option<UserCookie>, mut cookies: CookieJar, state: State<ServerState>) -> Result<Flash<Redirect>, Redirect> {
     if let Some(_) = user {
         cookies.remove_private(Cookie::named(UserCookie::cookie_id()));
         Ok(Flash::success(Redirect::to(format!("{}/",state.rel_path)), "Successfully logged out."))
@@ -157,8 +153,8 @@ fn index(user_opt: Option<UserCookie>, flash_msg_opt: Option<FlashMessage>, stat
 /// are placed in the folder static, 
 /// but still preventing directory traversal attacks
 #[get("/static/<file..>", rank=10)]
-fn static_files(file: PathBuf) -> Option<NamedFile> {
-    NamedFile::open(Path::new("static/").join(file)).ok()
+async fn static_files(file: PathBuf) -> Option<NamedFile> {
+    NamedFile::open(Path::new("static/").join(file)).await.ok()
 }
 
 /// As a first proxy, catch errors here
@@ -173,7 +169,8 @@ fn error_msg(msg: String, user_opt: Option<UserCookie>, state: State<ServerState
     layout("index", &context.into_json())
 }
 
-fn main() {
+#[launch]
+async fn rocket() -> _ {
     let matches = App::new("qualinvest")
         .setting(AppSettings::ColoredHelp)
         .version("0.3.0")
@@ -204,35 +201,25 @@ fn main() {
 
     // Set up database
     let postgres_url = format!(
-        "postgresql:///{db_name}?host={host}&user={user}&password={password}&sslmode=disable",
-        host=config.db.host, db_name=config.db.name, user=config.db.user, password=config.db.password
+        "postgresql:///{db_name}?user={user}&password={password}&sslmode=disable",
+        db_name=config.db.name, user=config.db.user, password=config.db.password
     );
-    let mut database_config = HashMap::new();
-    let mut databases = HashMap::new();
-    database_config.insert("url", Value::from(postgres_url.as_str()));
-    databases.insert("qlinvest_db", Value::from(database_config));
+    let postgres_db = PostgresDB::new(&postgres_url).await.unwrap();
 
     // Set up all filters for tera
     filter::set_filter();
 
     let rocket_config = if config.debug {
-        rocket::Config::build(Environment::Development)
-        .extra("databases", databases)
-        .port(config.server.port.unwrap_or(8000))
-        .finalize()
-        .unwrap()
+        Figment::from(rocket::Config::default())
+        .merge(("port",config.server.port.unwrap_or(8000)))
     } else {
         if config.server.secret_key.is_none() {
             println!("Please set a secret key for production environment!");
-            return;
+            return ();
         }
-        rocket::Config::build(Environment::Production)
-        .extra("databases", databases)
-        .port(config.server.port.unwrap_or(8000))
-        .secret_key(config.server.secret_key.unwrap())
-        .log_level(LoggingLevel::Off)
-        .finalize()
-        .unwrap()
+        Figment::from(rocket::Config::default())
+        .merge(("port",config.server.port.unwrap_or(8000)))
+        .merge(("secret_key",config.server.secret_key.unwrap()))
     };
     let templates = filter::set_filter();
 
@@ -242,9 +229,9 @@ fn main() {
     };
     let server_state = ServerState {
         rel_path: mount_path.clone(),
+        postgres_db: Arc::new(postgres_db)
     };
     rocket::custom(rocket_config)
-        .attach(QlInvestDbConn::fairing())
         .attach(templates)
         .manage(server_state)
         .mount(&mount_path, routes![

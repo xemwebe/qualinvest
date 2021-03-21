@@ -52,7 +52,7 @@ pub async fn parse_multipart(stream: DataStream, boundary: &str, out: &mut Vec<S
 
 // pub fn parse_multipart(stream: rocket::Datastream, boundary: String, out: &mut Vec<String>, db: &mut PostgresDB) {
 //     match Multipart::with_body(stream, boundary).save().temp() {
-//         Full(entries) => process_entries(entries, &mut db, &state.doc_path, &mut out),
+//         Full(entries) => process_entries(entries, &db, &state.doc_path, &mut out),
 //         _ => out.push(format!("{}{}", state.rel_path, uri!(error_msg: msg="Invalid document type"))),
 //     }
 // }

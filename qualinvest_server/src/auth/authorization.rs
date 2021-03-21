@@ -1,15 +1,19 @@
 
-use rocket::{Request, Outcome};
-use rocket::response::{Redirect, Flash};
-use rocket::request::{FromRequest, FromForm, FormItems, FormItem, FromFormValue};
-use rocket::http::{Cookie, Cookies, RawStr};
+use super::sanitization::*;
 
 use std::collections::HashMap;
 use std::marker::Sized;
-use super::sanitization::*;
+
+use async_trait::async_trait;
+use rocket::{Request};
+use rocket::response::{Redirect, Flash};
+use rocket::request::{FromRequest,Outcome};
+use rocket::http::{Cookie, CookieJar, RawStr};
+use rocket::form::FromForm;
+
 use qualinvest_core::user::UserHandler;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone,FromForm)]
 pub struct UserQuery {
     pub user: String,
 }
@@ -44,7 +48,7 @@ pub trait AuthorizeCookie : CookieId {
     /// Deletes a cookie.  This does not need to be implemented, it defaults to removing
     /// the private key with the named specified by cookie_id() method.
     
-    fn delete_cookie(cookies: &mut Cookies) {
+    fn delete_cookie(cookies: &mut CookieJar) {
         cookies.remove_private( 
            Cookie::named( Self::cookie_id() )
         );
@@ -52,7 +56,7 @@ pub trait AuthorizeCookie : CookieId {
 }
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone,FromForm)]
 pub struct LoginCont<T: AuthorizeForm> {
     pub form: T,
 }
@@ -74,6 +78,7 @@ pub trait CookieId {
     }
 }
 
+#[async_trait]
 pub trait AuthorizeForm : CookieId {
     type CookieType: AuthorizeCookie;
     
@@ -82,7 +87,7 @@ pub trait AuthorizeForm : CookieId {
     /// a message indicating why it failed in the `AuthFail` struct
     /// 
     /// Must be implemented on the login form structure
-    fn authenticate(&self, db: &dyn UserHandler) -> Result<Self::CookieType, AuthFail>;
+    async fn authenticate(&self, db: &dyn UserHandler) -> Result<Self::CookieType, AuthFail>;
     
     /// Create a new login form Structure with 
     /// the specified username and password.
@@ -142,7 +147,7 @@ pub trait AuthorizeForm : CookieId {
     /// this is so that the user can see why it failed but when they refresh
     /// it will disappear, enabling a clean start, but with the user name
     /// from the url's query string (determined by `fail_url()`)
-    fn flash_redirect(&self, ok_redir: impl Into<String>, err_redir: impl Into<String>, cookies: &mut Cookies, db: &dyn UserHandler) -> Result<Redirect, Flash<Redirect>> {
+    fn flash_redirect(&self, ok_redir: impl Into<String>, err_redir: impl Into<String>, cookies: &mut CookieJar, db: &dyn UserHandler) -> Result<Redirect, Flash<Redirect>> {
         match self.authenticate(db) {
             Ok(cooky) => {
                 let cid = Self::cookie_id();
@@ -163,7 +168,7 @@ pub trait AuthorizeForm : CookieId {
     
     /// Redirect the user to one page on successful authentication or
     /// another page if authentication fails.
-    fn redirect(&self, ok_redir: &str, err_redir: &str, cookies: &mut Cookies, db: &dyn UserHandler) -> Result<Redirect, Redirect> {
+    fn redirect(&self, ok_redir: &str, err_redir: &str, cookies: &mut CookieJar, db: &dyn UserHandler) -> Result<Redirect, Redirect> {
         match self.authenticate(db) {
             Ok(cooky) => {
                 let cid = Self::cookie_id();
@@ -225,6 +230,7 @@ pub trait AuthorizeForm : CookieId {
 ///     
 /// ```
 /// 
+#[rocket::async_trait]
 impl<'a, 'r, T: AuthorizeCookie> FromRequest<'a, 'r> for AuthCont<T> {
     type Error = ();
     
@@ -250,78 +256,78 @@ impl<'a, 'r, T: AuthorizeCookie> FromRequest<'a, 'r> for AuthCont<T> {
 }
 
 
-/// #Collecting Login Form Data
-/// If your login form requires more than just a username and password the
-/// extras parameter, in `AuthorizeForm::new_form(user, pass, extras)`, holds
-/// all other fields in a `HashMap<String, String>` to allow processing any 
-/// field that was submitted.  The username and password are separate because
-/// those are universal fields.
-///
-/// ## Custom Username/Password Field Names
-/// By default the function will look for a username and a password field.
-/// If your form does not use those particular names you can always use the
-/// extras `HashMap` to retrieve the username and password when using different
-/// input box names.  The function will return `Ok()` even if no username or
-/// password was entered, this is to allow custom field names to be accessed
-/// and authenticated by the `authenticate()` method.
-impl<'f, A: AuthorizeForm> FromForm<'f> for LoginCont<A> {
-    type Error = &'static str;
+// #Collecting Login Form Data
+// If your login form requires more than just a username and password the
+// extras parameter, in `AuthorizeForm::new_form(user, pass, extras)`, holds
+// all other fields in a `HashMap<String, String>` to allow processing any 
+// field that was submitted.  The username and password are separate because
+// those are universal fields.
+//
+// ## Custom Username/Password Field Names
+// By default the function will look for a username and a password field.
+// If your form does not use those particular names you can always use the
+// extras `HashMap` to retrieve the username and password when using different
+// input box names.  The function will return `Ok()` even if no username or
+// password was entered, this is to allow custom field names to be accessed
+// and authenticated by the `authenticate()` method.
+// impl<'f, A: AuthorizeForm> FromForm<'f> for LoginCont<A> {
+//     type Error = &'static str;
     
-    fn from_form(form_items: &mut FormItems<'f>, _strict: bool) -> Result<Self, Self::Error> {
-        let mut user: String = String::new();
-        let mut pass: String = String::new();
-        let mut extras: HashMap<String, String> = HashMap::new();
+//     fn from_form(form_items: &mut FormItems<'f>, _strict: bool) -> Result<Self, Self::Error> {
+//         let mut user: String = String::new();
+//         let mut pass: String = String::new();
+//         let mut extras: HashMap<String, String> = HashMap::new();
         
-        for FormItem { key, value, .. } in form_items {
-            match key.as_str(){
-                "username" => {
-                    user = A::clean_username(&value.url_decode().unwrap_or(String::new()));
-                },
-                "password" => {
-                    pass = A::clean_password(&value.url_decode().unwrap_or(String::new()));
-                },
-                // _ => {},
-                a => {
-                    // extras.insert( a.to_string(), A::clean_extras( &value.url_decode().unwrap_or(String::new()) ) );
-                    extras.insert( a.to_string(), value.url_decode().unwrap_or(String::new()) );
-                },
-            }
-        }
+//         for FormItem { key, value, .. } in form_items {
+//             match key.as_str(){
+//                 "username" => {
+//                     user = A::clean_username(&value.url_decode().unwrap_or(String::new()));
+//                 },
+//                 "password" => {
+//                     pass = A::clean_password(&value.url_decode().unwrap_or(String::new()));
+//                 },
+//                 // _ => {},
+//                 a => {
+//                     // extras.insert( a.to_string(), A::clean_extras( &value.url_decode().unwrap_or(String::new()) ) );
+//                     extras.insert( a.to_string(), value.url_decode().unwrap_or(String::new()) );
+//                 },
+//             }
+//         }
         
-        // Do not need to check for username / password here,
-        // if the authentication method requires them it will
-        // fail at that point.
-        Ok(
-            LoginCont {
-                form: if extras.len() == 0 {
-                          A::new_form(&user, &pass, None)
-                       } else {
-                           A::new_form(&user, &pass, Some(extras))
-                       },
-            }
-        )
-    }
-}
+//         // Do not need to check for username / password here,
+//         // if the authentication method requires them it will
+//         // fail at that point.
+//         Ok(
+//             LoginCont {
+//                 form: if extras.len() == 0 {
+//                           A::new_form(&user, &pass, None)
+//                        } else {
+//                            A::new_form(&user, &pass, Some(extras))
+//                        },
+//             }
+//         )
+//     }
+// }
 
-impl<'f> FromForm<'f> for UserQuery {
-    type Error = &'static str;
+// impl<'f> FromForm<'f> for UserQuery {
+//     type Error = &'static str;
     
-    fn from_form(form_items: &mut FormItems<'f>, _strict: bool) -> Result<UserQuery, Self::Error> {
-        let mut name: String = String::new();
-        for FormItem { key, value, .. } in form_items {
-            match key.as_str() {
-                "user" => { name = sanitize( &value.url_decode().unwrap_or(String::new()) ); },
-                _ => {},
-            }
-        }
-        Ok(UserQuery { user: name })
-    }
-}
+//     fn from_form(form_items: &mut FormItems<'f>, _strict: bool) -> Result<UserQuery, Self::Error> {
+//         let mut name: String = String::new();
+//         for FormItem { key, value, .. } in form_items {
+//             match key.as_str() {
+//                 "user" => { name = sanitize( &value.url_decode().unwrap_or(String::new()) ); },
+//                 _ => {},
+//             }
+//         }
+//         Ok(UserQuery { user: name })
+//     }
+// }
 
-impl<'f> FromFormValue<'f> for UserQuery {
-    type Error = &'static str;
+// impl<'f> FromFormValue<'f> for UserQuery {
+//     type Error = &'static str;
     
-    fn from_form_value(form_value: &'f RawStr) -> Result<Self, Self::Error> {
-        Ok(UserQuery { user: sanitize(&form_value.url_decode().unwrap_or(String::new())) })
-    }
-}
+//     fn from_form_value(form_value: &'f RawStr) -> Result<Self, Self::Error> {
+//         Ok(UserQuery { user: sanitize(&form_value.url_decode().unwrap_or(String::new())) })
+//     }
+// }

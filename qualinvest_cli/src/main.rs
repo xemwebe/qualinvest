@@ -5,8 +5,10 @@
 ///!
 
 use std::fs;
-use std::io::{stdout, BufReader, Write};
+use std::io::{stdout, BufReader};
 use std::str::FromStr;
+use std::sync::Arc;
+use std::ops::Deref;
 
 use chrono::{DateTime, Local, Utc};
 use glob::glob;
@@ -15,13 +17,15 @@ use clap::{App, AppSettings, Arg, SubCommand};
 use finql_data::{Ticker, Currency, QuoteHandler, TransactionHandler};
 use finql::date_time_helper::date_time_from_str_standard;
 use finql_postgres::PostgresDB;
+use finql::Market;
 
 use qualinvest_core::accounts::AccountHandler;
 use qualinvest_core::position::calc_position;
 use qualinvest_core::read_pdf::{parse_and_store, sha256_hash};
 use qualinvest_core::Config;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let matches = App::new("qualinvest")
         .setting(AppSettings::ArgRequiredElseHelp)
         .setting(AppSettings::ColoredHelp)
@@ -68,7 +72,7 @@ fn main() {
                 .setting(AppSettings::ColoredHelp)
                 .arg(
                 Arg::with_name("PATH")
-                    .help("Path of pdf file or directoy")
+                    .help("Path of pdf file or directory")
                     .required(true)
                     .index(1)
             )
@@ -192,8 +196,7 @@ fn main() {
         "host={} user={} password={} dbname={} sslmode=disable",
         config.db.host, config.db.user, config.db.password, config.db.name
     );
-    let mut conn = postgres::Client::connect(&connect_str, postgres::NoTls).unwrap();
-    let mut db = PostgresDB{ conn: &mut conn };
+    let db = PostgresDB::new(&connect_str).await.unwrap();
 
     if matches.is_present("debug") {
         config.debug = true;
@@ -202,13 +205,14 @@ fn main() {
     // Handling commands
     if matches.subcommand_matches("clean-db").is_some() {
         print!("Cleaning database...");
-        stdout().flush().unwrap();
-        db.clean_accounts().unwrap();
-        db.clean().unwrap();
-        db.init_accounts().unwrap();
+        db.clean_accounts().await.unwrap();
+        db.clean().await.unwrap();
+        db.init_accounts().await.unwrap();
         println!("done");
         return;
     }
+
+    let db = Arc::new(db);
 
     if let Some(matches) = matches.subcommand_matches("hash") {
         let pdf_file = matches.value_of("INPUT").unwrap();
@@ -246,14 +250,14 @@ fn main() {
         if matches.is_present("directory") {
             // Parse complete directory
             let pattern = format!("{}/*.pdf", path);
-            let mut count_transactions = 0;
-            let mut count_docs = 0;
-            let mut count_failed = 0;
-            let mut count_skipped = 0;
+            let mut count_transactions = 0_i32;
+            let mut count_docs = 0_i32;
+            let mut count_failed = 0_i32;
+            let mut count_skipped = 0_i32;
             for file in glob(&pattern).expect("Failed to read directory") {
                 count_docs += 1;
                 let filename = file.unwrap().to_str().unwrap().to_owned();
-                let transactions = parse_and_store(&filename, &mut db, &config.pdf);
+                let transactions = parse_and_store(&filename, db.clone(), &config.pdf).await;
                 match transactions {
                     Err(err) => {
                         count_failed += 1;
@@ -272,7 +276,7 @@ fn main() {
         } else {
             // parse single file
             let pdf_file = matches.value_of("parse-pdf").unwrap();
-            let transactions = parse_and_store(&pdf_file, &mut db, &config.pdf);
+            let transactions = parse_and_store(&pdf_file, db, &config.pdf).await;
             match transactions {
                 Err(err) => {
                     println!("Failed to parse file {} with error {:?}", pdf_file, err);
@@ -292,15 +296,16 @@ fn main() {
         let transactions = match account_id {
             Some(account_id) => db
                 .get_all_transactions_with_account(usize::from_str(&account_id).unwrap())
-                .unwrap(),
-            None => db.get_all_transactions().unwrap(),
+                .await.unwrap(),
+            None => db.get_all_transactions().await.unwrap(),
         };
         let mut position = calc_position(currency, &transactions).unwrap();
-        position.get_asset_names(&mut db).unwrap();
+        position.get_asset_names(db.deref()).await.unwrap();
         
         if matches.is_present("quote") {
             let time = DateTime::from(Local::now());
-            position.add_quote(time, &mut db);
+            let market = Market::new(db);
+            position.add_quote(time, &market).await;
         }
 
         if matches.is_present("json") {
@@ -329,13 +334,13 @@ fn main() {
             } else {
                 date_time_from_str_standard("2014-01-01", 9).unwrap()
             };
-            qualinvest_core::update_quote_history(ticker_id, start, end, &mut db, &config)
-                .unwrap();
+            qualinvest_core::update_quote_history(ticker_id, start, end, db, &config)
+                .await.unwrap();
         } else if matches.is_present("ticker-id") {
             let ticker_id = usize::from_str(matches.value_of("ticker-id").unwrap()).unwrap();
-            qualinvest_core::update_ticker(ticker_id, &mut db, &config).unwrap();
+            qualinvest_core::update_ticker(ticker_id, db.deref(), &config).await.unwrap();
         } else {
-            let failed_ticker = qualinvest_core::update_quotes(&mut db, &config).unwrap();
+            let failed_ticker = qualinvest_core::update_quotes(db, &config).await.unwrap();
             if failed_ticker.len() > 0 {
                 println!("Some ticker could not be updated: {:?}", failed_ticker);
             }
@@ -347,7 +352,7 @@ fn main() {
         if let Some(matches) = matches.subcommand_matches("ticker") {
             let ticker = matches.value_of("JSON-OBJECT").unwrap();
             let ticker: Ticker = serde_json::from_str(&ticker).unwrap();
-            db.insert_ticker(&ticker).unwrap();
+            db.insert_ticker(&ticker).await.unwrap();
         } else {
             println!("Nothing inserted, unknown object type, use `help insert` to display all supported types.");
         }

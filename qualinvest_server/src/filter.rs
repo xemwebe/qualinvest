@@ -2,17 +2,18 @@ use std::collections::HashMap;
 
 use rocket_contrib::templates::{Template, Engines};
 use rocket_contrib::templates::tera::{self, Value};
-use rocket::request::{Form, FormItems, FormItem, FromForm};
 use rocket::fairing::Fairing;
 use rocket::response::Redirect;
 use rocket::State;
+use rocket::form::{Form,FromForm};
+
 use num_format::{Locale, WriteFormatted};
 use lazy_static::lazy_static;
 use unicode_segmentation::UnicodeSegmentation;
-use regex::Regex;
 use crate::helper;
 use chrono::{Local,NaiveDate};
 use crate::user;
+use crate::form_types::NaiveDateForm;
 use qualinvest_core::user::UserHandler;
 use qualinvest_core::accounts::Account;
 use super::ServerState;
@@ -133,11 +134,11 @@ mod tests {
 }
 
 
-#[derive(Debug,Serialize,Deserialize)]
+#[derive(Debug,Serialize,Deserialize,FromForm)]
 pub struct FilterForm {
     pub account_ids: Vec<usize>,
-    pub start_date: NaiveDate,
-    pub end_date: NaiveDate,
+    pub start_date: NaiveDateForm,
+    pub end_date: NaiveDateForm,
 }
 
 impl FilterForm {
@@ -150,14 +151,14 @@ impl FilterForm {
                 query = format!("{},{}", query, *id);
             }
             query = format!("{}&start={}&end={}",query
-                ,self.start_date.format("%Y-%m-%d").to_string()
-                ,self.end_date.format("%Y-%m-%d").to_string()
+                ,self.start_date.date.format("%Y-%m-%d").to_string()
+                ,self.end_date.date.format("%Y-%m-%d").to_string()
             );
             query
         }
     }
 
-    pub fn from_query(accounts: Option<String>, start: Option<String>, end: Option<String>, user: &user::UserCookie, 
+    pub async fn from_query(accounts: Option<String>, start: Option<String>, end: Option<String>, user: &user::UserCookie, 
         user_accounts: &Vec<Account>, db: &dyn UserHandler) -> Result<FilterForm,Redirect> {
         let end_date = match end {
             Some(s) => NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d")
@@ -175,7 +176,7 @@ impl FilterForm {
                 if user.is_admin {
                     accounts
                 } else {
-                    db.valid_accounts(user.userid, &accounts)
+                    db.valid_accounts(user.userid, &accounts).await
                         .map_err(|_| Redirect::to("/err/valid_accounts"))?
                 }
         } else {
@@ -185,46 +186,46 @@ impl FilterForm {
             }
             account_ids
         };
-        Ok(FilterForm{account_ids,start_date,end_date})
+        Ok(FilterForm{account_ids, start_date: NaiveDateForm{ date: start_date}, end_date: NaiveDateForm{ date: end_date}})
     }
 
 }
 
-impl<'f> FromForm<'f> for FilterForm {
-    type Error = &'static str;
+// impl<'f> FromForm<'f> for FilterForm {
+//     type Error = &'static str;
     
-    fn from_form(form_items: &mut FormItems<'f>, _strict: bool) -> Result<Self, Self::Error> {
-        lazy_static! {
-            static ref ACCOUNT_ID: Regex = Regex::new(r"accid([0-9]*)").unwrap();
-        }
+//     fn from_form(form_items: &mut FormItems<'f>, _strict: bool) -> Result<Self, Self::Error> {
+//         lazy_static! {
+//             static ref ACCOUNT_ID: Regex = Regex::new(r"accid([0-9]*)").unwrap();
+//         }
         
-        let mut account_ids = Vec::new();
-        let mut start_date = NaiveDate::from_ymd(1900,01,01);
-        let mut end_date = Local::now().naive_local().date();
+//         let mut account_ids = Vec::new();
+//         let mut start_date = NaiveDate::from_ymd(1900,01,01);
+//         let mut end_date = Local::now().naive_local().date();
 
-        for FormItem { key, value, .. } in form_items {
-            match key.as_str() {
-                "start_date" =>  { start_date = NaiveDate::parse_from_str(value.as_str(), "%Y-%m-%d")
-                    .map_err(|_| "date parse error" )?; },
-                "end_date" =>  { end_date = NaiveDate::parse_from_str(value.as_str(), "%Y-%m-%d")
-                    .map_err(|_| "date parse error" )?; },
-                _ => match ACCOUNT_ID.captures(key.as_str()) {
-                    Some(account) =>  { account_ids.push( account[1].parse::<usize>().unwrap()); },
-                    None => { return Err("Invalid form parameter found"); }
-                }
+//         for FormItem { key, value, .. } in form_items {
+//             match key.as_str() {
+//                 "start_date" =>  { start_date = NaiveDate::parse_from_str(value.as_str(), "%Y-%m-%d")
+//                     .map_err(|_| "date parse error" )?; },
+//                 "end_date" =>  { end_date = NaiveDate::parse_from_str(value.as_str(), "%Y-%m-%d")
+//                     .map_err(|_| "date parse error" )?; },
+//                 _ => match ACCOUNT_ID.captures(key.as_str()) {
+//                     Some(account) =>  { account_ids.push( account[1].parse::<usize>().unwrap()); },
+//                     None => { return Err("Invalid form parameter found"); }
+//                 }
      
-            }
-        }
+//             }
+//         }
 
-        Ok(
-            FilterForm {
-                account_ids,
-                start_date,
-                end_date,
-            }
-        )
-    }
-}
+//         Ok(
+//             FilterForm {
+//                 account_ids,
+//                 start_date,
+//                 end_date,
+//             }
+//         )
+//     }
+// }
 
 #[post("/filter/<view>", data="<form>")]
 pub fn process_filter(view: String, form: Form<FilterForm>, state: State<ServerState>) -> Redirect {
