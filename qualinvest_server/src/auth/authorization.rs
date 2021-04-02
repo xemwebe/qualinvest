@@ -239,7 +239,7 @@ impl<'r, T: AuthorizeCookie> FromRequest<'r> for AuthCont<T> {
 
     async fn from_request(request: &'r Request<'_>) -> ::rocket::request::Outcome<AuthCont<T>, Self::Error>{
         let cid = T::cookie_id();
-        let mut cookies = request.cookies();
+        let cookies = request.cookies();
         
         match cookies.get_private(cid) {
             Some(cookie) => {

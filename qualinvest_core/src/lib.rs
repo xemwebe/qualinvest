@@ -122,7 +122,7 @@ pub async fn update_quote_history(
 
 pub async fn update_ticker(
     ticker_id: usize,
-    db: &dyn QuoteHandler,
+    db: Arc<dyn QuoteHandler+Send+Sync>,
     config: &Config,
 ) -> Result<(), MarketError> {
     let ticker = db.get_ticker_by_id(ticker_id).await?;

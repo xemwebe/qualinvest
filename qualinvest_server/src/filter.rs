@@ -159,7 +159,7 @@ impl FilterForm {
     }
 
     pub async fn from_query<'a>(accounts: Option<String>, start: Option<String>, end: Option<String>, user: &'a user::UserCookie, 
-        user_accounts: &Vec<Account>, db: Arc<dyn UserHandler+Send+Sync>) -> Result<FilterForm, Redirect> {
+        user_accounts: &Vec<Account>, db: Arc<dyn UserHandler+Send+Sync+'a>) -> Result<FilterForm, Redirect> {
         let end_date = match end {
             Some(s) => NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d")
                 .map_err(|_| Redirect::to("/err/invalid_date"))?,

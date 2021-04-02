@@ -8,7 +8,6 @@ use std::fs;
 use std::io::{stdout, BufReader};
 use std::str::FromStr;
 use std::sync::Arc;
-use std::ops::Deref;
 
 use chrono::{DateTime, Local, Utc};
 use glob::glob;
@@ -300,7 +299,7 @@ async fn main() {
             None => db.get_all_transactions().await.unwrap(),
         };
         let mut position = calc_position(currency, &transactions).unwrap();
-        position.get_asset_names(db.deref()).await.unwrap();
+        position.get_asset_names(db.clone()).await.unwrap();
         
         if matches.is_present("quote") {
             let time = DateTime::from(Local::now());
@@ -338,7 +337,7 @@ async fn main() {
                 .await.unwrap();
         } else if matches.is_present("ticker-id") {
             let ticker_id = usize::from_str(matches.value_of("ticker-id").unwrap()).unwrap();
-            qualinvest_core::update_ticker(ticker_id, db.deref(), &config).await.unwrap();
+            qualinvest_core::update_ticker(ticker_id, db.clone(), &config).await.unwrap();
         } else {
             let failed_ticker = qualinvest_core::update_quotes(db, &config).await.unwrap();
             if failed_ticker.len() > 0 {

@@ -29,7 +29,7 @@ impl UserCookie {
 }
 
 /// The UserForm type is used to process a user attempting to login as an user
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromForm)]
 pub struct UserForm {
     pub username: String,
     pub password: String,

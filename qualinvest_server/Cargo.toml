@@ -13,9 +13,9 @@ rocket = { version="0.5.0-dev", git="https://github.com/SergioBenitez/Rocket.git
 devise = { version="0.3", git="https://github.com/SergioBenitez/Devise.git" }
 serde = { version = "1.0.*", features = ["derive"] }
 serde_json = "1.0"
-finql = "0.9.3"
-finql-data = "0.1.5"
-finql-postgres = "0.2"
+finql = {version="0.9.3", path="../finql/finql" }
+finql-postgres = { version="0.2.3", path="../finql/finql-postgres" }
+finql-data = { version="0.1.5", path="../finql/finql-data" }
 chrono = "0.4"
 qualinvest_core = { version="0.1.2", path="../qualinvest_core" }
 unic-ucd = "0.9"

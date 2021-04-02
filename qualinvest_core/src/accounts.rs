@@ -64,7 +64,7 @@ pub trait AccountHandler: TransactionHandler {
     /// Insert document information for successfully parsed documents
     async fn insert_doc(
         &self,
-        transaction_ids: &Vec<usize>,
+        transaction_ids: &[usize],
         hash: &str,
         path: &str,
     ) -> Result<(), DataError>;
@@ -263,7 +263,7 @@ impl AccountHandler for PostgresDB {
     /// Insert document information for successfully parsed documents
     async fn insert_doc(
         &self,
-        transaction_ids: &Vec<usize>,
+        transaction_ids: &[usize],
         hash: &str,
         path: &str,
     ) -> Result<(), DataError> {

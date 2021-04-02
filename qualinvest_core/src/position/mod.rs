@@ -2,7 +2,6 @@ use std::convert::From;
 use std::{error, fmt};
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use std::ops::Deref;
 
 use serde::{Deserialize, Serialize};
 use chrono::{NaiveDate,DateTime, Local, Utc};
@@ -141,7 +140,7 @@ impl PortfolioPosition {
         }
     }
 
-    pub async fn get_asset_names(&mut self, db: &dyn AssetHandler) -> Result<(), DataError> {
+    pub async fn get_asset_names(&mut self, db: Arc<dyn AssetHandler+Send+Sync>) -> Result<(), DataError> {
         for (id, mut pos) in &mut self.assets {
             let asset = db.get_asset_by_id(*id).await?;
             pos.name = asset.name;
@@ -366,7 +365,7 @@ pub async fn calculate_position_and_pnl(currency: Currency, account_ids: &Vec<us
     } else {
         PortfolioPosition::new(currency)
     };
-    position.get_asset_names(db.deref()).await.map_err(|e| PositionError::NoAsset(e))?;
+    position.get_asset_names(db.clone()).await.map_err(|e| PositionError::NoAsset(e))?;
     let date_time: DateTime<Utc> = DateTime::<Utc>::from(Local.from_local_datetime(&date.and_hms(0,0,0)).unwrap());
     let quote_handler: Arc<dyn QuoteHandler+Send+Sync> = db;
     let market = Market::new(quote_handler);
@@ -391,7 +390,7 @@ pub async fn calculate_position_for_period(currency: Currency, account_ids: &Vec
     if let Ok(transactions) = transactions {
         calc_delta_position(&mut position, &transactions)?;
     }
-    position.get_asset_names(db.deref().deref()).await.map_err(|e| PositionError::NoAsset(e))?;
+    position.get_asset_names(db.clone()).await.map_err(|e| PositionError::NoAsset(e))?;
     let end_date_time: DateTime<Utc> = DateTime::<Utc>::from(Local.from_local_datetime(&end.succ().and_hms(0,0,0)).unwrap());
     let quote_handler = db as Arc<dyn QuoteHandler+Send+Sync>;
     let market = Market::new(quote_handler);
