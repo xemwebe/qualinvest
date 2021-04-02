@@ -3,12 +3,13 @@ use super::sanitization::*;
 
 use std::collections::HashMap;
 use std::marker::Sized;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use rocket::{Request};
 use rocket::response::{Redirect, Flash};
 use rocket::request::{FromRequest,Outcome};
-use rocket::http::{Cookie, CookieJar, RawStr};
+use rocket::http::{Cookie, CookieJar};
 use rocket::form::FromForm;
 
 use qualinvest_core::user::UserHandler;
@@ -48,7 +49,7 @@ pub trait AuthorizeCookie : CookieId {
     /// Deletes a cookie.  This does not need to be implemented, it defaults to removing
     /// the private key with the named specified by cookie_id() method.
     
-    fn delete_cookie(cookies: &mut CookieJar) {
+    fn delete_cookie(cookies: &CookieJar) {
         cookies.remove_private( 
            Cookie::named( Self::cookie_id() )
         );
@@ -87,7 +88,7 @@ pub trait AuthorizeForm : CookieId {
     /// a message indicating why it failed in the `AuthFail` struct
     /// 
     /// Must be implemented on the login form structure
-    async fn authenticate(&self, db: &dyn UserHandler) -> Result<Self::CookieType, AuthFail>;
+    async fn authenticate(&self, db: Arc<dyn UserHandler+Send+Sync>) -> Result<Self::CookieType, AuthFail>;
     
     /// Create a new login form Structure with 
     /// the specified username and password.
@@ -147,8 +148,9 @@ pub trait AuthorizeForm : CookieId {
     /// this is so that the user can see why it failed but when they refresh
     /// it will disappear, enabling a clean start, but with the user name
     /// from the url's query string (determined by `fail_url()`)
-    fn flash_redirect(&self, ok_redir: impl Into<String>, err_redir: impl Into<String>, cookies: &mut CookieJar, db: &dyn UserHandler) -> Result<Redirect, Flash<Redirect>> {
-        match self.authenticate(db) {
+    async fn flash_redirect<'a>(&self, ok_redir: impl Into<String> + Send + 'a, err_redir: impl Into<String> + Send + 'a, 
+        cookies: &CookieJar<'a>, db: Arc<dyn UserHandler+Send+Sync>) -> Result<Redirect, Flash<Redirect>> {
+        match self.authenticate(db).await {
             Ok(cooky) => {
                 let cid = Self::cookie_id();
                 let contents = cooky.store_cookie();
@@ -168,8 +170,9 @@ pub trait AuthorizeForm : CookieId {
     
     /// Redirect the user to one page on successful authentication or
     /// another page if authentication fails.
-    fn redirect(&self, ok_redir: &str, err_redir: &str, cookies: &mut CookieJar, db: &dyn UserHandler) -> Result<Redirect, Redirect> {
-        match self.authenticate(db) {
+    async fn redirect(&self, ok_redir: &str, err_redir: &str, cookies: &CookieJar, 
+        db: Arc<dyn UserHandler+Send+Sync>) -> Result<Redirect, Redirect> {
+        match self.authenticate(db).await {
             Ok(cooky) => {
                 let cid = Self::cookie_id();
                 let contents = cooky.store_cookie();
@@ -231,10 +234,10 @@ pub trait AuthorizeForm : CookieId {
 /// ```
 /// 
 #[rocket::async_trait]
-impl<'a, 'r, T: AuthorizeCookie> FromRequest<'a, 'r> for AuthCont<T> {
+impl<'r, T: AuthorizeCookie> FromRequest<'r> for AuthCont<T> {
     type Error = ();
-    
-    fn from_request(request: &'a Request<'r>) -> ::rocket::request::Outcome<AuthCont<T>,Self::Error>{
+
+    async fn from_request(request: &'r Request<'_>) -> ::rocket::request::Outcome<AuthCont<T>, Self::Error>{
         let cid = T::cookie_id();
         let mut cookies = request.cookies();
         

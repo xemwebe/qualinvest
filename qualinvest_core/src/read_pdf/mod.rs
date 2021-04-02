@@ -182,7 +182,7 @@ pub fn german_string_to_date(date_string: &str) -> Result<NaiveDate, ReadPDFErro
 
 pub fn parse_and_store<'a>(
     pdf_file: &'a str,
-    db: Arc<dyn AccountHandler>,
+    db: Arc<dyn AccountHandler+Send+Sync>,
     config: &'a PdfParseParams,
 ) -> impl Future<Output = Result<i32, ReadPDFError>> + 'a {
     async move {

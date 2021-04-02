@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use rocket_contrib::templates::{Template, Engines};
 use rocket_contrib::templates::tera::{self, Value};
@@ -8,7 +9,6 @@ use rocket::State;
 use rocket::form::{Form,FromForm};
 
 use num_format::{Locale, WriteFormatted};
-use lazy_static::lazy_static;
 use unicode_segmentation::UnicodeSegmentation;
 use crate::helper;
 use chrono::{Local,NaiveDate};
@@ -158,8 +158,8 @@ impl FilterForm {
         }
     }
 
-    pub async fn from_query(accounts: Option<String>, start: Option<String>, end: Option<String>, user: &user::UserCookie, 
-        user_accounts: &Vec<Account>, db: &dyn UserHandler) -> Result<FilterForm,Redirect> {
+    pub async fn from_query<'a>(accounts: Option<String>, start: Option<String>, end: Option<String>, user: &'a user::UserCookie, 
+        user_accounts: &Vec<Account>, db: Arc<dyn UserHandler+Send+Sync>) -> Result<FilterForm, Redirect> {
         let end_date = match end {
             Some(s) => NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d")
                 .map_err(|_| Redirect::to("/err/invalid_date"))?,

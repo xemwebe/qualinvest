@@ -12,14 +12,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use clap::{App, AppSettings, Arg};
 
-use rocket::State;
-use rocket::http::{Cookie, CookieJar};
+use rocket::{State};
+use rocket::http::{uri::Origin, Cookie, CookieJar};
 use rocket::response::{NamedFile, Redirect, Flash};
 use rocket::request::{FlashMessage};
 use rocket::form::Form;
 use rocket_contrib::templates::Template;
 use rocket::figment::Figment;
-use tera::Value;
 use tera;
 
 use finql_postgres::PostgresDB;
@@ -38,7 +37,6 @@ use auth::authorization::*;
 use user::*;
 use layout::*;
 
-#[derive(Debug)]
 pub struct ServerState {
     rel_path: String,
     postgres_db: Arc<PostgresDB>,
@@ -109,16 +107,16 @@ fn retry_login_flash(redirect: Option<String>, flash_msg: FlashMessage, state: S
 }
 
 #[post("/login", data = "<form>")]
-fn process_login(form: Form<LoginCont<UserForm>>, mut cookies: CookieJar, 
+async fn process_login(form: Form<LoginCont<UserForm>>, cookies: &CookieJar<'_>, 
         state: State<'_,ServerState>) -> Result<Redirect, Flash<Redirect>> {
-    let db = state.postgres_db;
+    let db = state.postgres_db.clone();
     let inner = form.into_inner();
     let login = inner.form;
-    login.flash_redirect(login.redirect.clone(), format!("{}/login", state.rel_path), &mut cookies, &db)
+    login.flash_redirect(login.redirect.clone(), "/login", cookies, db).await
 }
 
 #[get("/logout")]
-fn logout(user: Option<UserCookie>, mut cookies: CookieJar, state: State<ServerState>) -> Result<Flash<Redirect>, Redirect> {
+fn logout(user: Option<UserCookie>, cookies: &CookieJar<'_>, state: State<ServerState>) -> Result<Flash<Redirect>, Redirect> {
     if let Some(_) = user {
         cookies.remove_private(Cookie::named(UserCookie::cookie_id()));
         Ok(Flash::success(Redirect::to(format!("{}/",state.rel_path)), "Successfully logged out."))
@@ -213,10 +211,6 @@ async fn rocket() -> _ {
         Figment::from(rocket::Config::default())
         .merge(("port",config.server.port.unwrap_or(8000)))
     } else {
-        if config.server.secret_key.is_none() {
-            println!("Please set a secret key for production environment!");
-            return ();
-        }
         Figment::from(rocket::Config::default())
         .merge(("port",config.server.port.unwrap_or(8000)))
         .merge(("secret_key",config.server.secret_key.unwrap()))
@@ -231,10 +225,11 @@ async fn rocket() -> _ {
         rel_path: mount_path.clone(),
         postgres_db: Arc::new(postgres_db)
     };
+    let base_path = Origin::parse(&mount_path).expect("Invalid base path.");
     rocket::custom(rocket_config)
         .attach(templates)
         .manage(server_state)
-        .mount(&mount_path, routes![
+        .mount(base_path, routes![
             logged_in,
             login,
             retry_login_user,
@@ -253,5 +248,4 @@ async fn rocket() -> _ {
             static_files,
             error_msg
         ])
-        .launch();
 }

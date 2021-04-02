@@ -1,7 +1,10 @@
+use std::sync::Arc;
+use std::collections::HashMap;
+use async_trait::async_trait;
 
 use rocket::Request;
 use rocket::request::{FromRequest, Outcome};
-use std::collections::HashMap;
+
 use super::auth::authorization::*;
 use qualinvest_core::user::UserHandler;
 use qualinvest_core::accounts::Account;
@@ -16,7 +19,7 @@ pub struct UserCookie {
 }
 
 impl UserCookie {
-    pub async fn get_accounts(&self, db: &dyn UserHandler) -> Option<Vec<Account>> {
+    pub async fn get_accounts(&self, db: Arc<dyn UserHandler+Send+Sync>) -> Option<Vec<Account>> {
         if self.is_admin {
             db.get_all_accounts().await.ok()
         } else {
@@ -72,7 +75,7 @@ impl AuthorizeForm for UserForm {
     type CookieType = UserCookie;
     
     /// Authenticate the credentials inside the login form
-    async fn authenticate(&self, db: &dyn UserHandler) -> Result<Self::CookieType, AuthFail> {
+    async fn authenticate(&self, db: Arc<dyn UserHandler+Send+Sync>) -> Result<Self::CookieType, AuthFail> {
         let user = db.get_user_by_credentials(&self.username, &self.password).await
             .ok_or(AuthFail::new(self.username.clone(), "Authentication failed.".to_string()))?;
         if user.id.is_none() { return Err(AuthFail::new(self.username.clone(), "Authentication failed.".to_string())); }
@@ -104,7 +107,8 @@ impl AuthorizeForm for UserForm {
     
 }
 
-impl<'a, 'r> FromRequest<'a, 'r> for UserCookie {
+#[async_trait]
+impl<'r> FromRequest<'r> for UserCookie {
     type Error = ();
     
     /// The from_request inside the file defining the custom data types
@@ -117,7 +121,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for UserCookie {
     /// instead of:
     /// 
     /// `#[get("/protected")] fn admin_page(admin: UserCookie)`
-    fn from_request(request: &'a Request<'r>) -> ::rocket::request::Outcome<UserCookie,Self::Error>{
+    async fn from_request(request: &'r Request<'_>) -> ::rocket::request::Outcome<UserCookie,Self::Error>{
         let cid = UserCookie::cookie_id();
         let mut cookies = request.cookies();
         

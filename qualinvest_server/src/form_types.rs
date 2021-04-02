@@ -1,5 +1,6 @@
 use rocket::form;
 use chrono::NaiveDate;
+use std::borrow::Cow;
 
 #[derive(Debug,Serialize,Deserialize)]
 pub struct NaiveDateForm {
@@ -15,9 +16,9 @@ impl NaiveDateForm {
 #[rocket::async_trait]
 impl<'r> form::FromFormField<'r> for NaiveDateForm {
     fn from_value(field: form::ValueField<'r>) -> form::Result<'r, Self> {
-        match NaiveDate::parse_from_str(field.as_str(), "%Y-%m-%d") {
+        match NaiveDate::parse_from_str(field.value, "%Y-%m-%d") {
             Ok(date) => Ok(NaiveDateForm{ date }),
-            Err(err) => Err(form::Error::validation("is no valid date"))
+            Err(err) => Err(form::Errors::from(Cow::from(err.to_string())))
         }
     }
 }
