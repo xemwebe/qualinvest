@@ -1,0 +1,3 @@
+[submodule "finql"]
+	path = finql
+	url = git@github.com:xemwebe/finql
