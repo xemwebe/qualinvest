@@ -57,11 +57,6 @@ pub trait AuthorizeCookie : CookieId {
 }
 
 
-#[derive(Debug, Clone,FromForm)]
-pub struct LoginCont<T: AuthorizeForm> {
-    pub form: T,
-}
-
 /// The CookieId trait contains a single method, `cookie_id()`.
 /// The `cookie_id()` function returns the name or id of the cookie.
 /// Note: if you have another cookie of the same name that is secured
@@ -163,7 +158,7 @@ pub trait AuthorizeForm : CookieId {
                     let furl_qrystr = Self::fail_url(&fail.user);
                     furl.push_str(&furl_qrystr);
                 }
-                Err( Flash::error(Redirect::to(furl), &fail.msg) )
+                Err( Flash::error(Redirect::to(furl), &fail.msg))
             },
         }
     }
@@ -185,7 +180,7 @@ pub trait AuthorizeForm : CookieId {
                     let furl_qrystr = Self::fail_url(&fail.user);
                     furl.push_str(&furl_qrystr);
                 }
-                Err( Redirect::to(furl) )
+                Err(Redirect::to(furl)) 
             },
         }
     }
@@ -257,80 +252,3 @@ impl<'r, T: AuthorizeCookie> FromRequest<'r> for AuthCont<T> {
         }
     }
 }
-
-
-// #Collecting Login Form Data
-// If your login form requires more than just a username and password the
-// extras parameter, in `AuthorizeForm::new_form(user, pass, extras)`, holds
-// all other fields in a `HashMap<String, String>` to allow processing any 
-// field that was submitted.  The username and password are separate because
-// those are universal fields.
-//
-// ## Custom Username/Password Field Names
-// By default the function will look for a username and a password field.
-// If your form does not use those particular names you can always use the
-// extras `HashMap` to retrieve the username and password when using different
-// input box names.  The function will return `Ok()` even if no username or
-// password was entered, this is to allow custom field names to be accessed
-// and authenticated by the `authenticate()` method.
-// impl<'f, A: AuthorizeForm> FromForm<'f> for LoginCont<A> {
-//     type Error = &'static str;
-    
-//     fn from_form(form_items: &mut FormItems<'f>, _strict: bool) -> Result<Self, Self::Error> {
-//         let mut user: String = String::new();
-//         let mut pass: String = String::new();
-//         let mut extras: HashMap<String, String> = HashMap::new();
-        
-//         for FormItem { key, value, .. } in form_items {
-//             match key.as_str(){
-//                 "username" => {
-//                     user = A::clean_username(&value.url_decode().unwrap_or(String::new()));
-//                 },
-//                 "password" => {
-//                     pass = A::clean_password(&value.url_decode().unwrap_or(String::new()));
-//                 },
-//                 // _ => {},
-//                 a => {
-//                     // extras.insert( a.to_string(), A::clean_extras( &value.url_decode().unwrap_or(String::new()) ) );
-//                     extras.insert( a.to_string(), value.url_decode().unwrap_or(String::new()) );
-//                 },
-//             }
-//         }
-        
-//         // Do not need to check for username / password here,
-//         // if the authentication method requires them it will
-//         // fail at that point.
-//         Ok(
-//             LoginCont {
-//                 form: if extras.len() == 0 {
-//                           A::new_form(&user, &pass, None)
-//                        } else {
-//                            A::new_form(&user, &pass, Some(extras))
-//                        },
-//             }
-//         )
-//     }
-// }
-
-// impl<'f> FromForm<'f> for UserQuery {
-//     type Error = &'static str;
-    
-//     fn from_form(form_items: &mut FormItems<'f>, _strict: bool) -> Result<UserQuery, Self::Error> {
-//         let mut name: String = String::new();
-//         for FormItem { key, value, .. } in form_items {
-//             match key.as_str() {
-//                 "user" => { name = sanitize( &value.url_decode().unwrap_or(String::new()) ); },
-//                 _ => {},
-//             }
-//         }
-//         Ok(UserQuery { user: name })
-//     }
-// }
-
-// impl<'f> FromFormValue<'f> for UserQuery {
-//     type Error = &'static str;
-    
-//     fn from_form_value(form_value: &'f RawStr) -> Result<Self, Self::Error> {
-//         Ok(UserQuery { user: sanitize(&form_value.url_decode().unwrap_or(String::new())) })
-//     }
-// }

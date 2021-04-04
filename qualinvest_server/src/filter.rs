@@ -159,15 +159,15 @@ impl FilterForm {
     }
 
     pub async fn from_query<'a>(accounts: Option<String>, start: Option<String>, end: Option<String>, user: &'a user::UserCookie, 
-        user_accounts: &Vec<Account>, db: Arc<dyn UserHandler+Send+Sync+'a>) -> Result<FilterForm, Redirect> {
+        user_accounts: &Vec<Account>, rel_path: &str, db: Arc<dyn UserHandler+Send+Sync+'a>) -> Result<FilterForm, Redirect> {
         let end_date = match end {
             Some(s) => NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d")
-                .map_err(|_| Redirect::to("/err/invalid_date"))?,
+                .map_err(|_| Redirect::to(format!("{}{}", rel_path, "/err/invalid_date")))?,
             None => Local::now().naive_local().date()
         };
         let start_date = match start {
             Some(s) => NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d")
-                .map_err(|_| Redirect::to("/err/invalid_date"))?,
+                .map_err(|_| Redirect::to(format!("{}{}", rel_path, "/err/invalid_date")))?,
             None => end_date
         };
         let account_ids =
@@ -177,7 +177,7 @@ impl FilterForm {
                     accounts
                 } else {
                     db.valid_accounts(user.userid, &accounts).await
-                        .map_err(|_| Redirect::to("/err/valid_accounts"))?
+                        .map_err(|_| Redirect::to(format!("{}{}",rel_path, "/err/valid_accounts")))?
                 }
         } else {
             let mut account_ids = Vec::new();
@@ -231,6 +231,6 @@ impl FilterForm {
 pub fn process_filter(view: String, form: Form<FilterForm>, state: State<ServerState>) -> Redirect {
     let filter_form = form.into_inner();
     let query_string = format!("{}/{}{}", state.rel_path, view, filter_form.to_query());
-    Redirect::to(query_string) 
+    Redirect::to(format!("{}{}", state.rel_path, query_string))
 }
 

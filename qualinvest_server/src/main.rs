@@ -107,19 +107,18 @@ fn retry_login_flash(redirect: Option<String>, flash_msg: FlashMessage, state: S
 }
 
 #[post("/login", data = "<form>")]
-async fn process_login(form: Form<LoginCont<UserForm>>, cookies: &CookieJar<'_>, 
+async fn process_login(form: Form<UserForm>, cookies: &CookieJar<'_>, 
         state: State<'_,ServerState>) -> Result<Redirect, Flash<Redirect>> {
     let db = state.postgres_db.clone();
-    let inner = form.into_inner();
-    let login = inner.form;
-    login.flash_redirect(login.redirect.clone(), "/login", cookies, db).await
+    let login = form.into_inner();
+    login.flash_redirect(login.redirect.clone(), format!("{}/login", state.rel_path), cookies, db).await
 }
 
 #[get("/logout")]
 fn logout(user: Option<UserCookie>, cookies: &CookieJar<'_>, state: State<ServerState>) -> Result<Flash<Redirect>, Redirect> {
     if let Some(_) = user {
         cookies.remove_private(Cookie::named(UserCookie::cookie_id()));
-        Ok(Flash::success(Redirect::to(format!("{}/",state.rel_path)), "Successfully logged out."))
+        Ok(Flash::success(Redirect::to(format!("{}/", state.rel_path)), "Successfully logged out."))
     } else {
         Err(Redirect::to(format!("{}/login", state.rel_path)))
     }

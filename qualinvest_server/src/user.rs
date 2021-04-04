@@ -123,7 +123,7 @@ impl<'r> FromRequest<'r> for UserCookie {
     /// `#[get("/protected")] fn admin_page(admin: UserCookie)`
     async fn from_request(request: &'r Request<'_>) -> ::rocket::request::Outcome<UserCookie,Self::Error>{
         let cid = UserCookie::cookie_id();
-        let mut cookies = request.cookies();
+        let cookies = request.cookies();
         
         match cookies.get_private(cid) {
             Some(cookie) => {
