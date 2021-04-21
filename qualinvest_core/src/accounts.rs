@@ -473,7 +473,7 @@ impl AccountHandler for PostgresDB {
                 cash_currency: row.try_get("cash_currency").map_err(|e| DataError::NotFound(e.to_string()))?,
                 cash_date, 
                 note: row.try_get("note").map_err(|e| DataError::NotFound(e.to_string()))?,
-                doc_path: row.try_get("doc_path").map_err(|e| DataError::NotFound(e.to_string()))?, 
+                doc_path: row.try_get("path").map_err(|e| DataError::NotFound(e.to_string()))?, 
                 account_id: account_id as usize,
             });
         }
@@ -541,7 +541,7 @@ impl AccountHandler for PostgresDB {
                 cash_currency: row.try_get("cash_currency").map_err(|e| DataError::NotFound(e.to_string()))?,
                 cash_date, 
                 note: row.try_get("note").map_err(|e| DataError::NotFound(e.to_string()))?,
-                doc_path: row.try_get("doc_path").map_err(|e| DataError::NotFound(e.to_string()))?, 
+                doc_path: row.try_get("path").map_err(|e| DataError::NotFound(e.to_string()))?, 
                 account_id: account_id as usize,
             });
         }

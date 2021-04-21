@@ -38,6 +38,6 @@ pub async fn position(accounts: Option<String>, start: Option<String>, end: Opti
     context.insert("totals", &totals);
     context.insert("user", &user);
     context.insert("valid_accounts", &user_accounts);
-    context.insert("filter", &filter);
+    context.insert("filter", &filter.plain());
     Ok(layout("position", &context.into_json()))
 }

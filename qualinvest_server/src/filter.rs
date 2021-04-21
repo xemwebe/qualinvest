@@ -134,6 +134,13 @@ mod tests {
 }
 
 
+#[derive(Debug,Serialize,Deserialize)]
+pub struct PlainFilter {
+    pub account_ids: Vec<usize>,
+    pub start_date: NaiveDate,
+    pub end_date: NaiveDate,
+}
+
 #[derive(Debug,Serialize,Deserialize,FromForm)]
 pub struct FilterForm {
     pub account_ids: Vec<usize>,
@@ -189,43 +196,15 @@ impl FilterForm {
         Ok(FilterForm{account_ids, start_date: NaiveDateForm{ date: start_date}, end_date: NaiveDateForm{ date: end_date}})
     }
 
+    pub fn plain(&self) -> PlainFilter {
+        PlainFilter{
+            account_ids: self.account_ids.clone(),
+            start_date: self.start_date.date,
+            end_date: self.end_date.date,
+        }
+    }
+
 }
-
-// impl<'f> FromForm<'f> for FilterForm {
-//     type Error = &'static str;
-    
-//     fn from_form(form_items: &mut FormItems<'f>, _strict: bool) -> Result<Self, Self::Error> {
-//         lazy_static! {
-//             static ref ACCOUNT_ID: Regex = Regex::new(r"accid([0-9]*)").unwrap();
-//         }
-        
-//         let mut account_ids = Vec::new();
-//         let mut start_date = NaiveDate::from_ymd(1900,01,01);
-//         let mut end_date = Local::now().naive_local().date();
-
-//         for FormItem { key, value, .. } in form_items {
-//             match key.as_str() {
-//                 "start_date" =>  { start_date = NaiveDate::parse_from_str(value.as_str(), "%Y-%m-%d")
-//                     .map_err(|_| "date parse error" )?; },
-//                 "end_date" =>  { end_date = NaiveDate::parse_from_str(value.as_str(), "%Y-%m-%d")
-//                     .map_err(|_| "date parse error" )?; },
-//                 _ => match ACCOUNT_ID.captures(key.as_str()) {
-//                     Some(account) =>  { account_ids.push( account[1].parse::<usize>().unwrap()); },
-//                     None => { return Err("Invalid form parameter found"); }
-//                 }
-     
-//             }
-//         }
-
-//         Ok(
-//             FilterForm {
-//                 account_ids,
-//                 start_date,
-//                 end_date,
-//             }
-//         )
-//     }
-// }
 
 #[post("/filter/<view>", data="<form>")]
 pub fn process_filter(view: String, form: Form<FilterForm>, state: State<ServerState>) -> Redirect {

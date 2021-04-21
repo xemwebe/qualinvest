@@ -29,21 +29,21 @@ pub async fn transactions(accounts: Option<String>, start: Option<String>, end: 
     let db = state.postgres_db.clone();
     let user_accounts = user.get_accounts(db.clone()).await;
     if user_accounts.is_none() {
-//        return Err(Flash::error(Redirect::to(format!("{}{}", state.rel_path, uri!(transactions: accounts, start, end), "Please ask the administrator to set up an account for you first.")));
-        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="no_user_account"))));
+        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="Please ask the administrator to set up an account for you first."))));
     }
     let user_accounts = user_accounts.unwrap();
 
     let filter = filter::FilterForm::from_query(accounts, start, end, &user, &user_accounts, &state.rel_path, db.clone()).await?;
 
     let transactions = db.get_transaction_view_for_accounts(&filter.account_ids).await
-        .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="get_transaction_view_for_accounts"))))?;
+        .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: 
+            msg=format!("Couldn't get transactions for your account, error was {}", e)))))?;
 
     let mut context = state.default_context();
     context.insert("transactions", &transactions);
     context.insert("valid_accounts", &user_accounts);
     context.insert("user", &user);
-    context.insert("filter", &filter);
+    context.insert("filter", &filter.plain());
     Ok(layout("transactions", &context.into_json()))
 }
 
