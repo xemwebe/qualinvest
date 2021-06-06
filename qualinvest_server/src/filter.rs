@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use rocket_contrib::templates::{Template, Engines};
-use rocket_contrib::templates::tera::{self, Value};
+use rocket_dyn_templates::{Template, Engines};
+use rocket_dyn_templates::tera::{self, Value};
 use rocket::fairing::Fairing;
 use rocket::response::Redirect;
 use rocket::State;
@@ -207,7 +207,7 @@ impl FilterForm {
 }
 
 #[post("/filter/<view>", data="<form>")]
-pub fn process_filter(view: String, form: Form<FilterForm>, state: State<ServerState>) -> Redirect {
+pub fn process_filter(view: String, form: Form<FilterForm>, state: &State<ServerState>) -> Redirect {
     let filter_form = form.into_inner();
     let query_string = format!("{}/{}{}", state.rel_path, view, filter_form.to_query());
     Redirect::to(format!("{}{}", state.rel_path, query_string))

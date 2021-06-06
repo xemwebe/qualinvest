@@ -14,10 +14,11 @@ use clap::{App, AppSettings, Arg};
 
 use rocket::{State};
 use rocket::http::{uri::Origin, Cookie, CookieJar};
-use rocket::response::{NamedFile, Redirect, Flash};
+use rocket::fs::NamedFile;
+use rocket::response::{Redirect, Flash};
 use rocket::request::{FlashMessage};
 use rocket::form::Form;
-use rocket_contrib::templates::Template;
+use rocket_dyn_templates::Template;
 use rocket::figment::Figment;
 use tera;
 
@@ -55,14 +56,14 @@ impl ServerState {
 /// contained in the cookie, making a database operation unnecessary, however
 /// this is just an example to show how to connect to a database.
 #[get("/login", rank = 1)]
-fn logged_in(user: UserCookie, state: State<ServerState>) -> Template {
+async fn logged_in(user: UserCookie, state: &State<ServerState>) -> Template {
     let mut context = state.default_context();
     context.insert("user", &user);
     layout("index", &context.into_json())
 }
 
 #[get("/login?<redirect>", rank = 2)]
-fn login(redirect: Option<String>, state: State<ServerState>) -> Template {
+async fn login(redirect: Option<String>, state: &State<ServerState>) -> Template {
     let mut context = state.default_context();
     if let Some(redirect) = redirect {
         context.insert("redirect", &redirect);
@@ -74,17 +75,13 @@ fn login(redirect: Option<String>, state: State<ServerState>) -> Template {
 /// display an optional flash message indicating why the login failed
 /// and the login screen with user filled in
 #[get("/login?<user>&<redirect>")]
-fn retry_login_user(user: UserQuery, redirect: Option<String>, flash_msg_opt: Option<FlashMessage>, state: State<ServerState>) -> Template {
-    let alert;
-    if let Some(flash) = flash_msg_opt {
-        alert = flash.msg().to_string();
-    } else { 
-        alert = "".to_string();
-    }
+async fn retry_login_user(user: UserQuery, redirect: Option<String>, flash_msg_opt: Option<FlashMessage<'_>>, state: &State<ServerState>) -> Template {
     let mut context = state.default_context();
+    if let Some(flash) = flash_msg_opt {
+        context.insert("alert_type", &flash.kind());
+        context.insert("alert_msg", &flash.message());
+    }
     context.insert("user", &user.user);
-    context.insert("alert_type", "danger");
-    context.insert("alert_msg", &alert);
     if let Some(redirect) = redirect {
         context.insert("redirect", &redirect);
     }
@@ -94,12 +91,10 @@ fn retry_login_user(user: UserQuery, redirect: Option<String>, flash_msg_opt: Op
 /// if there is a flash message but no user query string
 /// display why the login failed and display the login screen
 #[get("/login?<redirect>", rank = 3)]
-fn retry_login_flash(redirect: Option<String>, flash_msg: FlashMessage, state: State<ServerState>) -> Template {
-    let alert = flash_msg.msg();
-
+async fn retry_login_flash(redirect: Option<String>, flash_msg: FlashMessage<'_>, state: &State<ServerState>) -> Template {
     let mut context = state.default_context();
-    context.insert("alert_type", "danger");
-    context.insert("alert_msg", &alert);
+    context.insert("alert_type", &flash_msg.kind());
+    context.insert("alert_msg", &flash_msg.message());
     if let Some(redirect) = redirect {
         context.insert("redirect", &redirect);
     }
@@ -108,14 +103,14 @@ fn retry_login_flash(redirect: Option<String>, flash_msg: FlashMessage, state: S
 
 #[post("/login", data = "<form>")]
 async fn process_login(form: Form<UserForm>, cookies: &CookieJar<'_>, 
-        state: State<'_,ServerState>) -> Result<Redirect, Flash<Redirect>> {
+        state: &State<ServerState>) -> Result<Redirect, Flash<Redirect>> {
     let db = state.postgres_db.clone();
     let login = form.into_inner();
     login.flash_redirect(login.redirect.clone(), format!("{}/login", state.rel_path), cookies, db).await
 }
 
 #[get("/logout")]
-fn logout(user: Option<UserCookie>, cookies: &CookieJar<'_>, state: State<ServerState>) -> Result<Flash<Redirect>, Redirect> {
+async fn logout(user: Option<UserCookie>, cookies: &CookieJar<'_>, state: &State<ServerState>) -> Result<Flash<Redirect>, Redirect> {
     if let Some(_) = user {
         cookies.remove_private(Cookie::named(UserCookie::cookie_id()));
         Ok(Flash::success(Redirect::to(format!("{}/", state.rel_path)), "Successfully logged out."))
@@ -126,20 +121,12 @@ fn logout(user: Option<UserCookie>, cookies: &CookieJar<'_>, state: State<Server
 
 
 #[get("/")]
-fn index(user_opt: Option<UserCookie>, flash_msg_opt: Option<FlashMessage>, state: State<ServerState>) -> Template {
-    let (alert_type, alert_msg) = if let Some(flash) = flash_msg_opt {
-        match flash.name() {
-            "success" => ("success", flash.msg().to_string()),
-            "warning" => ("warning", flash.msg().to_string()),
-            "error" => ("error", flash.msg().to_string()),
-            _ => ("info", flash.msg().to_string()),
-        }
-    } else {
-        ("info", "".to_string())
-    };
+async fn index(user_opt: Option<UserCookie>, flash_msg_opt: Option<FlashMessage<'_>>, state: &State<ServerState>) -> Template {
     let mut context = state.default_context();
-    context.insert("alert_type", &alert_type);
-    context.insert("alert_msg", &alert_msg);
+    if let Some(flash) = flash_msg_opt {
+        context.insert("alert_type", &flash.kind());
+        context.insert("alert_msg", &flash.message());
+    }
     if let Some(user) = user_opt {
         context.insert("user", &user);
     } 
@@ -156,7 +143,7 @@ async fn static_files(file: PathBuf) -> Option<NamedFile> {
 
 /// As a first proxy, catch errors here
 #[get("/err?<msg>")]
-fn error_msg(msg: String, user_opt: Option<UserCookie>, state: State<ServerState>) -> Template {
+async fn error_msg(msg: String, user_opt: Option<UserCookie>, state: &State<ServerState>) -> Template {
     let mut context = state.default_context();
     context.insert("alert_type", "danger");
     context.insert("alert_msg", &msg);

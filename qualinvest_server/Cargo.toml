@@ -9,7 +9,7 @@ repository = "https://github.com/xemwebe/qualinvest"
 keywords = ["finance", "investment", "quantitative", "analysis"]
 
 [dependencies]
-rocket = { version="0.5.0-dev", git="https://github.com/SergioBenitez/Rocket.git", features=["secrets"] }
+rocket = { version="0.5.0-dev", path="../extern/rocket/core/lib", features=["secrets"] }
 devise = { version="0.3", git="https://github.com/SergioBenitez/Devise.git" }
 serde = { version = "1.0.*", features = ["derive"] }
 serde_json = "1.0"
@@ -27,5 +27,14 @@ num-format = "0.4"
 regex = "1.3"
 lazy_static = "1.4"
 unicode-segmentation = "1.6"
-rocket_contrib = {version="0.5.0-dev", git="https://github.com/SergioBenitez/Rocket.git", default-features = false, features = ["json","tera_templates"]}
 async-trait = "0.1"
+
+[dependencies.rocket_dyn_templates]
+path = "../extern/rocket/contrib/dyn_templates"
+features = ["tera"]
+
+# [dependencies.rocket_http]
+# path = "../extern/rocket/core/http"
+
+# [dependencies.rocket_codegen]
+# path = "../extern/rocket/core/codegen"

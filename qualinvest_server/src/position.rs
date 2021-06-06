@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use rocket::State;
 use rocket::response::Redirect;
-use rocket_contrib::templates::Template;
+use rocket_dyn_templates::Template;
 
 use finql_data::Currency;
 use crate::user::UserCookie;
@@ -14,9 +14,9 @@ use super::ServerState;
 
 #[get("/position?<accounts>&<start>&<end>")]
 pub async fn position(accounts: Option<String>, start: Option<String>, end: Option<String>, user_opt: Option<UserCookie>, 
-    state: State<'_,ServerState>) -> Result<Template,Redirect> {
+    state: &State<ServerState>) -> Result<Template,Redirect> {
     if user_opt.is_none() {
-        return Err(Redirect::to(format!("{}{}", state.rel_path,  uri!(login: redirect=Some("position")))));
+        return Err(Redirect::to(uri!(login(redirect=Some("position")))));
     }
     let user = user_opt.unwrap();
 
@@ -24,14 +24,14 @@ pub async fn position(accounts: Option<String>, start: Option<String>, end: Opti
     let db = state.postgres_db.clone();
     let user_accounts = user.get_accounts(db.clone()).await;
     if user_accounts.is_none() {
-        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="No user account found"))));
+        return Err(Redirect::to(uri!(error_msg(msg="No user account found".to_string()))));
     }
     let user_accounts = user_accounts.unwrap();
 
     let filter = filter::FilterForm::from_query(accounts, start, end, &user, &user_accounts, &state.rel_path, db.clone()).await?;
     let (position, totals) = calculate_position_for_period(currency, 
         &filter.account_ids, filter.start_date.date, filter.end_date.date, db).await
-        .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg=format!("Calculation of position failed: {:?}",e)))))?;
+        .map_err(|e| Redirect::to(uri!(error_msg(msg=format!("Calculation of position failed: {:?}",e)))))?;
 
     let mut context = state.default_context();
     context.insert("positions", &position);

@@ -1,2 +1,3 @@
 [workspace]
 members = ["qualinvest_core", "qualinvest_cli", "qualinvest_server", "finql/finql", "finql/finql-data", "finql/finql-postgres"]
+exclude = ["extern"]
