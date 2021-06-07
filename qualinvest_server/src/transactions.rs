@@ -33,7 +33,7 @@ pub async fn transactions(accounts: Option<String>, start: Option<String>, end: 
     }
     let user_accounts = user_accounts.unwrap();
 
-    let filter = filter::FilterForm::from_query(accounts, start, end, &user, &user_accounts, &state.rel_path, db.clone()).await?;
+    let filter = filter::PlainFilter::from_query(accounts, start, end, &user, &user_accounts, &state.rel_path, db.clone()).await?;
 
     let transactions = db.get_transaction_view_for_accounts(&filter.account_ids).await
         .map_err(|e| Redirect::to(uri!(error_msg(msg=format!("Couldn't get transactions for your account, error was {}", e)))))?;
@@ -42,7 +42,7 @@ pub async fn transactions(accounts: Option<String>, start: Option<String>, end: 
     context.insert("transactions", &transactions);
     context.insert("valid_accounts", &user_accounts);
     context.insert("user", &user);
-    context.insert("filter", &filter.plain());
+    context.insert("filter", &filter);
     Ok(layout("transactions", &context.into_json()))
 }
 

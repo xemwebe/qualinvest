@@ -143,30 +143,14 @@ pub struct PlainFilter {
 
 #[derive(Debug,Serialize,Deserialize,FromForm)]
 pub struct FilterForm {
-    pub account_ids: Vec<usize>,
+    pub account_ids: Vec<String>,
     pub start_date: NaiveDateForm,
     pub end_date: NaiveDateForm,
 }
 
-impl FilterForm {
-    fn to_query(&self) -> String {
-        if self.account_ids.len() == 0 {
-            String::new()
-        } else {
-            let mut query  = format!("?accounts={}", self.account_ids[0]);
-            for id in &self.account_ids[1..] {
-                query = format!("{},{}", query, *id);
-            }
-            query = format!("{}&start={}&end={}",query
-                ,self.start_date.date.format("%Y-%m-%d").to_string()
-                ,self.end_date.date.format("%Y-%m-%d").to_string()
-            );
-            query
-        }
-    }
-
+impl PlainFilter {
     pub async fn from_query<'a>(accounts: Option<String>, start: Option<String>, end: Option<String>, user: &'a user::UserCookie, 
-        user_accounts: &Vec<Account>, rel_path: &str, db: Arc<dyn UserHandler+Send+Sync+'a>) -> Result<FilterForm, Redirect> {
+        user_accounts: &Vec<Account>, rel_path: &str, db: Arc<dyn UserHandler+Send+Sync+'a>) -> Result<PlainFilter, Redirect> {
         let end_date = match end {
             Some(s) => NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d")
                 .map_err(|_| Redirect::to(format!("{}{}", rel_path, "/err/invalid_date")))?,
@@ -193,12 +177,39 @@ impl FilterForm {
             }
             account_ids
         };
-        Ok(FilterForm{account_ids, start_date: NaiveDateForm{ date: start_date}, end_date: NaiveDateForm{ date: end_date}})
+        Ok(PlainFilter{account_ids, start_date, end_date})
+    }
+}
+
+impl FilterForm {
+    fn to_query(&self) -> String {
+        if self.account_ids.len() == 0 {
+            String::new()
+        } else {
+            let mut query  = format!("?accounts={}", self.account_ids[0]);
+            for id in &self.account_ids[1..] {
+                query = format!("{},{}", query, *id);
+            }
+            query = format!("{}&start={}&end={}",query
+                ,self.start_date.date.format("%Y-%m-%d").to_string()
+                ,self.end_date.date.format("%Y-%m-%d").to_string()
+            );
+            query
+        }
     }
 
     pub fn plain(&self) -> PlainFilter {
+        let mut account_ids = Vec::new();
+        for acc_id in &self.account_ids {
+            if acc_id.len()>5 && &acc_id[0..6]=="accid" {
+                let id = acc_id[6..].parse::<usize>();
+                if let Ok(id) = id {
+                    account_ids.push(id);
+                }
+            }
+        } 
         PlainFilter{
-            account_ids: self.account_ids.clone(),
+            account_ids,
             start_date: self.start_date.date,
             end_date: self.end_date.date,
         }
@@ -209,7 +220,7 @@ impl FilterForm {
 #[post("/filter/<view>", data="<form>")]
 pub fn process_filter(view: String, form: Form<FilterForm>, state: &State<ServerState>) -> Redirect {
     let filter_form = form.into_inner();
-    let query_string = format!("{}/{}{}", state.rel_path, view, filter_form.to_query());
-    Redirect::to(format!("{}{}", state.rel_path, query_string))
+    let query_string = format!("/{}/{}{}", state.rel_path, view, filter_form.to_query());
+    Redirect::to(query_string)
 }
 

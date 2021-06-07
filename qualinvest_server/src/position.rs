@@ -28,9 +28,9 @@ pub async fn position(accounts: Option<String>, start: Option<String>, end: Opti
     }
     let user_accounts = user_accounts.unwrap();
 
-    let filter = filter::FilterForm::from_query(accounts, start, end, &user, &user_accounts, &state.rel_path, db.clone()).await?;
+    let filter = filter::PlainFilter::from_query(accounts, start, end, &user, &user_accounts, &state.rel_path, db.clone()).await?;
     let (position, totals) = calculate_position_for_period(currency, 
-        &filter.account_ids, filter.start_date.date, filter.end_date.date, db).await
+        &filter.account_ids, filter.start_date, filter.end_date, db).await
         .map_err(|e| Redirect::to(uri!(error_msg(msg=format!("Calculation of position failed: {:?}",e)))))?;
 
     let mut context = state.default_context();
@@ -38,6 +38,6 @@ pub async fn position(accounts: Option<String>, start: Option<String>, end: Opti
     context.insert("totals", &totals);
     context.insert("user", &user);
     context.insert("valid_accounts", &user_accounts);
-    context.insert("filter", &filter.plain());
+    context.insert("filter", &filter);
     Ok(layout("position", &context.into_json()))
 }

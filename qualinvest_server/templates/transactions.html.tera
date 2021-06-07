@@ -1,6 +1,6 @@
 {% extends "filter" %}
 {% block pagetitle %}{{super()}} - Transactions{% endblock  pagetitle %}
-{% block form_action %}action="{{relpath}}/filter/transactions"{% endblock form_action %}
+{% block form_action %}action="/{{relpath}}/filter/transactions"{% endblock form_action %}
 {% block jsdata %}
 {{super()}}
 	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
@@ -59,9 +59,9 @@
 			d.setAttribute('disabled','true');
 		} else {
 			var id = data.getValue(selection[0].row,0);
-			a.href = "{{relpath}}/transactions/edit/"+id;
+			a.href = "/{{relpath}}/transactions/edit/"+id;
 			a.removeAttribute('disabled');
-			d.href = "{{relpath}}/transactions/delete/"+id;
+			d.href = "/{{relpath}}/transactions/delete/"+id;
 			d.removeAttribute('disabled');
 		}
 	}
@@ -72,13 +72,13 @@
 {{super()}}
 <div class="row" style="margin-bottom: 20px;">
 	<div class="col-md-1">
-		<a class="btn btn-primary" id="edit_link" href="{{relpath}}/transactions/edit/id" disabled>Edit</a>
+		<a class="btn btn-primary" id="edit_link" href="/{{relpath}}/transactions/edit/id" disabled>Edit</a>
         </div>
 	<div class="col-md-1">
-		<a class="btn btn-primary" id="destroy_link" href="{{relpath}}/transactions/delete/id" disabled>Delete</a>
+		<a class="btn btn-primary" id="destroy_link" href="/{{relpath}}/transactions/delete/id" disabled>Delete</a>
         </div>
 	<div class="col-md-offset-8 col-md-2 text-right">
-		<a class="btn btn-primary" href="{{relpath}}/transactions/new"><i class="fa fa-plus"></i> New Transaction</a>	
+		<a class="btn btn-primary" href="/{{relpath}}/transactions/new"><i class="fa fa-plus"></i> New Transaction</a>	
 	</div>
 </div>
 <div id="table_div" style="padding-top: 15px;"></div>
