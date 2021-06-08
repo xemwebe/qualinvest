@@ -1,0 +1,59 @@
+<div class="row">
+	<form class="form-horizontal" action="{{relpath}}/tickers/{{.asset.ID}}{{with .ticker.ID}}/{{.}}/edit{{else}}/new{{end}}" method="post">
+		<div class="form-group">
+			<label class="control-label col-md-2">Asset:</label>
+			<div class="col-md-4">
+				<input class="form-control" name="Asset Name" type="text" disabled value={{.asset.Name}}>
+			</div>
+		</div>
+		<div class="form-group">
+			<label class="control-label col-md-2" for="source">Sources:</label>
+			<div class="col-md-2">
+			<select class="form-control" id="source" name="Source"> 
+				{{$source := .ticker.Source}}
+				{{range .sources}}
+				<option value="{{.Source}}" {{if eq .Source $source}}selected{{end}}>{{.Source}}</option> 
+ 				{{end}}
+			</select> 
+			</div>
+		</div>
+		<div class="form-group">
+			<label class="control-label col-md-2" for="ticker">Ticker:</label>
+			<div class="col-md-1">
+				<input class="form-control" id="ticker" name="Ticker" type="text" value={{.ticker.Ticker}}>
+			</div>
+		</div>
+		<div class="form-group">
+			<label class="control-label col-md-2" for="currency">Currency:</label>
+			<div class="col-md-2">
+			<select class="form-control" id="currency" name="Curr"> 
+				{{$curr := .ticker.Curr}}
+				{{range .currencies}}
+				<option value="{{.Curr}}" {{if eq .Curr $curr}}selected{{end}}>{{.Curr}}</option> 
+ 				{{end}}
+			</select> 
+			</div>
+		</div>
+		<div class="form-group">
+			<label class="control-label col-md-2" for="factor">Factor:</label>
+			<div class="col-md-1">
+				<input class="form-control" id="factor" name="Factor" type="text" value={{.ticker.Factor}}>
+			</div>
+		</div>
+		<div class="form-group">
+			<label class="control-label col-md-2" for="isactive">Is Active:</label>
+			<div class="col-md-1">
+				<input class="form-control" id="isactive" name="Active" type="checkbox" {{if .ticker.Active}}checked{{end}}>
+			</div>
+		</div>
+		<input type="hidden" name="csrf_token" value="{{.csrf_token}}">
+		<div class="row text-right col-md-6">
+			{{with .ticker.ID}}
+				<button class="btn btn-success" type="submit">Change</button>
+			{{else}}
+				<button class="btn btn-success" type="submit">Create</button>
+			{{end}}
+			<a class="btn btn-link" href="{{relpath}}/assets">Cancel</button>
+		</div>
+	</form>
+</div>

@@ -69,7 +69,7 @@ function setRange() {
 {% block content %}
 {{super()}}
 <div class="filter-block">
- 	<button id="filter_button" onclick="toggleFilter()">Show Filter</button>
+ 	<button id="filter_button"  class="button" onclick="toggleFilter()">Show Filter</button>
 	<div id="period_info" display="inline"> 
 		Start Date: <span id="info_start">{{filter.start_date}}</span> 
 		End Date: <span id="info_end">{{filter.end_date}}</span>
@@ -77,10 +77,10 @@ function setRange() {
 	<div class="filter" id="filter" style="display: none">
 		<form {% block form_action %}{% endblock form_action %} method="post">
 			<div class="form-group">
-				<div class="col-md-1">
-					<input type="submit" id="apply_filter_button" value="Apply Filter" disabled>
+				<div class="col-md-2">
+					<input type="submit" class="button" id="apply_filter_button" value="Apply Filter" disabled>
 				</div>
-				<div class="col-md-1">
+				<div class="col-md-2">
 					<select class="form-control" id="range_select" onchange="setRange()"> 
 						<option value="custom" selected>Custom</option> 
 						<option value="daily" >Daily</option> 
@@ -96,15 +96,17 @@ function setRange() {
 				<div class="col-md-2">
 					<input class="fpcalendar flatpickr flatpickr-input" onchange="formChange()" name="end_date" id="end_date" type="text" value={{filter.end_date}}>
 				</div>
-			</div><br>
+			</div>
 			<div class="form-group">
-				<label>Select account(s):
-				<div id="accounts">
+				<div class="col-md-6">
+				<label>Select account(s):</label></div>
+				<div class="col-md-6">
+					<select class="selectpicker" name="account_ids" id="account_ids" multiple onclick="formChange()">
 					{% for acc in valid_accounts %}
-						<label><input type="checkbox" name="accid{{acc.id}}" onclick="formChange()"  
-						{% if acc.id in filter.account_ids %}checked{% endif %}> {{acc.broker}}: {{acc.account_name}}</label>
+						<option value={{acc.id}}
+							{% if acc.id in filter.account_ids %}selected{% endif %}>{{acc.broker}}: {{acc.account_name}}</option>
 					{% endfor %}
-				</div></label>
+				</select></div>
 			</div>
 		</form>
 	</div>

@@ -62,7 +62,7 @@ fn type_to_string(value: &Value, _: &HashMap<String, Value>) -> tera::Result<Val
     match value {
         Value::String(type_str) => Ok(Value::String( match type_str.as_str() {
             "c" => "Cash",
-            "a" => "Buy/Sell",
+            "a" => "Buy or Sell",
             "d" => "Dividend",
             "i" => "Interest",
             "t" => "Tax",
@@ -197,24 +197,6 @@ impl FilterForm {
             query
         }
     }
-
-    pub fn plain(&self) -> PlainFilter {
-        let mut account_ids = Vec::new();
-        for acc_id in &self.account_ids {
-            if acc_id.len()>5 && &acc_id[0..6]=="accid" {
-                let id = acc_id[6..].parse::<usize>();
-                if let Ok(id) = id {
-                    account_ids.push(id);
-                }
-            }
-        } 
-        PlainFilter{
-            account_ids,
-            start_date: self.start_date.date,
-            end_date: self.end_date.date,
-        }
-    }
-
 }
 
 #[post("/filter/<view>", data="<form>")]

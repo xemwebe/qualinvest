@@ -1,0 +1,94 @@
+{{define "pagetitle"}}Quinvestor - Assets{{end}}
+{{define "jsdata"}}
+  {{$loggedin := .loggedin}}
+  {{if $loggedin}}
+	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+	<script type="text/javascript">
+		google.charts.load('current', {'packages':['table']});
+		google.charts.setOnLoadCallback(drawTable);
+
+	function drawTable() {
+	  var data = new google.visualization.DataTable();
+	  data.addColumn('number', 'ID');
+	  data.addColumn('string', 'Asset');
+	  data.addColumn('string', 'WKN');
+	  data.addColumn('string', 'ISIN');
+	  data.addColumn('string', 'Note');
+
+	  data.addRows([
+	    {{range .assets}}[
+		{{.ID}},
+	     	{v: {{lowerCase .Name}}, f: {{.Name}} },
+	   	{v: {{lowerCase .WKN}}, f: {{.WKN}} },
+	   	{v: {{lowerCase .ISIN}}, f: {{.ISIN}} },
+	   	{{.Note}},
+	   ],
+	  {{end}}
+        ]);
+	var view = new google.visualization.DataView(data);
+	view.hideColumns([0]);
+	var table = new google.visualization.Table(document.getElementById('table_div'));
+
+	google.visualization.events.addListener(table,'select',selectHandler);
+	table.draw(view, {sortColumn: 0, width: '100%', height: window.innerHeight-150 } );
+
+	// select handler
+	function selectHandler() {
+		var edit = document.getElementById('edit_link');
+		var destroy = document.getElementById('destroy_link');
+		var analyze = document.getElementById('analyze_link');
+		var ticker = document.getElementById('ticker_link');
+		var quotes = document.getElementById('quotes_link');
+  		var selection = table.getSelection();
+		if (selection.length<1) {
+			edit.setAttribute('disabled','true');
+			destroy.setAttribute('disabled','true');
+			analyze.setAttribute('disabled','true');
+			ticker.setAttribute('disabled','true');
+			quotes.setAttribute('disabled','true');
+		} else {
+			var id = data.getValue(selection[0].row,0);
+			edit.href = "{{relpath}}/assets/"+id+"/edit";
+			edit.removeAttribute('disabled');
+			destroy.href = "{{relpath}}/assets/"+id+"/destroy";
+			destroy.removeAttribute('disabled');
+			analyze.href = "{{relpath}}/assets/"+id+"/analyze";
+			analyze.removeAttribute('disabled');
+			ticker.href = "{{relpath}}/tickers/"+id;
+			ticker.removeAttribute('disabled');
+			quotes.href = "{{relpath}}/quotes/"+id;
+			quotes.removeAttribute('disabled');
+
+		}
+	}
+      }
+    </script>
+   {{end}}
+{{end}}
+{{$loggedin := .loggedin}}
+{{if $loggedin}}
+<div class="row" style="margin-bottom: 20px;">
+	<div class="col-md-1">
+		<a class="btn btn-primary" id="edit_link" href="{{relpath}}/assets/id/edit" disabled>Edit</a>
+        </div>
+	<div class="col-md-1">
+		<a class="btn btn-primary" id="destroy_link" href="{{relpath}}/assets/id/destroy" disabled>Delete</a>
+        </div>
+	<div class="col-md-1">
+		<a class="btn btn-primary" id="analyze_link" href="{{relpath}}/assets/id/analyze" disabled>Analyze</a>
+        </div>
+	<div class="col-md-1">
+		<a class="btn btn-primary" id="ticker_link" href="{{relpath}}/tickers/id" disabled>Ticker</a>
+        </div>
+	<div class="col-md-1">
+		<a class="btn btn-primary" id="quotes_link" href="{{relpath}}/quotes/id" disabled>Quotes</a>
+        </div>
+	<div class="col-md-offset-5 col-md-2 text-right">
+		<a class="btn btn-primary" href="{{relpath}}/assets/new"><i class="fa fa-plus"></i> New Asset</a>	
+	</div>
+</div>
+<div id="table_div"></div>
+{{else}}
+<h1>Please log in.</h1>
+{{end}}
+

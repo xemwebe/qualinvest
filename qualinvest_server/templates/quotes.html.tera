@@ -1,0 +1,81 @@
+{{define "pagetitle"}}Quinvestor - Quotes{{end}}
+{{define "jsdata"}}
+  {{$loggedin := .loggedin}}
+  {{if $loggedin}}
+	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+	<script type="text/javascript">
+		google.charts.load('current', {'packages':['table']});
+		google.charts.setOnLoadCallback(drawTable);
+
+	function drawTable() {
+	  var data = new google.visualization.DataTable();
+	  data.addColumn('number', 'ID');
+	  data.addColumn('string', 'Date');
+	  data.addColumn('number', 'Price');
+	  data.addColumn('number', 'Volume');
+	  data.addColumn('string', 'Ticker');
+	  data.addColumn('string', 'Source');
+
+	  data.addRows([
+	    {{range .quotes}}[
+		{{.ID}},
+		{{formatDateTime .Date}},
+		{v: {{.Price}}, f: {{formatNum .Price}} },
+		{{.Volume}},
+		{{.Ticker}},
+		{{.Source}}
+	  ],
+	  {{end}}
+	]);
+	var view = new google.visualization.DataView(data);
+	view.hideColumns([0]);
+	var table = new google.visualization.Table(document.getElementById('quote_table'));
+	table.draw(view, {sortColumn: 0, width: '50%', height: window.innerHeigth-150 } );
+	</script>
+  {{end}}
+{{end}}
+{{$loggedin := .loggedin}}
+{{if $loggedin}}
+<div class="row" style="margin-bottom: 20px;">
+	<div class="col-md-1">
+		<a class="btn btn-primary" href="{{relpath}}/quotes/{{.asset.ID}}/refresh">Refresh History</a>
+	</div>
+	<div class="col-md-offset-9 col-md-2 text-right">
+		<a class="btn btn-primary" href="{{relpath}}/quotes/{{.asset.ID}}/new"><i class="fa fa-plus"></i> Add Quote</a>	
+	</div>
+</div>
+<div id='quote_table'></div>
+<div class="panel panel-info">
+	<div class="panel-heading">
+		<div class="row">
+			<div class="col-md-12">Quotes for {{.asset.Name}}</div>
+		</div>
+		<div class="row">
+			<div class="col-md-2">Date</div>
+			<div class="col-md-1" align="right">Price</div>
+			<div class="col-md-1" align="right">Volume</div>
+			<div class="col-md-1">Ticker</div>
+			<div class="col-md-1">Source</div>
+		</div>
+	</div>
+	<div class="panel-body">
+		{{$aID := .asset.ID}}
+		{{range .quotes}}
+		<div class="row">
+			<div class="col-md-2" align="right">{{formatDateTime .Date}}</div>
+			<div class="col-md-1" align="right">{{formatNum .Price}}</div>
+			<div class="col-md-1" align="right">{{.Volume}}</div>
+			<div class="col-md-1">{{.Ticker}}</div>
+			<div class="col-md-1">{{.Source}}</div>
+			<div class="col-md-1 text-right">
+				<a class="btn btn-xs btn-link" href="{{relpath}}/quotes/{{$aID}}/{{.ID}}/edit">Edit</a>
+				<a class="btn btn-xs btn-link" href="{{relpath}}/quotes/{{$aID}}/{{.ID}}/destroy">Delete</a>
+			</div>
+		</div>
+		{{end}}
+	</div>
+</div>
+{{else}}
+<h1>Please log in.</h1>
+{{end}}
+
