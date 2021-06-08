@@ -1,17 +1,16 @@
-{{define "pagetitle"}}Quinvestor - Tickers{{end}}
-
-{{$loggedin := .loggedin}}
-{{if $loggedin}}
+{% extends "layout" %}
+{% block pagetitle %}{{super()}} - Tickers{% endblock pagetitle %}
+{% if loggedin %}
 <div class="row" style="margin-bottom: 20px;">
 	<div class="col-md-offset-10 col-md-2 text-right">
-		<a class="btn btn-primary" href="{{relpath}}/tickers/{{.asset.ID}}/new"><i class="fa fa-plus"></i> New Ticker</a>	
+		<a class="btn btn-primary" href="{{relpath}}/tickers/{{asset.ID}}/new"><i class="fa fa-plus"></i> New Ticker</a>	
 	</div>
 </div>
 
 <div class="panel panel-info">
 	<div class="panel-heading">
 		<div class="row">
-			<div class="col-md-12">Tickers for {{.asset.Name}}</div>
+			<div class="col-md-12">Tickers for {{asset.Name}}</div>
 		</div>
 		<div class="row">
 			<div class="col-md-1">Source</div>
@@ -22,23 +21,23 @@
 		</div>
 	</div>
 	<div class="panel-body">
-		{{$aID := .asset.ID}}
-		{{range .tickers}}
+		{% set aid = asset.id %}
+		{% for t in tickers %}
 		<div class="row">
-			<div class="col-md-1">{{.Source}}</div>
-			<div class="col-md-1">{{.Ticker}}</div>
-			<div class="col-md-1">{{.Curr}}</div>
-			<div class="col-md-1">{{.Factor}}</div>
-			<div class="col-md-6">{{if .Active}}yes{{else}}no{{end}}</div>
+			<div class="col-md-1">{{t.source}}</div>
+			<div class="col-md-1">{{t.ticker}}</div>
+			<div class="col-md-1">{{t.curr}}</div>
+			<div class="col-md-1">{{t.factor}}</div>
+			<div class="col-md-6">{% if t.active %}yes{% else %}no{% endif %}</div>
 			<div class="col-md-1 text-right">
-				<a class="btn btn-xs btn-link" href="{{relpath}}/tickers/{{$aID}}/{{.ID}}/edit">Edit</a>
-				<a class="btn btn-xs btn-link" href="{{relpath}}/tickers/{{$aID}}/{{.ID}}/destroy">Delete</a>
+				<a class="btn btn-xs btn-link" href="{{relpath}}/tickers/{{aid}}/{{t.id}}/edit">Edit</a>
+				<a class="btn btn-xs btn-link" href="{{relpath}}/tickers/{{aid}}/{{t.id}}/destroy">Delete</a>
 			</div>
 		</div>
-		{{end}}
+		{% endfor %}
 	</div>
 </div>
-{{else}}
+{% else %}
 <h1>Please log in.</h1>
-{{end}}
+{% endif %}
 

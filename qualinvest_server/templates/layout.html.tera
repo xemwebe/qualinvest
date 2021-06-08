@@ -20,23 +20,17 @@
 				{% if user and user.is_admin %}<a class="navbar-brand" href="/{{relpath}}/assets">Assets</a>{% endif %}
 			</div>
 
-			<div>
-				<ul class="nav navbar-nav navbar-right">
-					{% if not user.userid %}
-					<li><a href="/{{relpath}}/login?redir=/{{relpath}}/"><i class="fa fa-sign-in"></i> Login</a></li>
-					{% else %}
-					<li class="dropdown">
-						<a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">Welcome {{user.display}}! <span class="caret"></span></a>
-						<ul class="dropdown-menu" role="menu">
-							<li>
-								<a href="/{{relpath}}/logout?redir=/{{relpath}}/">
-									<i class="fa fa-sign-out"></i> Logout
-								</a>
-							</li>
-						</ul>
-					</li>
-					{% endif %}
-				</ul>
+			<div class="nav navbar-nav navbar-right">
+				{% if not user.userid %}
+					<a href="/{{relpath}}/login?redir=/{{relpath}}/">Login</a>
+				{% else %}
+					<div class="dropdown">
+						<button onclick="logout_menu()" class="dropbtn">Welcome, {{user.display}}!</button>
+						<div id="logout_menu" class="dropdown-content">
+							<a href="/{{relpath}}/logout?redir=/{{relpath}}/">Logout</a>
+						</div>
+					</div>
+				{% endif %}
 			</div>
 		</div>
 	</nav>
@@ -47,3 +41,24 @@
 </body>
 </html>
 
+<script>
+/* When the user clicks on the button, 
+toggle between hiding and showing the dropdown content */
+function logout_menu() {
+  document.getElementById("logout_menu").classList.toggle("show");
+}
+
+// Close the dropdown if the user clicks outside of it
+window.onclick = function(event) {
+  if (!event.target.matches('.dropbtn')) {
+    var dropdowns = document.getElementsByClassName("dropdown-content");
+    var i;
+    for (i = 0; i < dropdowns.length; i++) {
+      var openDropdown = dropdowns[i];
+      if (openDropdown.classList.contains('show')) {
+        openDropdown.classList.remove('show');
+      }
+    }
+  }
+}
+</script>

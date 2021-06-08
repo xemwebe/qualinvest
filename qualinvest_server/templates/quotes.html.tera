@@ -1,7 +1,8 @@
-{{define "pagetitle"}}Quinvestor - Quotes{{end}}
-{{define "jsdata"}}
-  {{$loggedin := .loggedin}}
-  {{if $loggedin}}
+{% extends "layout" %}
+{% block pagetitle %}{{super()}} - Quotes{% endblock pagetitle %}
+{% block jsdata %}
+  {{super()}}
+  {% if loggedin %}
 	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 	<script type="text/javascript">
 		google.charts.load('current', {'packages':['table']});
@@ -17,38 +18,37 @@
 	  data.addColumn('string', 'Source');
 
 	  data.addRows([
-	    {{range .quotes}}[
-		{{.ID}},
-		{{formatDateTime .Date}},
-		{v: {{.Price}}, f: {{formatNum .Price}} },
-		{{.Volume}},
-		{{.Ticker}},
-		{{.Source}}
-	  ],
-	  {{end}}
+	    {% for q in quotes %}[
+			{{q.id}},
+			{{q.date | formatDateTime}},
+			{v: {{q.price}}, f: {{ q.price | formatNum }} },
+			{{q.volume}},
+			{{q.ticker}},
+			{{q.source}}
+	  	],
+	  {% endfor %}
 	]);
 	var view = new google.visualization.DataView(data);
 	view.hideColumns([0]);
 	var table = new google.visualization.Table(document.getElementById('quote_table'));
 	table.draw(view, {sortColumn: 0, width: '50%', height: window.innerHeigth-150 } );
 	</script>
-  {{end}}
-{{end}}
-{{$loggedin := .loggedin}}
-{{if $loggedin}}
+  {% endif %}
+{% endblock jsdata %}
+{% if loggedin %}
 <div class="row" style="margin-bottom: 20px;">
 	<div class="col-md-1">
-		<a class="btn btn-primary" href="{{relpath}}/quotes/{{.asset.ID}}/refresh">Refresh History</a>
+		<a class="btn btn-primary" href="{{relpath}}/quotes/{{asset.ID}}/refresh">Refresh History</a>
 	</div>
 	<div class="col-md-offset-9 col-md-2 text-right">
-		<a class="btn btn-primary" href="{{relpath}}/quotes/{{.asset.ID}}/new"><i class="fa fa-plus"></i> Add Quote</a>	
+		<a class="btn btn-primary" href="{{relpath}}/quotes/{{asset.ID}}/new"><i class="fa fa-plus"></i> Add Quote</a>	
 	</div>
 </div>
 <div id='quote_table'></div>
 <div class="panel panel-info">
 	<div class="panel-heading">
 		<div class="row">
-			<div class="col-md-12">Quotes for {{.asset.Name}}</div>
+			<div class="col-md-12">Quotes for {{asset.Name}}</div>
 		</div>
 		<div class="row">
 			<div class="col-md-2">Date</div>
@@ -59,23 +59,23 @@
 		</div>
 	</div>
 	<div class="panel-body">
-		{{$aID := .asset.ID}}
-		{{range .quotes}}
+		{% set aid = asset.id %}
+		{% for q in quotes %}
 		<div class="row">
-			<div class="col-md-2" align="right">{{formatDateTime .Date}}</div>
-			<div class="col-md-1" align="right">{{formatNum .Price}}</div>
-			<div class="col-md-1" align="right">{{.Volume}}</div>
-			<div class="col-md-1">{{.Ticker}}</div>
-			<div class="col-md-1">{{.Source}}</div>
+			<div class="col-md-2" align="right">{{ q.date | formatDateTime}}</div>
+			<div class="col-md-1" align="right">{{ q.price | formatNum}}</div>
+			<div class="col-md-1" align="right">{{q.volume}}</div>
+			<div class="col-md-1">{{q.ticker}}</div>
+			<div class="col-md-1">{{q.source}}</div>
 			<div class="col-md-1 text-right">
-				<a class="btn btn-xs btn-link" href="{{relpath}}/quotes/{{$aID}}/{{.ID}}/edit">Edit</a>
-				<a class="btn btn-xs btn-link" href="{{relpath}}/quotes/{{$aID}}/{{.ID}}/destroy">Delete</a>
+				<a class="btn btn-xs btn-link" href="{{relpath}}/quotes/{{$aID}}/{{q.id}}/edit">Edit</a>
+				<a class="btn btn-xs btn-link" href="{{relpath}}/quotes/{{$aID}}/{{q.id}}/destroy">Delete</a>
 			</div>
 		</div>
-		{{end}}
+		{% endfor %}
 	</div>
 </div>
-{{else}}
+{% else %}
 <h1>Please log in.</h1>
-{{end}}
+{% endif %}
 

@@ -1,37 +1,39 @@
+{% extends "layout" %}
+{% block pagetitle %}{{super()}} - New Transaction{% endblock pagetitle %}
 <div class="row">
-	<form class="form-horizontal" action="{{relpath}}/assets{{with .asset.ID}}/{{.}}/edit{{else}}/new{{end}}" method="post">
+	<form class="form-horizontal" action="{{relpath}}/assets" method="post">
 		<div class="form-group">
 			<label class="control-label col-md-1" for="Name">Name:</label>
 			<div class="col-md-4">
-				<input class="form-control" id="Name" name="Name" type="text" value={{.asset.Name}}>
+				<input class="form-control" id="Name" name="Name" type="text" value={{asset.name}}>
 			</div>
 		</div>
 		<div class="form-group">
 			<label class="control-label col-md-1" for="ISIN">ISIN:</label>
 			<div class="col-md-2">
-				<input class="form-control" id="ISIN" name="ISIN" type="text" maxlength=12  value={{.asset.ISIN}}>
+				<input class="form-control" id="ISIN" name="ISIN" type="text" maxlength=12  value={{asset.isin}}>
 			</div>
 		</div>
 		<div class="form-group">
 			<label class="control-label col-md-1" for="WKN">WKN:</label>
 			<div class="col-md-1">
-				<input class="form-control" id="WKN" name="WKN" type="text" maxlength=6 value={{.asset.WKN}}>
+				<input class="form-control" id="WKN" name="WKN" type="text" maxlength=6 value={{asset.wkn}}>
 			</div>
 		</div>
 		<div class="form-group">
 			</div>
 				<label class="control-label col-md-1" for="Note">Note:</label><br/>
 			<div class="col-md-5">
-				<textarea id="Note" cols=50 rows=10 name="Note" type="text">{{.asset.Note}}</textarea> 
+				<textarea id="Note" cols=50 rows=10 name="Note" type="text">{{asset.note}}</textarea> 
 			</div>
 		</div>
-		<input type="hidden" name="csrf_token" value="{{.csrf_token}}">
+		<input type="hidden" name="csrf_token" value="{{csrf_token}}">
 		<div class="row text-right col-md-8">
-			{{with .asset.ID}}
+			{% if asset.id %}
 				<button class="btn btn-success" type="submit">Change</button>
-			{{else}}
+			{% else %}
 				<button class="btn btn-success" type="submit">Create</button>
-			{{end}}
+			{% endif %}
 			<a class="btn btn-link" href="{{relpath}}/assets">Cancel</button>
 		</div>
 	</form>

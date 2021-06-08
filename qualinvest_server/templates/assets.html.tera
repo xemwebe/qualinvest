@@ -1,7 +1,8 @@
-{{define "pagetitle"}}Quinvestor - Assets{{end}}
-{{define "jsdata"}}
-  {{$loggedin := .loggedin}}
-  {{if $loggedin}}
+{% extends "layout" %}
+{% block pagetitle %}{{super()}} - Assets{% endblock pagetitle %}
+{% block jsdata %}
+  {{super()}}
+  {% if loggedin %}
 	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 	<script type="text/javascript">
 		google.charts.load('current', {'packages':['table']});
@@ -16,14 +17,14 @@
 	  data.addColumn('string', 'Note');
 
 	  data.addRows([
-	    {{range .assets}}[
-		{{.ID}},
-	     	{v: {{lowerCase .Name}}, f: {{.Name}} },
-	   	{v: {{lowerCase .WKN}}, f: {{.WKN}} },
-	   	{v: {{lowerCase .ISIN}}, f: {{.ISIN}} },
-	   	{{.Note}},
+	    {% for a in assets %}[
+		{{a.id}},
+	     	{v: {{a.name | lowerCase }}, f: {{a.Name}} },
+	   	{v: {{a.wkn | lowerCase }}, f: {{a.WKN}} },
+	   	{v: {{a.isin | lowerCase}}, f: {{a.ISIN}} },
+	   	{{a.Note}},
 	   ],
-	  {{end}}
+	  {% endfor %}
         ]);
 	var view = new google.visualization.DataView(data);
 	view.hideColumns([0]);
@@ -63,10 +64,10 @@
 	}
       }
     </script>
-   {{end}}
-{{end}}
-{{$loggedin := .loggedin}}
-{{if $loggedin}}
+   {% endif %}
+{% endblock jsdata %}
+{% block content %}
+{% if loggedin %}
 <div class="row" style="margin-bottom: 20px;">
 	<div class="col-md-1">
 		<a class="btn btn-primary" id="edit_link" href="{{relpath}}/assets/id/edit" disabled>Edit</a>
@@ -88,7 +89,7 @@
 	</div>
 </div>
 <div id="table_div"></div>
-{{else}}
+{% else %}
 <h1>Please log in.</h1>
-{{end}}
-
+{% endif %}
+{% endblock content %}
