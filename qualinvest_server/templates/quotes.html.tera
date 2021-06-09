@@ -59,7 +59,6 @@
 		</div>
 	</div>
 	<div class="panel-body">
-		{% set aid = asset.id %}
 		{% for q in quotes %}
 		<div class="row">
 			<div class="col-md-2" align="right">{{ q.date | formatDateTime}}</div>
@@ -68,8 +67,8 @@
 			<div class="col-md-1">{{q.ticker}}</div>
 			<div class="col-md-1">{{q.source}}</div>
 			<div class="col-md-1 text-right">
-				<a class="btn btn-xs btn-link" href="{{relpath}}/quotes/{{$aID}}/{{q.id}}/edit">Edit</a>
-				<a class="btn btn-xs btn-link" href="{{relpath}}/quotes/{{$aID}}/{{q.id}}/destroy">Delete</a>
+				<a class="btn btn-xs btn-link" href="{{relpath}}/quotes/{{asset.id}}/{{q.id}}/edit">Edit</a>
+				<a class="btn btn-xs btn-link" href="{{relpath}}/quotes/{{asset.id}}/{{q.id}}/destroy">Delete</a>
 			</div>
 		</div>
 		{% endfor %}

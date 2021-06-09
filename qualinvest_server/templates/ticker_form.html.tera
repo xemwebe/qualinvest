@@ -11,10 +11,9 @@
 			<label class="control-label col-md-2" for="source">Sources:</label>
 			<div class="col-md-2">
 			<select class="form-control" id="source" name="Source"> 
-				{% set source = ticker.source %}
 				{% for s in sources %}
-				<option value="{{s.source}}" {% if s.source == source %}selected{% endif %}>{{source}}</option> 
- 				{{end}}
+				<option value="{{s.source}}" {% if s.source == source %}selected{% endif %}>{{ticker.source}}</option> 
+ 				{% endfor %}
 			</select> 
 			</div>
 		</div>
@@ -28,9 +27,8 @@
 			<label class="control-label col-md-2" for="currency">Currency:</label>
 			<div class="col-md-2">
 			<select class="form-control" id="currency" name="Curr"> 
-				{% set curr = s.ticker.Curr %}
 				{% for c in currencies %}
-				<option value="{{c.curr}}" {% if c.curr == curr %}selected{% endif %}>{{c.curr}}</option> 
+				<option value="{{c.curr}}" {% if c.curr == s.ticker.curr %}selected{% endif %}>{{c.curr}}</option> 
  				{% endfor %}
 			</select> 
 			</div>
