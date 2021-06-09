@@ -1,0 +1,10 @@
+{% extends "asset_form" %}
+{% block pagetitle %}{{super()}} - Edit{% endblock pagetitle %}
+{% block content %}
+<div class="row">
+	<div class="col-md-offset-1 col-md 10">
+		<h2>New Asset</h2>
+	</div>
+</div>
+{{super()}}
+{% endblock content %}
