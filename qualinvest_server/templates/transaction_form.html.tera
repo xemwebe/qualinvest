@@ -34,7 +34,7 @@ function setFields() {
 {% endblock jsdata %}
 {% block content %}
 <div class="row">
-		<form class="form-horizontal" action="/{{relpath}}/transactions" method="post">
+		<form class="form-horizontal" action="{{relpath}}/transactions" method="post">
 			<input name="id" type="number" hidden value={{transaction.id}}>
 			<div class="form-group">
 				<label class="control-label col-md-2" for="date">Date:</label>
@@ -119,7 +119,7 @@ function setFields() {
 				{% else %}
 				<button class="btn btn-success" type="submit">Create</button>
 				{% endif %}
-				<a class="btn btn-link" href="/{{relpath}}/transactions">Cancel</button>
+				<a class="btn btn-link" href="{{relpath}}/transactions">Cancel</button>
 			</div>
 		</form>
 	</div>

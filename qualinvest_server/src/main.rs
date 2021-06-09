@@ -203,16 +203,14 @@ async fn rocket() -> _ {
     };
     let templates = filter::set_filter();
 
-    let mut rel_path = "".to_string();
     let mount_path = match config.server.relative_path {
         Some(ref path) => {
-            rel_path = path.clone();
             format!("/{}", &path)
         },
         None => "/".to_string(),
     };
     let server_state = ServerState {
-        rel_path,
+        rel_path: mount_path.clone(),
         postgres_db: Arc::new(postgres_db)
     };
     let base_path = Origin::parse(&mount_path).expect("Invalid base path.");

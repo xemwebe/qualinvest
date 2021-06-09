@@ -16,13 +16,13 @@ use super::ServerState;
 #[get("/asset?<asset_id>")]
 pub async fn analyze_asset(asset_id: Option<usize>, user_opt: Option<UserCookie>, state: &State<ServerState>) -> Result<Template,Redirect> {
     if user_opt.is_none() {
-        return Err(Redirect::to(uri!(login(redirect=Some("asset")))));
+        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(login(redirect=Some("asset"))))));
     }
     let user = user_opt.unwrap();
 
     let db = state.postgres_db.clone();
     let assets = db.get_all_assets().await
-        .map_err(|_| Redirect::to(uri!(error_msg(msg="getting assets list failed".to_string()))))?;
+        .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="getting assets list failed".to_string())))))?;
 
     let user_accounts = user.get_accounts(db.clone()).await;
 
@@ -33,11 +33,11 @@ pub async fn analyze_asset(asset_id: Option<usize>, user_opt: Option<UserCookie>
     
     if let Some(asset_id) = asset_id {
         let ticker = db.get_all_ticker_for_asset(asset_id).await
-            .map_err(|e| Redirect::to(uri!(error_msg(msg=format!("getting ticker failed: {}",e)))))?;
+            .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=format!("getting ticker failed: {}",e))))))?;
         let mut all_quotes = Vec::new();
         for t in ticker {
             let mut quotes = db.get_all_quotes_for_ticker(t.id.unwrap()).await
-                .map_err(|_| Redirect::to(uri!(error_msg(msg="getting quotes failed".to_string()))))?;
+                .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="getting quotes failed".to_string())))))?;
             all_quotes.append(&mut quotes);
         }
         context.insert("quotes", &all_quotes);
@@ -47,7 +47,7 @@ pub async fn analyze_asset(asset_id: Option<usize>, user_opt: Option<UserCookie>
                 account_ids.push(a.id.unwrap());
             }
             let transactions = db.get_transaction_view_for_accounts_and_asset(&account_ids, asset_id).await
-            .map_err(|e| Redirect::to(uri!(error_msg(msg=format!("building transactions view failed: {}", e)))))?;
+            .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=format!("building transactions view failed: {}", e))))))?;
             context.insert("transactions", &transactions);
         }
     }

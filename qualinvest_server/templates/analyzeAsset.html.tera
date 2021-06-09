@@ -77,7 +77,7 @@
 
 	function asset_change() {
 		var asset_id = document.getElementById("asset").value;
-		window.location.href = "/{{relpath}}/asset?asset_id=" + asset_id;
+		window.location.href = "asset?asset_id=" + asset_id;
 	}
 	</script>
 {% endblock %}
@@ -103,7 +103,7 @@
 		<a class="button" id="gf_link" href="https://www.gurufocus.com/stock/{%- if gfID -%}{{gfID}}{% endif %}" {% if not gfID %}disabled{% endif %} target="_blank">gurufocus</a>
     </div>
 	<div class="col-md-offset-5 col-md-2 text-right">
-		<a class="button" href="/{{relpath}}/assets/new"><i class="fa fa-plus"></i> New Asset</a>	
+		<a class="button" href="{{relpath}}/assets/new"><i class="fa fa-plus"></i> New Asset</a>	
 	</div>
 </div>
 <div class="row">

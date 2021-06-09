@@ -6,28 +6,28 @@
 
 	<title>{% block pagetitle %}QuantInvest{% endblock pagetitle%}</title>
 
-	<link rel="stylesheet" href="/{{relpath}}/static/qualinv.css" />
+	<link rel="stylesheet" href="{{relpath}}/static/qualinv.css" />
 	{% block jsdata %}{% endblock jsdata %}
 </head>
 <body class="container-fluid" style="padding-top: 15px;">
 	<nav class="navbar navbar-expand-lg navbar-light bg-light">
 		<div class="container-fluid">
 			<div class="navbar-header">
-				<a class="navbar-brand" href="/{{relpath}}/">QuantInvest</a>
-				<a class="navbar-brand" href="/{{relpath}}/transactions">Transactions</a>
-				<a class="navbar-brand" href="/{{relpath}}/position">Position</a>
-				<a class="navbar-brand" href="/{{relpath}}/asset">Asset Analyzer</a>
-				{% if user and user.is_admin %}<a class="navbar-brand" href="/{{relpath}}/assets">Assets</a>{% endif %}
+				<a class="navbar-brand" href="{{relpath}}/">QuantInvest</a>
+				<a class="navbar-brand" href="{{relpath}}/transactions">Transactions</a>
+				<a class="navbar-brand" href="{{relpath}}/position">Position</a>
+				<a class="navbar-brand" href="{{relpath}}/asset">Asset Analyzer</a>
+				{% if user and user.is_admin %}<a class="navbar-brand" href="{{relpath}}/assets">Assets</a>{% endif %}
 			</div>
 
 			<div class="nav navbar-nav navbar-right">
 				{% if not user.userid %}
-					<a href="/{{relpath}}/login?redir=/{{relpath}}/">Login</a>
+					<a href="{{relpath}}/login?redir={{relpath}}/">Login</a>
 				{% else %}
 					<div class="dropdown">
 						<button onclick="logout_menu()" class="dropbtn">Welcome, {{user.display}}!</button>
 						<div id="logout_menu" class="dropdown-content">
-							<a href="/{{relpath}}/logout?redir=/{{relpath}}/">Logout</a>
+							<a href="{{relpath}}/logout?redir={{relpath}}/">Logout</a>
 						</div>
 					</div>
 				{% endif %}
