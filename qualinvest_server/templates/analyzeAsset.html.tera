@@ -96,14 +96,18 @@
 		</select> 
 		</div>
 	</div>
+	{% if comdirect %}
 	<div class="col-md-1">
-		<a class="button" id="codi_link" href="https://www.comdirect.de/inf/aktien/detail/uebersicht.html?ID_NOTATION={%- if codiID -%}{{codiID}}{%- endif -%}" {% if not codiID %}disabled{% endif %} target="_blank">comdirect</a>
+		<a class="button" id="codi_link" href="https://www.comdirect.de/inf/aktien/detail/uebersicht.html?ID_NOTATION={{comdirect}}" target="_blank">comdirect</a>
     </div>
+	{% endif %}
+	{% if gurufocus %}
 	<div class="col-md-1">
-		<a class="button" id="gf_link" href="https://www.gurufocus.com/stock/{%- if gfID -%}{{gfID}}{% endif %}" {% if not gfID %}disabled{% endif %} target="_blank">gurufocus</a>
+		<a class="button" id="gf_link" href="https://www.gurufocus.com/stock/{{gurufocus}}" target="_blank">gurufocus</a>
     </div>
+	{% endif %}
 	<div class="col-md-offset-5 col-md-2 text-right">
-		<a class="button" href="{{relpath}}/assets/new"><i class="fa fa-plus"></i> New Asset</a>	
+		<a class="button" href="assets/new"><i class="fa fa-plus"></i> New Asset</a>	
 	</div>
 </div>
 <div class="row">

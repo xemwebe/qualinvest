@@ -186,7 +186,7 @@ pub async fn edit_transaction(trans_id: usize, user: UserCookie, state: &State<S
     context.insert("currencies", &currencies);
     context.insert("valid_accounts", &user_accounts);
     context.insert("user", &user);
-    Ok(layout("edit_transaction", &context.into_json()))
+    Ok(layout("transaction_edit", &context.into_json()))
 }
 
 #[get("/transactions/new")]
@@ -210,7 +210,7 @@ pub async fn new_transaction(user: UserCookie, state: &State<ServerState>) -> Re
     context.insert("currencies", &currencies);
     context.insert("valid_accounts", &user_accounts);
     context.insert("user", &user);
-    Ok(layout("new_transaction", &context.into_json()))
+    Ok(layout("transaction_new", &context.into_json()))
 }
 
 

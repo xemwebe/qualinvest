@@ -39,6 +39,7 @@ pub async fn analyze_asset(asset_id: Option<usize>, user_opt: Option<UserCookie>
             let mut quotes = db.get_all_quotes_for_ticker(t.id.unwrap()).await
                 .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="getting quotes failed".to_string())))))?;
             all_quotes.append(&mut quotes);
+            context.insert(&t.source, &t.name);
         }
         context.insert("quotes", &all_quotes);
         if let Some(user_accounts) = user_accounts {

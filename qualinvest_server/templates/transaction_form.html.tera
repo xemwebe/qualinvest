@@ -39,7 +39,7 @@ function setFields() {
 			<div class="form-group">
 				<label class="control-label col-md-2" for="date">Date:</label>
 				<div class="col-md-2">
-				<input class="fpcalendar flatpickr flatpickr-input" name="date" id="date" type="text" value={{transaction.date}}>
+				<input class="fpcalendar flatpickr flatpickr-input" name="date" id="date" type="text" value={{transaction.date.date}}>
 				</div>
 			</div>
 			<div class="form-group">
