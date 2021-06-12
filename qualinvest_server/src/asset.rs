@@ -54,3 +54,21 @@ pub async fn analyze_asset(asset_id: Option<usize>, user_opt: Option<UserCookie>
     }
     Ok(layout("analyzeAsset", &context.into_json()))
 }
+
+#[get("/assets")]
+pub async fn assets(user_opt: Option<UserCookie>, state: &State<ServerState>) -> Result<Template,Redirect> {
+    if user_opt.is_none() {
+        return Err(Redirect::to(format!("{}{}",state.rel_path, uri!(login(redirect=Some("assets"))))));
+    }
+    let user = user_opt.unwrap();
+
+    let db = state.postgres_db.clone();
+
+    let assets = db.get_all_assets().await
+        .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=format!("Couldn't get asset list, error was {}", e))))))?;
+
+    let mut context = state.default_context();
+    context.insert("assets", &assets);
+    context.insert("user", &user);
+    Ok(layout("assets", &context.into_json()))
+}

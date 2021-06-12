@@ -232,6 +232,7 @@ async fn rocket() -> _ {
             transactions::delete_transaction,
             transactions::process_transaction,
             asset::analyze_asset,
+            asset::assets,
             filter::process_filter,
             static_files,
             error_msg
