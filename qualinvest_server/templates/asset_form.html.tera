@@ -8,7 +8,7 @@
 	</div>
 </div>
 <div>
-	<form class="table" action="{{relpath}}/assets" method="post">
+	<form class="table" action="{{relpath}}/asset" method="post">
 		<div class="row">
 			<label class="cell" for="Name">Name:</label>
 			<input class="cell" id="Name" name="Name" type="text" value={{asset.name}}>
