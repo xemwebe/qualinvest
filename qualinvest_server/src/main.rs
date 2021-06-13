@@ -41,6 +41,7 @@ use layout::*;
 pub struct ServerState {
     rel_path: String,
     postgres_db: Arc<PostgresDB>,
+    doc_path: String,
 }
 
 impl ServerState {
@@ -212,6 +213,7 @@ async fn rocket() -> _ {
     let server_state = ServerState {
         rel_path: mount_path.clone(),
         postgres_db: Arc::new(postgres_db)
+        doc_path: config.pdf.doc_path.clone(),
     };
     let base_path = Origin::parse(&mount_path).expect("Invalid base path.");
     rocket::custom(rocket_config)
@@ -231,6 +233,8 @@ async fn rocket() -> _ {
             transactions::edit_transaction,
             transactions::delete_transaction,
             transactions::process_transaction,
+            transactions::pdf_upload,
+            transactions::pdf_upload_form,
             asset::analyze_asset,
             asset::assets,
             asset::edit_asset,

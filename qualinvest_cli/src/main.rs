@@ -102,8 +102,8 @@ async fn main() {
             .arg(
                 Arg::with_name("default-account")
                     .long("default-account")
-                    .help("If account details could not be found, use the account 'unassigned'")
-                    .takes_value(false),
+                    .help("Specify (existing) account id to which transactions should be assigned if no account details could not be found")
+                    .takes_value(true),
             ))
         .subcommand(
             SubCommand::with_name("position")
@@ -214,11 +214,11 @@ async fn main() {
     let db = Arc::new(db);
 
     if let Some(matches) = matches.subcommand_matches("hash") {
-        let pdf_file = matches.value_of("INPUT").unwrap();
+        let pdf_file = std::path::Path::new(matches.value_of("INPUT").unwrap());
         match sha256_hash(&pdf_file) {
             Err(err) => {
                 println!(
-                    "Failed to calculate hash of file {} with error {:?}",
+                    "Failed to calculate hash of file {:?} with error {:?}",
                     pdf_file, err
                 );
             }
@@ -234,9 +234,16 @@ async fn main() {
         if matches.is_present("warn-old") {
             config.pdf.warn_old = true;
         }
-        if matches.is_present("default-account") {
-            config.pdf.default_account = true;
-        }
+        config.pdf.default_account = match matches.value_of("default-account") {
+            Some(s) => {
+                let num = s.parse::<usize>();
+                if num.is_err() {
+                    println!("Default account id could not be read");
+                }
+                Some(num.unwrap())
+            },
+            None => None,
+        };
         if matches.is_present("ignore-consistency-check") {
             config.pdf.consistency_check = false;
         }
@@ -256,7 +263,8 @@ async fn main() {
             for file in glob(&pattern).expect("Failed to read directory") {
                 count_docs += 1;
                 let filename = file.unwrap().to_str().unwrap().to_owned();
-                let transactions = parse_and_store(&filename, db.clone(), &config.pdf).await;
+                let path = std::path::Path::new(&filename);
+                let transactions = parse_and_store(&path, &filename, db.clone(), &config.pdf).await;
                 match transactions {
                     Err(err) => {
                         count_failed += 1;
@@ -275,7 +283,8 @@ async fn main() {
         } else {
             // parse single file
             let pdf_file = matches.value_of("parse-pdf").unwrap();
-            let transactions = parse_and_store(&pdf_file, db, &config.pdf).await;
+            let path = std::path::Path::new(pdf_file);
+            let transactions = parse_and_store(&path, &pdf_file,db, &config.pdf).await;
             match transactions {
                 Err(err) => {
                     println!("Failed to parse file {} with error {:?}", pdf_file, err);

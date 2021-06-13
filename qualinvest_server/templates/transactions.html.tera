@@ -77,9 +77,12 @@
 	<div class="col-md-1">
 		<a class="button" id="destroy_link" href="transactions/delete/id" disabled>Delete</a>
         </div>
+	<div class="col-md-1">
+		<a class="btn btn-primary" href="{{relpath}}/transactions/upload">Upload PDF(s)</a>	
+	</div>
 	<div class="col-md-offset-8 col-md-2 text-right">
 		<a class="button" href="transactions/new"><i class="fa fa-plus"></i> New Transaction</a>	
-	</div>
+    </div>
 </div>
 <div id="table_div" style="padding-top: 15px;"></div>
 {% endblock content %}

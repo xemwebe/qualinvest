@@ -1,4 +1,10 @@
 /// Viewing and editing of transactions
+extern crate multipart;
+
+use multipart::server::Multipart;
+use multipart::server::save::Entries;
+use multipart::server::save::SaveResult::*;
+use mime;
 
 use rocket::State;
 use rocket::response::Redirect;
@@ -9,6 +15,8 @@ use chrono::Local;
 use qualinvest_core::accounts::{Account,AccountHandler};
 use qualinvest_core::user::UserHandler;
 use finql_data::{Transaction,TransactionType,TransactionHandler,AssetHandler,CashAmount,CashFlow,Currency};
+use qualinvest_core::PdfParseParams;
+use qualinvest_core::read_pdf::parse_and_store;
 use crate::user::UserCookie;
 use crate::layout::layout;
 use crate::filter;
@@ -72,7 +80,7 @@ impl TransactionForm {
                 id: None,
                 asset_id: None,
                 position: None,
-                trans_type: "a".to_string(),
+                trans_type: "7a".to_string(),
                 cash_amount: 0.0,
                 currency: "EUR".to_string(),
                 date: NaiveDateForm::new(Local::now().naive_local().date()),
@@ -213,6 +221,116 @@ pub async fn new_transaction(user: UserCookie, state: &State<ServerState>) -> Re
     Ok(layout("transaction_new", &context.into_json()))
 }
 
+#[get("/transactions/upload")]
+pub fn pdf_upload_form(user: UserCookie, mut qldb: QlInvestDbConn, state: State<ServerState>) -> Result<Template,Redirect> {
+    let mut db = PostgresDB{ conn: qldb.0.deref_mut() };
+    let user_accounts = user.get_accounts(&mut db);
+    if user_accounts.is_none()
+    {
+        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="no_user_accounts"))));
+    }
+    let user_accounts = user_accounts.unwrap();
+    let default_account_id: Option<usize> = None;
+
+    let mut context = state.default_context();   
+    context.insert("user", &user);
+    context.insert("default_account_id", &default_account_id);
+    context.insert("accounts", &user_accounts);
+    Ok(layout("pdf_upload", &context.into_json()))
+}
+
+/// Structure for storing information in transaction formular
+#[derive(Debug,Serialize,Deserialize,FromForm)]
+pub struct UploadForm {
+    pub doc_path: String,
+    pub is_directory: bool,
+    pub warn_old: bool,
+    pub default_account: Option<usize>,
+    pub consistency_check: bool,
+    pub rename_asset: bool,
+}
+
+#[post("/pdf_upload", data = "<data>")]
+/// Uploading pdf documents via web form
+/// ToDo: Include check that user is allowed to add transactions to the parsed accounts
+pub fn pdf_upload(cont_type: &rocket::http::ContentType, data: rocket::Data, user: UserCookie, mut qldb: QlInvestDbConn, state: State<ServerState>) 
+    -> Result<Redirect, Redirect> {
+
+    if !cont_type.is_form_data() {
+        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="Malformed form data."))));
+    }
+
+    let (_, boundary) = cont_type.params().find(|&(k, _)| k == "boundary").ok_or(
+            Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="Malformed form data.")))
+        )?;
+
+    let mut out = Vec::new();
+    let mut db = PostgresDB{ conn: qldb.0.deref_mut() };
+
+    match Multipart::with_body(data.open(), boundary).save().temp() {
+        Full(entries) => process_entries(entries, &mut db, &state.doc_path, &mut out),
+        _ => out.push(format!("{}{}", state.rel_path, uri!(error_msg: msg="Invalid document type"))),
+    }
+    
+    Ok(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg=&out.join("\n")))))
+}
+
+/// Process the multi-part pdf upload and return a string of error messages, if any.
+fn process_entries(entries: Entries, db: &mut PostgresDB, doc_path: &String, errors: &mut Vec<String>) {
+    let mut pdf_config = qualinvest_core::PdfParseParams{
+        doc_path: doc_path.clone(),
+        warn_old: false,
+        consistency_check: false,
+        rename_asset: false,
+        default_account: None,
+    };
+
+    // List of documents contains tuple of file name and full path
+    let mut documents = Vec::new();
+    for (name, field) in entries.fields {
+        match &*name {
+            "default_account" => {
+                match &field[0].data {
+                    multipart::server::save::SavedData::Text(account) => 
+                        pdf_config.default_account = account.parse::<usize>().ok(),
+                    _ => errors.push("Invalid default account setting".to_string()),
+                }
+            },
+            "warn_old" => pdf_config.warn_old = true,
+            "consistency_check" => pdf_config.consistency_check = true,
+            "rename_asset" => pdf_config.rename_asset = true,
+            "doc_name" => {
+                for f in &field {
+                    match &f.data {
+                        multipart::server::save::SavedData::File(path, _size) => {
+                            let doc_name = &f.headers.filename;
+                            if doc_name.is_none() || &f.headers.content_type != &Some(mime::APPLICATION_PDF) {
+                                errors.push("Invalid pdf document".to_string());
+                            } else {
+                                documents.push( (path.clone(), doc_name.as_ref().unwrap().clone()) );
+                            }
+                        },
+                        _ => errors.push("Invalid pdf document".to_string()),
+                    }    
+                }
+            },
+            _ => errors.push("Unsupported field name".to_string()),
+        }
+    }
+
+    // call pdf parse for each pdf found
+    for (path, pdf_name) in documents {
+        let transactions = parse_and_store(&path, &pdf_name, db, &pdf_config);
+        match transactions {
+            Err(err) => {
+                errors.push(format!("Failed to parse file {} with error {:?}", pdf_name, err));
+            }
+            Ok(count) => {
+                errors.push(format!("{} transaction(s) stored in database.", count));
+            }
+        }
+    }
+}
 
 #[get("/transactions/delete/<trans_id>")]
 pub async fn delete_transaction(trans_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {

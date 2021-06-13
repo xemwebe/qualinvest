@@ -19,7 +19,7 @@ finql-data = { version="0.1.5", path="../finql/finql-data" }
 chrono = "0.4"
 qualinvest_core = { version="0.1.2", path="../qualinvest_core" }
 unic-ucd = "0.9"
-htmlescape = "0.3.1"
+htmlescape = "0.3"
 tera = "1.2"
 clap = "2.33"
 toml = "0.5"
@@ -28,13 +28,9 @@ regex = "1.3"
 lazy_static = "1.4"
 unicode-segmentation = "1.6"
 async-trait = "0.1"
+multipart = "0.18"
+mime = "0.3"
 
 [dependencies.rocket_dyn_templates]
 path = "../extern/rocket/contrib/dyn_templates"
 features = ["tera"]
-
-# [dependencies.rocket_http]
-# path = "../extern/rocket/core/http"
-
-# [dependencies.rocket_codegen]
-# path = "../extern/rocket/core/codegen"

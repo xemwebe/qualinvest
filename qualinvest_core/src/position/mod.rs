@@ -527,7 +527,7 @@ mod tests {
         assert_fuzzy_eq!(asset_pos_1.purchase_value, -52.0, tol);
         assert_fuzzy_eq!(asset_pos_1.position, 50.0, tol);
         assert_fuzzy_eq!(asset_pos_1.fees, -8.0, tol);
-        assert_fuzzy_eq!(asset_pos_1.realized_pnl, 8.0, tol);
+        assert_fuzzy_eq!(asset_pos_1.trading_pnl, 8.0, tol);
         assert_eq!(asset_pos_1.currency, eur);
 
         transactions.push(Transaction {
@@ -608,7 +608,7 @@ mod tests {
         assert_fuzzy_eq!(asset_pos_1.purchase_value, -192.0, tol);
         assert_fuzzy_eq!(asset_pos_1.position, 200.0, tol);
         assert_fuzzy_eq!(asset_pos_1.fees, -8.0, tol);
-        assert_fuzzy_eq!(asset_pos_1.realized_pnl, 8.0, tol);
+        assert_fuzzy_eq!(asset_pos_1.trading_pnl, 8.0, tol);
 
         // fees and taxes not associated to any transaction
         assert_fuzzy_eq!(positions.cash.fees, -7.0, tol);
