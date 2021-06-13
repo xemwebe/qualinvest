@@ -26,7 +26,7 @@
 		var options = {
 		height: 500,
 		chart: {
-		title: 'Asset prices of {% if asset %}{{asset.name}}{% else %}unknown{% endif %}',
+		title: 'Asset performance',
 		},
 		vAxis: {
 				title: 'Price',

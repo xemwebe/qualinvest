@@ -17,7 +17,7 @@
 				<a class="navbar-brand" href="{{relpath}}/transactions">Transactions</a>
 				<a class="navbar-brand" href="{{relpath}}/position">Position</a>
 				<a class="navbar-brand" href="{{relpath}}/asset">Asset Analyzer</a>
-				{% if user and user.is_admin %}<a class="navbar-brand" href="{{relpath}}/assets">Assets</a>{% endif %}
+				<a class="navbar-brand" href="{{relpath}}/assets">Assets</a>
 			</div>
 
 			<div class="nav navbar-nav navbar-right">
@@ -40,14 +40,12 @@
 	{% block auth %}{% endblock auth %}
 </body>
 </html>
-
 <script>
 /* When the user clicks on the button, 
 toggle between hiding and showing the dropdown content */
 function logout_menu() {
   document.getElementById("logout_menu").classList.toggle("show");
 }
-
 // Close the dropdown if the user clicks outside of it
 window.onclick = function(event) {
   if (!event.target.matches('.dropbtn')) {

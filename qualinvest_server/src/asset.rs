@@ -6,7 +6,7 @@ use rocket_dyn_templates::Template;
 use super::rocket_uri_macro_error_msg;
 use super::rocket_uri_macro_login;
 
-use finql_data::{AssetHandler, QuoteHandler};
+use finql_data::{Asset, AssetHandler, QuoteHandler};
 use qualinvest_core::accounts::AccountHandler;
 
 use crate::user::UserCookie;
@@ -71,4 +71,30 @@ pub async fn assets(user_opt: Option<UserCookie>, state: &State<ServerState>) ->
     context.insert("assets", &assets);
     context.insert("user", &user);
     Ok(layout("assets", &context.into_json()))
+}
+
+
+#[get("/asset/edit?<asset_id>")]
+pub async fn edit_asset(asset_id: Option<usize>, user_opt: Option<UserCookie>, state: &State<ServerState>) -> Result<Template,Redirect> {
+    if user_opt.is_none() {
+        return Err(Redirect::to(format!("{}{}",state.rel_path, uri!(login(redirect=Some("assets"))))));
+    }
+    let user = user_opt.unwrap();
+    if !user.is_admin {
+        return  Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="You must be admin user to edit assets!")))));
+    }
+
+    let db = state.postgres_db.clone();
+
+    let asset = if let Some(asset_id) = asset_id {
+        db.get_asset_by_id(asset_id).await
+            .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=format!("Couldn't get asset, error was {}", e))))))?
+    } else {
+        Asset::default()
+    };
+
+    let mut context = state.default_context();   
+    context.insert("asset", &asset);
+    context.insert("user", &user);
+    Ok(layout("asset_form", &context.into_json()))
 }

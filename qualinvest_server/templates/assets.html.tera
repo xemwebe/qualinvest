@@ -79,11 +79,11 @@
 {% block content %}
 <div class="table" style="margin-bottom: 20px;">
 	<div class="table_row">
-		<form class="table_cell" action="assets/edit">
+		<form class="table_cell" action="asset/edit">
 			<input id="edit_id" type="text" name="asset_id" value="" hidden/>
 			<input class="button" id="edit_button" type="submit" value="Edit" disabled />
 		</form>
-		<form class="table_cell" action="assets/destroy">
+		<form class="table_cell" action="asset/destroy">
 			<input id="destroy_id" type="text" name="asset_id" value="" hidden/>
 			<input class="button" id="destroy_button" type="submit" value="Delete" disabled/>
 		</form>
@@ -91,16 +91,16 @@
 			<input id="analyze_id" type="text" name="asset_id" value="" hidden/>
 			<input class="button" id="analyze_button" type="submit" value="Analyze" disabled/>
 		</form>
-		<form class="table_cell" action="assets/ticker">
+		<form class="table_cell" action="asset/ticker">
 			<input id="ticker_id" type="text" name="asset_id" value="" hidden/>
 			<input class="button" id="ticker_button" type="submit" value="Manage Ticker" disabled/>
 		</form>
-		<form class="table_cell" action="assets/quote">
+		<form class="table_cell" action="asset/quote">
 			<input id="quotes_id" type="text" name="asset_id" value="" hidden/>
 			<input class="button" id="quotes_button" type="submit" value="View Quotes" disabled/>
 		</form>
 		<div class="table_cell">
-			<a class="button" href="assets/new">New Asset</a>	
+			<a class="button" href="asset/edit">New Asset</a>	
 		</div>
 	</div>
 </div>
