@@ -57,7 +57,7 @@
 			<div class="form-group">
 	    		<label class="control-label col-md-2" for="doc_name">Transaction pdf for upload:</label>
 				<div class="col-md-2">
-					<input type="file" name="doc_name" required hidden="true" onchange="updateFileName(this);" multiple/>	
+					<input type="file" name="doc_name" required  onchange="updateFileName(this);" multiple/>	
 				</div>
 			</div>
     		<div class="row text-right col-md-4">

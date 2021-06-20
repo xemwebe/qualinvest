@@ -212,7 +212,7 @@ async fn rocket() -> _ {
     };
     let server_state = ServerState {
         rel_path: mount_path.clone(),
-        postgres_db: Arc::new(postgres_db)
+        postgres_db: Arc::new(postgres_db),
         doc_path: config.pdf.doc_path.clone(),
     };
     let base_path = Origin::parse(&mount_path).expect("Invalid base path.");

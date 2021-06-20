@@ -2,8 +2,7 @@ use super::ReadPDFError;
 use crate::PdfParseParams;
 use data_encoding::HEXUPPER;
 use ring::digest::{Context, SHA256};
-use std::fs;
-use std::fs::File;
+use std::fs::{File,copy};
 use std::io::{BufReader, Read};
 use std::path::Path;
 
@@ -24,15 +23,17 @@ pub fn sha256_hash(file: &Path) -> Result<String, ReadPDFError> {
 
 /// Store a copy of the pdf file in the path specified in the configuration.
 /// The pdf will be stored with the given name, which is assumed to have been sanitized.
-pub fn store_pdf_as_name(
-    path: &Path,
+pub async fn store_pdf_as_name(
+    pdf_path: &Path,
     name: &str,
     _hash: &str,
     config: &PdfParseParams,
 ) -> Result<(), ReadPDFError> {
-    let new_path = format!("{}/{}", &config.doc_path, name);
-    fs::copy(path, &new_path)?;
-    Ok(())
+    let new_path = Path::new(&config.doc_path).join(name);
+    match copy(pdf_path, &new_path) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(ReadPDFError::IoError(e))
+    }
 }
 
 #[cfg(test)]

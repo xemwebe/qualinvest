@@ -1,22 +1,17 @@
 /// Viewing and editing of transactions
-extern crate multipart;
-
-use multipart::server::Multipart;
-use multipart::server::save::Entries;
-use multipart::server::save::SaveResult::*;
-use mime;
-
+use tempfile::TempDir;
 use rocket::State;
 use rocket::response::Redirect;
 use rocket_dyn_templates::Template;
 use rocket::form::{Form, FromForm};
+use rocket::fs::TempFile;
 
 use chrono::Local;
 use qualinvest_core::accounts::{Account,AccountHandler};
 use qualinvest_core::user::UserHandler;
 use finql_data::{Transaction,TransactionType,TransactionHandler,AssetHandler,CashAmount,CashFlow,Currency};
 use qualinvest_core::PdfParseParams;
-use qualinvest_core::read_pdf::parse_and_store;
+use qualinvest_core::read_pdf::{parse_and_store};
 use crate::user::UserCookie;
 use crate::layout::layout;
 use crate::filter;
@@ -222,12 +217,12 @@ pub async fn new_transaction(user: UserCookie, state: &State<ServerState>) -> Re
 }
 
 #[get("/transactions/upload")]
-pub fn pdf_upload_form(user: UserCookie, mut qldb: QlInvestDbConn, state: State<ServerState>) -> Result<Template,Redirect> {
-    let mut db = PostgresDB{ conn: qldb.0.deref_mut() };
-    let user_accounts = user.get_accounts(&mut db);
+pub async fn pdf_upload_form(user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
+    let db = state.postgres_db.clone();
+    let user_accounts = user.get_accounts(db.clone()).await;
     if user_accounts.is_none()
     {
-        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="no_user_accounts"))));
+        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="no_user_accounts")))));
     }
     let user_accounts = user_accounts.unwrap();
     let default_account_id: Option<usize> = None;
@@ -250,86 +245,69 @@ pub struct UploadForm {
     pub rename_asset: bool,
 }
 
-#[post("/pdf_upload", data = "<data>")]
-/// Uploading pdf documents via web form
-/// ToDo: Include check that user is allowed to add transactions to the parsed accounts
-pub fn pdf_upload(cont_type: &rocket::http::ContentType, data: rocket::Data, user: UserCookie, mut qldb: QlInvestDbConn, state: State<ServerState>) 
-    -> Result<Redirect, Redirect> {
-
-    if !cont_type.is_form_data() {
-        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="Malformed form data."))));
-    }
-
-    let (_, boundary) = cont_type.params().find(|&(k, _)| k == "boundary").ok_or(
-            Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg="Malformed form data.")))
-        )?;
-
-    let mut out = Vec::new();
-    let mut db = PostgresDB{ conn: qldb.0.deref_mut() };
-
-    match Multipart::with_body(data.open(), boundary).save().temp() {
-        Full(entries) => process_entries(entries, &mut db, &state.doc_path, &mut out),
-        _ => out.push(format!("{}{}", state.rel_path, uri!(error_msg: msg="Invalid document type"))),
-    }
-    
-    Ok(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg: msg=&out.join("\n")))))
+#[derive(Debug, FromForm)]
+pub struct PDFUploadFormData<'v> {
+    pub warn_old: bool,
+    pub consistency_check: bool,
+    pub rename_asset: bool,
+    pub default_account: Option<usize>,
+    pub doc_name: Vec<TempFile<'v>>, 
 }
 
-/// Process the multi-part pdf upload and return a string of error messages, if any.
-fn process_entries(entries: Entries, db: &mut PostgresDB, doc_path: &String, errors: &mut Vec<String>) {
-    let mut pdf_config = qualinvest_core::PdfParseParams{
-        doc_path: doc_path.clone(),
-        warn_old: false,
-        consistency_check: false,
-        rename_asset: false,
-        default_account: None,
+/// Structure for storing pdf upload errors
+#[derive(Debug, Serialize)]
+pub struct UploadError {
+    file_name: String,
+    message: String,
+}
+
+#[post("/pdf_upload", data="<data>")]
+/// Uploading pdf documents via web form
+pub async fn pdf_upload<'r>(mut data: Form<PDFUploadFormData<'r>>, user: UserCookie, state: &State<ServerState>) 
+-> Result<Template, Redirect> {
+    let pdf_config = PdfParseParams{
+        doc_path: state.doc_path.clone(),
+        warn_old: data.warn_old,
+        consistency_check: data.consistency_check,
+        rename_asset: data.rename_asset,
+        default_account: data.default_account,
     };
 
-    // List of documents contains tuple of file name and full path
-    let mut documents = Vec::new();
-    for (name, field) in entries.fields {
-        match &*name {
-            "default_account" => {
-                match &field[0].data {
-                    multipart::server::save::SavedData::Text(account) => 
-                        pdf_config.default_account = account.parse::<usize>().ok(),
-                    _ => errors.push("Invalid default account setting".to_string()),
-                }
-            },
-            "warn_old" => pdf_config.warn_old = true,
-            "consistency_check" => pdf_config.consistency_check = true,
-            "rename_asset" => pdf_config.rename_asset = true,
-            "doc_name" => {
-                for f in &field {
-                    match &f.data {
-                        multipart::server::save::SavedData::File(path, _size) => {
-                            let doc_name = &f.headers.filename;
-                            if doc_name.is_none() || &f.headers.content_type != &Some(mime::APPLICATION_PDF) {
-                                errors.push("Invalid pdf document".to_string());
-                            } else {
-                                documents.push( (path.clone(), doc_name.as_ref().unwrap().clone()) );
-                            }
-                        },
-                        _ => errors.push("Invalid pdf document".to_string()),
-                    }    
-                }
-            },
-            _ => errors.push("Unsupported field name".to_string()),
+    // parse each each pdf found
+    let mut errors = Vec::new();
+    let tmp_dir = TempDir::new()
+        .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="Failed to create tmp directory")))))?;
+    for (i,doc) in data.doc_name.iter_mut().enumerate() {
+        if let Some(raw_name) = doc.raw_name() {
+            let file_name = raw_name.dangerous_unsafe_unsanitized_raw().html_escape().to_string();
+            let tmp_path = tmp_dir.path().clone().join(format!("qltmp_pdf{}",i));
+            doc.persist_to(&tmp_path);
+            let transactions = parse_and_store(&tmp_path, &file_name, state.postgres_db.clone(), &pdf_config).await;
+            match transactions {
+                Err(err) => {
+                    errors.push(UploadError{
+                        file_name,
+                        message: "Failed to parse file".to_string(),
+                    });
+                },
+                Ok(count) => {
+                    errors.push(UploadError{
+                        file_name,
+                        message: format!("{} transaction(s) stored in database.", count),
+                    });
+                },
+            }   
+        } else {
+            errors.push(UploadError{
+                file_name: "unknown".to_string(),
+                message: "No proper filename have been provided".to_string(),
+            })
         }
     }
 
-    // call pdf parse for each pdf found
-    for (path, pdf_name) in documents {
-        let transactions = parse_and_store(&path, &pdf_name, db, &pdf_config);
-        match transactions {
-            Err(err) => {
-                errors.push(format!("Failed to parse file {} with error {:?}", pdf_name, err));
-            }
-            Ok(count) => {
-                errors.push(format!("{} transaction(s) stored in database.", count));
-            }
-        }
-    }
+    let mut context = state.default_context();   
+    context.insert("upload_results", &errors);
+    Ok(layout("pdf_upload_report", &context.into_json()))
 }
 
 #[get("/transactions/delete/<trans_id>")]

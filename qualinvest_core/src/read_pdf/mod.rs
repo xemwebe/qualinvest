@@ -9,19 +9,10 @@ use std::sync::Arc;
 use std::{fmt, io, num, string};
 use std::path::Path;
 
-use chrono::NaiveDate;
-use chrono::{Datelike, TimeZone, Utc};
-use pdf_store::store_pdf;
+use chrono::{NaiveDate, Utc, Datelike, TimeZone};
 use sanitize_filename::sanitize;
 
 use finql::fx_rates::SimpleCurrencyConverter;
-use finql::asset::Asset;
-use finql::currency;
-use finql::data_handler::DataError;
-use finql::fx_rates::insert_fx_quote;
-use finql::sqlite_handler::SqliteDB;
-use finql::transaction::{Transaction, TransactionType};
-use finql::{CashAmount, CashFlow};
 use finql_data::{
     Asset, CashAmount, CashFlow, CurrencyError, DataError, Transaction, TransactionType,
 };
@@ -32,7 +23,7 @@ use crate::PdfParseParams;
 pub mod pdf_store;
 mod read_account_info;
 mod read_transactions;
-pub use pdf_store::sha256_hash;
+pub use pdf_store::{sha256_hash, store_pdf_as_name};
 use read_account_info::parse_account_info;
 use read_transactions::parse_transactions;
 
@@ -49,6 +40,7 @@ pub enum ReadPDFError {
     AlreadyParsed,
     NotFound(&'static str),
     UnknownDocumentType,
+    MissingFileName,
 }
 
 impl fmt::Display for ReadPDFError {
@@ -192,75 +184,84 @@ pub fn german_string_to_date(date_string: &str) -> Result<NaiveDate, ReadPDFErro
 }
 
 pub fn parse_and_store<'a>(
-    pdf_file: &'a Path,
-    user_file_name: &str,
+    path: &'a Path,
+    file_name: &'a str,
     db: Arc<dyn AccountHandler+Send+Sync>,
-    config: &PdfParseParams,
+    config: &'a PdfParseParams,
 ) -> impl Future<Output = Result<i32, ReadPDFError>> + 'a {
-    let file_name = sanitize(&user_file_name);
-    let hash = sha256_hash(pdf_file)?;
-    match db.lookup_hash(&hash).await {
-        Ok((ids, _path)) => {
-            if ids.len() > 0 {
-                if config.warn_old {
-                    return Err(ReadPDFError::AlreadyParsed);
+    async move {
+        let file_name = sanitize(file_name);
+        let hash = sha256_hash(path)?;
+        match db.lookup_hash(&hash).await {
+            Ok((ids, _path)) => {
+                if ids.len() > 0 {
+                    if config.warn_old {
+                        return Err(ReadPDFError::AlreadyParsed);
+                    }
                 }
-            }
+            },
             Err(_) => {}
         }
 
         // Start parsing document
-    let text = text_from_pdf(pdf_file);
-    match text {
-        Ok(text) => {
-            let account_info = parse_account_info(&text);
+        let text = text_from_pdf(path);
+        match text {
+            Ok(text) => {
+                let account_info = parse_account_info(&text);
 
-            let acc_id = if account_info.is_err() && config.default_account.is_some() {
-                config.default_account.unwrap()
-            } else {
-                let (broker, account_name) = account_info?;
-                let account = Account {
-                    id: None,
-                    broker,
-                    account_name,
-                };
-                db.insert_account_if_new(&account)
-                    .map_err(|err| ReadPDFError::DBError(err))?
-            };
-
-            // Retrieve all transaction relevant data from pdf
-            let tri = parse_transactions(&text)?;
-            // If not disable, perform consistency check
-            if config.consistency_check {
-                check_consistency(&tri)?;
-            }
-            // Generate list of transactions
-            let transactions = make_transactions(&tri);
-            let trans_ids = match transactions {
-                Ok((transactions, asset)) => {
-                    let asset_id = if asset.name == "" {
-                        db.get_asset_by_isin(&asset.isin.unwrap())
-                            .map_err(|_| ReadPDFError::NotFound("could not find ISIN in db"))?
-                            .id
-                            .unwrap()
-                    } else {
-                        db.insert_asset_if_new(&asset, config.rename_asset)
-                            .map_err(|err| ReadPDFError::DBError(err))?
+                let acc_id = if account_info.is_err() && config.default_account.is_some() {
+                    config.default_account.unwrap()
+                } else {
+                    let (broker, account_name) = account_info?;
+                    let account = Account {
+                        id: None,
+                        broker,
+                        account_name,
                     };
-                    let mut trans_ids = Vec::new();
-                    for trans in transactions {
-                        let mut trans = trans.clone();
-                        trans.set_asset_id(asset_id);
-                        if trans_ids.len() > 0 {
-                            trans.set_transaction_ref(trans_ids[0]);
+                    db.insert_account_if_new(&account).await
+                        .map_err(|err| ReadPDFError::DBError(err))?
+                };
+
+                // Retrieve all transaction relevant data from pdf
+                let tri = parse_transactions(&text)?;
+                // If not disabled, perform consistency check
+                if config.consistency_check {
+                    check_consistency(&tri).await?;
+                }
+                // Generate list of transactions
+                let transactions_info = make_transactions(&tri).await;
+                match transactions_info {
+                    Ok((transactions, asset)) => {
+                        let asset_id = if asset.name == "" {
+                            db.get_asset_by_isin(&asset.isin.unwrap()).await
+                                .map_err(|_| ReadPDFError::NotFound("could not find ISIN in db"))?
+                                .id
+                                .unwrap()
+                        } else {
+                            db.insert_asset_if_new(&asset, config.rename_asset).await
+                                .map_err(|e| ReadPDFError::DBError(e))?
+                        };
+                        let mut trans_ids = Vec::new();
+                        for trans in transactions {
+                            let mut trans = trans.clone();
+                            trans.set_asset_id(asset_id);
+                            if trans_ids.len() > 0 {
+                                trans.set_transaction_ref(trans_ids[0]);
+                            }
+                            let trans_id = db.insert_transaction(&trans).await
+                                .map_err(|e| ReadPDFError::DBError(e))?;
+                            trans_ids.push(trans_id);
+                            let _ = db.add_transaction_to_account(acc_id, trans_id).await
+                                .map_err(|e| ReadPDFError::DBError(e))?;
                         }
-                        Ok(trans_ids)
-                    }
-                Err(err) => Err(err),
-            }?;
-            store_pdf_as_name(pdf_file, &file_name, &hash, &config)?;
-            db.insert_doc(&trans_ids, &hash, &file_name).await?;
-            Ok(trans_ids.len() as i32)
+                        store_pdf_as_name(path, &file_name, &hash, &config).await?;
+                        db.insert_doc(&trans_ids, &hash, &file_name).await?;
+                        Ok(trans_ids.len() as i32)
+                    },
+                    Err(err) => Err(err),
+                }
+            },
+            Err(err) => Err(err)
         }
     }
 }

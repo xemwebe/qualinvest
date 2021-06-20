@@ -1,0 +1,16 @@
+{% extends "layout" %}
+{% block jsdata %}{{super()}}
+{% endblock jsdata %}
+{% block content %}
+<div class="row">
+	<div class="col-md-offset-1 col-md 10">
+		<h2>Transactions upload report</h2>
+	</div>
+{% for msg in upload_results %}
+	<p>
+		{{msg.message}} for file '{{msg.file_name}}'
+	</p>
+{% endfor %}
+</div>	
+
+{% endblock content %}

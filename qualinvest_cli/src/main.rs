@@ -262,13 +262,13 @@ async fn main() {
             let mut count_skipped = 0_i32;
             for file in glob(&pattern).expect("Failed to read directory") {
                 count_docs += 1;
-                let filename = file.unwrap().to_str().unwrap().to_owned();
-                let path = std::path::Path::new(&filename);
-                let transactions = parse_and_store(&path, &filename, db.clone(), &config.pdf).await;
+                let path = file.unwrap();
+                let file_name = path.file_name().unwrap().to_str().unwrap();
+                let transactions = parse_and_store(&path, file_name, db.clone(), &config.pdf).await;
                 match transactions {
                     Err(err) => {
                         count_failed += 1;
-                        println!("Failed to parse file {} with error {:?}", filename, err);
+                        println!("Failed to parse file {} with error {:?}", file_name, err);
                     }
                     Ok(count) => {
                         if count == 0 {
@@ -284,7 +284,8 @@ async fn main() {
             // parse single file
             let pdf_file = matches.value_of("parse-pdf").unwrap();
             let path = std::path::Path::new(pdf_file);
-            let transactions = parse_and_store(&path, &pdf_file,db, &config.pdf).await;
+            let file_name = path.file_name().unwrap().to_str().unwrap();
+            let transactions = parse_and_store(&path, file_name, db, &config.pdf).await;
             match transactions {
                 Err(err) => {
                     println!("Failed to parse file {} with error {:?}", pdf_file, err);

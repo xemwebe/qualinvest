@@ -30,6 +30,7 @@ unicode-segmentation = "1.6"
 async-trait = "0.1"
 multipart = "0.18"
 mime = "0.3"
+tempfile = "3.2"
 
 [dependencies.rocket_dyn_templates]
 path = "../extern/rocket/contrib/dyn_templates"
