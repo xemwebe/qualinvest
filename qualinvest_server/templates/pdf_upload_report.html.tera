@@ -8,7 +8,7 @@
 	</div>
 {% for msg in upload_results %}
 	<p>
-		{{msg.message}} for file '{{msg.file_name}}'
+		{{msg.message}}: original file: '{{msg.file_name}}'
 	</p>
 {% endfor %}
 </div>	

@@ -278,24 +278,32 @@ pub async fn pdf_upload<'r>(mut data: Form<PDFUploadFormData<'r>>, user: UserCoo
     let tmp_dir = TempDir::new()
         .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="Failed to create tmp directory")))))?;
     for (i,doc) in data.doc_name.iter_mut().enumerate() {
+        let tmp_path = tmp_dir.path().clone().join(format!("qltmp_pdf{}",i));
+        doc.persist_to(&tmp_path).await;
         if let Some(raw_name) = doc.raw_name() {
-            let file_name = raw_name.dangerous_unsafe_unsanitized_raw().html_escape().to_string();
-            let tmp_path = tmp_dir.path().clone().join(format!("qltmp_pdf{}",i));
-            doc.persist_to(&tmp_path);
-            let transactions = parse_and_store(&tmp_path, &file_name, state.postgres_db.clone(), &pdf_config).await;
-            match transactions {
-                Err(err) => {
-                    errors.push(UploadError{
-                        file_name,
-                        message: "Failed to parse file".to_string(),
-                    });
-                },
-                Ok(count) => {
-                    errors.push(UploadError{
-                        file_name,
-                        message: format!("{} transaction(s) stored in database.", count),
-                    });
-                },
+            let file_name = raw_name.dangerous_unsafe_unsanitized_raw().html_escape().to_string();            
+
+            if let Some(path) = doc.path() {
+                let transactions = parse_and_store(&path, &file_name, state.postgres_db.clone(), &pdf_config).await;
+                match transactions {
+                    Err(err) => {
+                        errors.push(UploadError{
+                            file_name,
+                            message: format!("Failed to parse file: {}", err),
+                        });
+                    },
+                    Ok(count) => {
+                        errors.push(UploadError{
+                            file_name,
+                            message: format!("{} transaction(s) stored in database.", count),
+                        });
+                    },
+                }
+            } else {
+                errors.push(UploadError{
+                    file_name,
+                    message: "Failed to parse file".to_string(),
+                });
             }   
         } else {
             errors.push(UploadError{
