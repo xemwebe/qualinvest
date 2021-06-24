@@ -1,4 +1,5 @@
 {% extends "layout" %}
+{% block pagetitle %}{{super()}} - Edit Transaction{% endblock pagetitle %}
 {% block jsdata %}{{super()}}
 <link rel="stylesheet" href="https://unpkg.com/flatpickr/dist/flatpickr.min.css">
 <script src="https://unpkg.com/flatpickr"></script>
@@ -33,6 +34,11 @@ function setFields() {
 </script>
 {% endblock jsdata %}
 {% block content %}
+<div class="row">
+	<div class="col-md-offset-1 col-md 10">
+		<h2>{% if transaction.id %}Edit{% else %}New{% endif %} Transaction</h2>
+	</div>
+</div>
 <div class="row">
 		<form class="form-horizontal" action="{{relpath}}/transactions" method="post">
 			<input name="id" type="number" hidden value={{transaction.id}}>

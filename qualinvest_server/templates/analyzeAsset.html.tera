@@ -107,7 +107,7 @@
     </div>
 	{% endif %}
 	<div class="col-md-offset-5 col-md-2 text-right">
-		<a class="button" href="assets/new"><i class="fa fa-plus"></i> New Asset</a>	
+		<a class="button" href="asset/edit">New Asset</a>	
 	</div>
 </div>
 <div class="row">

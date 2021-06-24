@@ -3,6 +3,7 @@
 use rocket::State;
 use rocket::response::Redirect;
 use rocket_dyn_templates::Template;
+use rocket::form::{Form, FromForm};
 use super::rocket_uri_macro_error_msg;
 use super::rocket_uri_macro_login;
 
@@ -12,6 +13,28 @@ use qualinvest_core::accounts::AccountHandler;
 use crate::user::UserCookie;
 use crate::layout::layout;
 use super::ServerState;
+
+/// Structure for storing information in asset formular
+#[derive(Debug,Serialize,Deserialize,FromForm)]
+pub struct AssetForm {
+    pub id: Option<usize>,
+    pub name: String,
+    pub isin: Option<String>,
+    pub wkn: Option<String>, 
+    pub note: Option<String>,
+}
+
+impl AssetForm {
+    pub fn to_asset(&self) -> Asset {
+        Asset{
+            id: self.id,
+            name: self.name.clone(),
+            isin: self.isin.clone(),
+            wkn: self.wkn.clone(),
+            note: self.note.clone(),
+        }
+    }
+}
 
 #[get("/asset?<asset_id>")]
 pub async fn analyze_asset(asset_id: Option<usize>, user_opt: Option<UserCookie>, state: &State<ServerState>) -> Result<Template,Redirect> {
@@ -97,4 +120,24 @@ pub async fn edit_asset(asset_id: Option<usize>, user_opt: Option<UserCookie>, s
     context.insert("asset", &asset);
     context.insert("user", &user);
     Ok(layout("asset_form", &context.into_json()))
+}
+
+#[post("/asset", data = "<form>")]
+pub async fn save_asset(form: Form<AssetForm>, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
+    if !user.is_admin {
+        return  Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="You must be admin user to edit assets!")))));
+    }
+
+    let mut asset = form.into_inner().to_asset();
+    let db = state.postgres_db.clone();
+
+    let asset_id = db.get_asset_id(&asset).await;
+    if let Some(id) = asset_id {
+        asset.id = Some(id);
+        db.update_asset(&asset).await;
+    } else {
+        db.insert_asset_if_new(&asset, true).await;
+    }
+
+    Ok(Redirect::to(format!("{}{}", state.rel_path, uri!(assets()))))
 }

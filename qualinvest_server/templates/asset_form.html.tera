@@ -9,21 +9,22 @@
 </div>
 <div>
 	<form class="table" action="{{relpath}}/asset" method="post">
+		<input name="id" type="number" hidden value={{asset.id}}>
 		<div class="row">
 			<label class="cell" for="Name">Name:</label>
-			<input class="cell" id="Name" name="Name" type="text" value={{asset.name}}>
+			<input class="cell" id="Name" name="name" type="text" value={{asset.name}}>
 		</div>
 		<div class="row">
 			<label class="cell" for="ISIN">ISIN:</label>
-			<input class="cell" id="ISIN" name="ISIN" type="text" maxlength=12  value={{asset.isin}}>
+			<input class="cell" id="ISIN" name="isin" type="text" maxlength=12  value={{asset.isin}}>
 		</div>
 		<div class="row">
 			<label class="cell" for="WKN">WKN:</label>
-			<input class="cell" id="WKN" name="WKN" type="text" maxlength=6 value={{asset.wkn}}>
+			<input class="cell" id="WKN" name="wkn" type="text" maxlength=6 value={{asset.wkn}}>
 		</div>
 		<div class="row">
 			<label class="cell" for="Note">Note:</label><br/>
-			<textarea class="cell" id="Note" cols=50 rows=10 name="Note" type="text">{{asset.note}}</textarea> 
+			<textarea class="cell" id="Note" cols=50 rows=10 name="note" type="text">{{asset.note}}</textarea> 
 		</div>
 		<div class="row">
 			{% if asset.id %}

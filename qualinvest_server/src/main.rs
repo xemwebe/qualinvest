@@ -229,7 +229,6 @@ async fn rocket() -> _ {
             index,
             position::position,
             transactions::transactions,
-            transactions::new_transaction,
             transactions::edit_transaction,
             transactions::delete_transaction,
             transactions::process_transaction,
@@ -238,6 +237,7 @@ async fn rocket() -> _ {
             asset::analyze_asset,
             asset::assets,
             asset::edit_asset,
+            asset::save_asset,
             filter::process_filter,
             static_files,
             error_msg

@@ -51,18 +51,20 @@
 
 	// select handler
 	function selectHandler() {
-		var a = document.getElementById('edit_link');
-		var d = document.getElementById('destroy_link');
+		var edit = document.getElementById('edit_button');
+		var destroy = document.getElementById('delete_button');
   		var selection = table.getSelection();
 		if (selection.length<1) {
-			a.setAttribute('disabled','true');
-			d.setAttribute('disabled','true');
+			edit.setAttribute('disabled','true');
+			destroy.setAttribute('disabled','true');
 		} else {
 			var id = data.getValue(selection[0].row,0);
-			a.href = "transactions/edit/"+id;
-			a.removeAttribute('disabled');
-			d.href = "transactions/delete/"+id;
-			d.removeAttribute('disabled');
+			var edit_id = document.getElementById('edit_id');
+			edit_id.value = id;
+			edit.removeAttribute('disabled');
+			var delete_id = document.getElementById('delete_id');
+			delete_id.value = id;
+			destroy.removeAttribute('disabled');
 		}
 	}
       }
@@ -70,19 +72,23 @@
 {% endblock jsdata %}
 {% block content %}
 {{super()}}
-<div class="row" style="margin-bottom: 20px;">
-	<div class="col-md-1">
-		<a class="button" id="edit_link" href="transactions/edit/id" disabled>Edit</a>
-        </div>
-	<div class="col-md-1">
-		<a class="button" id="destroy_link" href="transactions/delete/id" disabled>Delete</a>
-        </div>
-	<div class="col-md-1">
-		<a class="btn btn-primary" href="{{relpath}}/transactions/upload">Upload PDF(s)</a>	
+<div class="table" style="margin-bottom: 20px;">
+	<div class="table_row">
+		<form class="table_cell" action="transactions/edit">
+			<input id="edit_id" type="text" name="transaction_id" value="" hidden/>
+			<input class="button" id="edit_button" type="submit" value="Edit" disabled />
+		</form>
+		<form class="table_cell" action="transactions/delete">
+			<input id="delete_id" type="text" name="transaction_id" value="" hidden/>
+			<input class="button" id="delete_button" type="submit" value="Delete" disabled />
+		</form>
+		<form class="table_cell">
+			<a class="button" href="{{relpath}}/transactions/upload">Upload PDF(s)</a>	
+		</form>
+		<form class="table_cell">
+			<a class="button" href="transactions/edit">New Transaction</a>	
+		</form>
 	</div>
-	<div class="col-md-offset-8 col-md-2 text-right">
-		<a class="button" href="transactions/new"><i class="fa fa-plus"></i> New Transaction</a>	
-    </div>
 </div>
 <div id="table_div" style="padding-top: 15px;"></div>
 {% endblock content %}

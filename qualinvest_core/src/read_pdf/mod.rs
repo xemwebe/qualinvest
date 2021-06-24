@@ -45,7 +45,21 @@ pub enum ReadPDFError {
 
 impl fmt::Display for ReadPDFError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Conversion of pdf to text failed.")
+        let msg = match self {
+            ReadPDFError::IoError(err) => format!("Reading file failed: {}", err),
+            ReadPDFError::ParseError(err) => format!("Parse error: {}", err),
+            ReadPDFError::ParseFloat(err) => format!("Error while parsing float: {}", err),
+            ReadPDFError::ParseCurrency(err) => format!("Failed to parse currency: {}", err),
+            ReadPDFError::DBError(err) => format!("Database error: {}", err),
+            ReadPDFError::CurrencyMismatch => "Currency mismatch".to_string(),
+            ReadPDFError::ParseDate => "Date parsing error".to_string(),
+            ReadPDFError::ConsistencyCheckFailed(msg) => format!("Consistency check failed: {}", msg),
+            ReadPDFError::AlreadyParsed => format!("File has already been parsed successfully"),
+            ReadPDFError::NotFound(str) => format!("Critical keyword could not be found: {}", str),
+            ReadPDFError::UnknownDocumentType => "Unknown document type".to_string(),
+            ReadPDFError::MissingFileName => "No proper file name has been delivered".to_string(),
+        };
+        write!(f,"{}", msg)
     }
 }
 

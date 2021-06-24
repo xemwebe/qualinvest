@@ -191,11 +191,12 @@ async fn main() {
             toml::from_str(&config_file).unwrap()
         }
     };
-    let connect_str = format!(
-        "host={} user={} password={} dbname={} sslmode=disable",
-        config.db.host, config.db.user, config.db.password, config.db.name
+
+    let postgres_url = format!(
+        "postgresql:///{db_name}?user={user}&password={password}&sslmode=disable",
+        db_name=config.db.name, user=config.db.user, password=config.db.password
     );
-    let db = PostgresDB::new(&connect_str).await.unwrap();
+    let db = PostgresDB::new(&postgres_url).await.unwrap();
 
     if matches.is_present("debug") {
         config.debug = true;

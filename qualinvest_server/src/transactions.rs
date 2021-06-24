@@ -162,8 +162,8 @@ impl TransactionForm {
     } 
 }
 
-#[get("/transactions/edit/<trans_id>")]
-pub async fn edit_transaction(trans_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
+#[get("/transactions/edit?<transaction_id>")]
+pub async fn edit_transaction(transaction_id: Option<usize>, user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
     let db = state.postgres_db.clone();
     let user_accounts = user.get_accounts(db.clone()).await;
     if user_accounts.is_none()
@@ -172,39 +172,21 @@ pub async fn edit_transaction(trans_id: usize, user: UserCookie, state: &State<S
     }
     let user_accounts = user_accounts.unwrap();
 
-    let account = db.get_transaction_account_if_valid(trans_id, user.userid).await
+    let transaction = if let Some(trans_id) = transaction_id {
+        let account = db.get_transaction_account_if_valid(trans_id, user.userid).await
         .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="no_valid_account")))))?;
 
         let transaction = db.get_transaction_by_id(trans_id).await
-        .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="invalid_transaction_id")))))?;
-    let transaction_form = TransactionForm::from(&transaction, &account)
-        .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=e)))))?;
-    let assets = db.get_all_assets().await
-        .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="no_assets")))))?;
-    let currencies = db.get_all_currencies().await
-        .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="no_assets")))))?;
-    let mut context = state.default_context();
-    context.insert("transaction", &transaction_form);
-    context.insert("assets", &assets);
-    context.insert("currencies", &currencies);
-    context.insert("valid_accounts", &user_accounts);
-    context.insert("user", &user);
-    Ok(layout("transaction_edit", &context.into_json()))
-}
+            .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="invalid_transaction_id")))))?;
+        TransactionForm::from(&transaction, &account)
+            .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=e)))))?
+    } else {
+        TransactionForm::new(&user_accounts[0])
+            .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=e)))))?
+    };    
 
-#[get("/transactions/new")]
-pub async fn new_transaction(user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
-    let db = state.postgres_db.clone();
-    let user_accounts = user.get_accounts(db.clone()).await;
-    if user_accounts.is_none()
-    {
-        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="no_user_accounts")))));
-    }
-    let user_accounts = user_accounts.unwrap();
-    let transaction = TransactionForm::new(&user_accounts[0])
-        .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=e)))))?;
     let assets = db.get_all_assets().await
-        .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="no_assets")))))?;   
+        .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="no_assets")))))?;
     let currencies = db.get_all_currencies().await
         .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="no_assets")))))?;
     let mut context = state.default_context();
@@ -213,7 +195,7 @@ pub async fn new_transaction(user: UserCookie, state: &State<ServerState>) -> Re
     context.insert("currencies", &currencies);
     context.insert("valid_accounts", &user_accounts);
     context.insert("user", &user);
-    Ok(layout("transaction_new", &context.into_json()))
+    Ok(layout("transaction_form", &context.into_json()))
 }
 
 #[get("/transactions/upload")]
@@ -318,11 +300,12 @@ pub async fn pdf_upload<'r>(mut data: Form<PDFUploadFormData<'r>>, user: UserCoo
     Ok(layout("pdf_upload_report", &context.into_json()))
 }
 
-#[get("/transactions/delete/<trans_id>")]
-pub async fn delete_transaction(trans_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
+#[get("/transactions/delete?<transaction_id>")]
+pub async fn delete_transaction(transaction_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
     let db = state.postgres_db.clone();
     // remove transaction and everything related, if the user has the proper rights
-    db.remove_transaction(trans_id, user.userid).await
+
+    db.remove_transaction(transaction_id, user.userid).await
         .map_err(|_| Redirect::to(uri!(error_msg(msg="data_access_failure_access_denied"))))?;
     Ok(Redirect::to(format!("{}{}", state.rel_path, uri!(transactions(Option::<String>::None, Option::<String>::None, Option::<String>::None)))))
 }
