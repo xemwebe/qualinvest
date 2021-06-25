@@ -61,7 +61,11 @@
 	],
 	{% for key, pos in positions.assets %}
 	{% set realized_pnl = pos.trading_pnl+pos.interest+pos.dividend+pos.tax+pos.fees %}
-	{% set pos_value = pos.position*pos.last_quote %}
+	{% if pos.last_quote %}
+		{% set pos_value = pos.position*pos.last_quote %}
+	{% else %}
+		{% set pos_value = 0.0 %}
+	{% endif %}
 	{% set unrealized_pnl = pos_value + pos.purchase_value %}
 	{% set pnl = unrealized_pnl + realized_pnl %}
 		[	{v: "{{pos.name | lower}}", f: "{{pos.name}}" },  

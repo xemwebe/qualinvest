@@ -72,6 +72,7 @@ pub struct PositionTotals {
     fees: f64
 }
 
+
 impl Position {
     pub fn new(asset_id: Option<usize>, currency: Currency) -> Position {
         Position {
@@ -87,6 +88,14 @@ impl Position {
             tax: 0.0,
             last_quote: None,
             last_quote_time: None,
+        }
+    }
+
+    fn quote_from_purchase(&self) -> Option<f64> {
+        if self.position == 0.0 {
+            None
+        } else {
+            Some(-self.purchase_value/self.position)
         }
     }
 
@@ -109,13 +118,13 @@ impl Position {
                         self.last_quote_time = Some(quote.time);
                     } else {
                         // Couldn't convert currency, use default
-                        self.last_quote = Some(-self.purchase_value/self.position);
+                        self.last_quote = self.quote_from_purchase();
                         self.last_quote_time = None;
                     }
                 }
             } else {
                 // No price found
-                self.last_quote = Some(-self.purchase_value/self.position);
+                self.last_quote = self.quote_from_purchase();
                 self.last_quote_time = None;
             }
         } else {
