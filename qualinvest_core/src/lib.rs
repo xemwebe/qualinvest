@@ -113,25 +113,25 @@ pub async fn update_quote_history(
     start: DateTime<Utc>,
     end: DateTime<Utc>,
     db: Arc<dyn QuoteHandler+Send+Sync>,
-    config: &Config,
+    market_data: &MarketDataProviders,
 ) -> Result<(), MarketError> {
     let mut market = finql::Market::new(db);
-    set_market_providers(&mut market, &config.market_data);
+    set_market_providers(&mut market, &market_data);
     market.update_quote_history(ticker_id, start, end).await
 }
 
 pub async fn update_ticker(
     ticker_id: usize,
     db: Arc<dyn QuoteHandler+Send+Sync>,
-    config: &Config,
+    market_data: &MarketDataProviders,
 ) -> Result<(), MarketError> {
     let ticker = db.get_ticker_by_id(ticker_id).await?;
     let ticker_source = MarketDataSource::from_str(&ticker.source)
         .map_err(|_| MarketError::MarketQuoteError(MarketQuoteError::FetchFailed("invalid ticker source".to_string())))?;
     let token = match ticker_source {
-        MarketDataSource::AlphaVantage => config.market_data.alpha_vantage_token.clone(),
-        MarketDataSource::GuruFocus => config.market_data.gurufocus_token.clone(),
-        MarketDataSource::EodHistData => config.market_data.eod_historical_data_token.clone(),
+        MarketDataSource::AlphaVantage => market_data.alpha_vantage_token.clone(),
+        MarketDataSource::GuruFocus => market_data.gurufocus_token.clone(),
+        MarketDataSource::EodHistData => market_data.eod_historical_data_token.clone(),
         _ => Some(String::new()),
     };
     if let Some(token) = token {
@@ -145,9 +145,9 @@ pub async fn update_ticker(
 
 pub async fn update_quotes(
     db: Arc<dyn QuoteHandler+Send+Sync>,
-    config: &Config,
+    market_data: &MarketDataProviders,
 ) -> Result<Vec<usize>, MarketError> {
     let mut market = finql::Market::new(db);
-    set_market_providers(&mut market, &config.market_data);
+    set_market_providers(&mut market, &market_data);
     market.update_quotes().await
 }

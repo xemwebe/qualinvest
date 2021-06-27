@@ -39,7 +39,7 @@
 		{{t.account_id}},
 	   ],
 	  {% endfor %}
-        ]);
+    ]);
 
 	var view = new google.visualization.DataView(data);
 	view.hideColumns([0,3,11]);

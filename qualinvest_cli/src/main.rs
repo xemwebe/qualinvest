@@ -344,13 +344,13 @@ async fn main() {
             } else {
                 date_time_from_str_standard("2014-01-01", 9).unwrap()
             };
-            qualinvest_core::update_quote_history(ticker_id, start, end, db, &config)
+            qualinvest_core::update_quote_history(ticker_id, start, end, db, &config.market_data)
                 .await.unwrap();
         } else if matches.is_present("ticker-id") {
             let ticker_id = usize::from_str(matches.value_of("ticker-id").unwrap()).unwrap();
-            qualinvest_core::update_ticker(ticker_id, db.clone(), &config).await.unwrap();
+            qualinvest_core::update_ticker(ticker_id, db.clone(), &config.market_data).await.unwrap();
         } else {
-            let failed_ticker = qualinvest_core::update_quotes(db, &config).await.unwrap();
+            let failed_ticker = qualinvest_core::update_quotes(db, &config.market_data).await.unwrap();
             if failed_ticker.len() > 0 {
                 println!("Some ticker could not be updated: {:?}", failed_ticker);
             }

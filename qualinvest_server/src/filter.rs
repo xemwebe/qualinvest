@@ -11,6 +11,7 @@ use rocket::form::{Form,FromForm};
 use num_format::{Locale, WriteFormatted};
 use unicode_segmentation::UnicodeSegmentation;
 use crate::helper;
+use crate::helper::date_from_string;
 use chrono::{Local,NaiveDate};
 use crate::user;
 use crate::form_types::NaiveDateForm;
@@ -152,13 +153,11 @@ impl PlainFilter {
     pub async fn from_query<'a>(accounts: Option<String>, start: Option<String>, end: Option<String>, user: &'a user::UserCookie, 
         user_accounts: &Vec<Account>, rel_path: &str, db: Arc<dyn UserHandler+Send+Sync+'a>) -> Result<PlainFilter, Redirect> {
         let end_date = match end {
-            Some(s) => NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d")
-                .map_err(|_| Redirect::to(format!("{}{}", rel_path, "/err/invalid_date")))?,
+            Some(s) => date_from_string(s.as_str(), rel_path)?,
             None => Local::now().naive_local().date()
         };
         let start_date = match start {
-            Some(s) => NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d")
-                .map_err(|_| Redirect::to(format!("{}{}", rel_path, "/err/invalid_date")))?,
+            Some(s) => date_from_string(s.as_str(), rel_path)?,
             None => end_date
         };
         let account_ids =

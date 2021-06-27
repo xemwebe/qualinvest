@@ -23,7 +23,7 @@ use rocket::figment::Figment;
 use tera;
 
 use finql_postgres::PostgresDB;
-use qualinvest_core::Config;
+use qualinvest_core::{Config, MarketDataProviders};
 
 mod asset;
 mod position;
@@ -34,6 +34,8 @@ mod auth;
 mod user;
 mod layout;
 mod form_types;
+mod ticker;
+mod quotes;
 use auth::authorization::*;
 use user::*;
 use layout::*;
@@ -42,6 +44,7 @@ pub struct ServerState {
     rel_path: String,
     postgres_db: Arc<PostgresDB>,
     doc_path: String,
+    market_data: MarketDataProviders,
 }
 
 impl ServerState {
@@ -214,6 +217,7 @@ async fn rocket() -> _ {
         rel_path: mount_path.clone(),
         postgres_db: Arc::new(postgres_db),
         doc_path: config.pdf.doc_path.clone(),
+        market_data: config.market_data,
     };
     let base_path = Origin::parse(&mount_path).expect("Invalid base path.");
     rocket::custom(rocket_config)
@@ -238,6 +242,15 @@ async fn rocket() -> _ {
             asset::assets,
             asset::edit_asset,
             asset::save_asset,
+            quotes::show_quotes,
+            quotes::update_asset_quote,
+            quotes::delete_quote,
+            quotes::renew_history,
+            quotes::new_quote,
+            quotes::add_new_quote,
+            ticker::show_ticker,
+            ticker::edit_ticker,
+            ticker::save_ticker,
             filter::process_filter,
             static_files,
             error_msg

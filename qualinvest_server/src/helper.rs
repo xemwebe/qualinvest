@@ -1,6 +1,9 @@
+use std::borrow::Cow;
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::borrow::Cow;
+use chrono::{NaiveDate};
+use rocket::response::Redirect;
+
 
 pub fn parse_ids(s: &str) -> Vec<usize> {
     lazy_static! {
@@ -45,6 +48,10 @@ pub fn basename<'a>(path: &'a str) -> Cow<'a, str> {
     }
 }
 
+pub fn date_from_string(date_str: &str, rel_path: &str) -> Result<NaiveDate, Redirect> {
+    NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
+            .map_err(|_| Redirect::to(format!("{}{}", rel_path, "/err/invalid_date")))
+}
 
 #[cfg(test)]
 mod tests {
