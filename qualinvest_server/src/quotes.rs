@@ -134,10 +134,10 @@ pub async fn delete_quote(quote_id: usize, asset_id: usize, user: UserCookie, st
 
 #[get("/quote/new?<asset_id>")]
 pub async fn new_quote(asset_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
-    let db = state.postgres_db.clone();
     if !user.is_admin {
         return Err(Redirect::to(uri!(error_msg(msg="Admin rights are required to add quotes"))));
     }
+    let db = state.postgres_db.clone();
     let asset = db.get_asset_by_id(asset_id).await
         .map_err(|_| Redirect::to(format!("{}{}", 
         state.rel_path, uri!(error_msg(msg="failed to get asset name".to_string())))))?;
@@ -149,7 +149,7 @@ pub async fn new_quote(asset_id: usize, user: UserCookie, state: &State<ServerSt
     Ok(layout("quote_form", &context.into_json()))
 }
 
-/// Structure for storing information in transaction formular
+/// Structure for storing information in quote formular
 #[derive(Debug,Serialize,Deserialize,FromForm)]
 pub struct QuoteForm {
     pub asset_id: usize,
@@ -161,11 +161,12 @@ pub struct QuoteForm {
 
 #[post("/quote/new", data = "<form>")]
 pub async fn add_new_quote(form: Form<QuoteForm>, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
-    let quote_form = form.into_inner();
-    let db = state.postgres_db.clone();
     if !user.is_admin {
         return Err(Redirect::to(uri!(error_msg(msg="Admin rights are required to add quotes"))));
     }
+
+    let quote_form = form.into_inner();
+    let db = state.postgres_db.clone();
     // Try to get asset just to make sure it does exist
     let _asset = db.get_asset_by_id(quote_form.asset_id).await
         .map_err(|_| Redirect::to(format!("{}{}", 

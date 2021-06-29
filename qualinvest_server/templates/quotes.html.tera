@@ -53,8 +53,8 @@
 			destroy.removeAttribute('disabled');
 		}
 	}
-	}
-	</script>
+}
+</script>
 {% endblock jsdata %}
 {% block content %}
 <h1>Quotes for asset '{{asset_name}}'</h1>
@@ -86,7 +86,7 @@
 			</select> 
 			<input class="table_cell button" type="submit" value="Update">
 		</form>
-	</div>	
+	</div>
 	<div class="table_row" style="margin-bottom: 20px;">
 		<div class="table_cell">
 			<a class="button" href="quote/new?asset_id={{asset_id}}">New</a>	

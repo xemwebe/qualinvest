@@ -91,7 +91,7 @@
 			<input id="analyze_id" type="text" name="asset_id" value="" hidden/>
 			<input class="button" id="analyze_button" type="submit" value="Analyze" disabled/>
 		</form>
-		<form class="table_cell" action="tickets">
+		<form class="table_cell" action="tickers">
 			<input id="ticker_id" type="text" name="asset_id" value="" hidden/>
 			<input class="button" id="ticker_button" type="submit" value="Manage Ticker" disabled/>
 		</form>

@@ -251,6 +251,7 @@ async fn rocket() -> _ {
             ticker::show_ticker,
             ticker::edit_ticker,
             ticker::save_ticker,
+            ticker::delete_ticker,
             filter::process_filter,
             static_files,
             error_msg

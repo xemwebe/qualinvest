@@ -1,43 +1,81 @@
 {% extends "layout" %}
 {% block pagetitle %}{{super()}} - Tickers{% endblock pagetitle %}
-{% if loggedin %}
-<div class="row" style="margin-bottom: 20px;">
-	<div class="col-md-offset-10 col-md-2 text-right">
-		<a class="btn btn-primary" href="{{relpath}}/tickers/{{asset.ID}}/new"><i class="fa fa-plus"></i> New Ticker</a>	
-	</div>
-</div>
+{% block jsdata %}
+  {{super()}}
+	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+	<script type="text/javascript">
+		google.charts.load('current', {'packages':['table']});
+		google.charts.setOnLoadCallback(drawTable);
 
-<div class="panel panel-info">
-	<div class="panel-heading">
-		<div class="row">
-			<div class="col-md-12">Tickers for {{asset.Name}}</div>
+	function drawTable() {
+	  var data = new google.visualization.DataTable();
+	  data.addColumn('number', 'ID');
+	  data.addColumn('string', 'Name');
+	  data.addColumn('string', 'Currency');
+	  data.addColumn('string', 'Source');
+	  data.addColumn('number', 'Priority');
+	  data.addColumn('number', 'Factor');
+
+	  data.addRows([
+	    {% for t in tickers %}[
+			{{t.id}},
+			'{{t.name}}',
+			'{{t.currency}}',
+			'{{t.source}}',
+			{{t.priority}},
+			{v: {{t.factor}}, f: '{{ t.factor | format_num }}' }
+	  	],
+	  {% endfor %}
+	]);
+	var view = new google.visualization.DataView(data);
+	view.hideColumns([0]);
+	var table = new google.visualization.Table(document.getElementById('ticker_table'));
+	var tableHeight = (data.getNumberOfRows()+1.5)*21+1;
+	tableHeight = Math.min(tableHeight, window.innerHeight-250);
+	google.visualization.events.addListener(table,'select',selectHandler);
+	table.draw(view, {height: tableHeight } );
+	
+
+	// select handler
+	function selectHandler() {
+		var destroy = document.getElementById('delete_button');
+		var edit = document.getElementById('edit_button');
+  		var selection = table.getSelection();
+		if (selection.length<1) {
+			destroy.setAttribute('disabled','true');
+			edit.setAttribute('disabled','true');
+		} else {
+			var id = data.getValue(selection[0].row,0);
+			var delete_id = document.getElementById('delete_id');
+			delete_id.value = id;
+			destroy.removeAttribute('disabled');
+			var edit_id = document.getElementById('edit_id');
+			edit_id.value = id;
+			edit.removeAttribute('disabled');
+		}
+	}
+}
+</script>
+{% endblock jsdata %}
+{% block content %}
+<h1>Ticker for asset '{{asset_name}}'</h1>
+<div class="table" style="margin-bottom: 20px;">
+	<div class="table_row" style="margin-bottom: 20px;">
+		<div class="table_cell">
+			<a class="button" href="ticker/edit?asset_id={{asset_id}}">New</a>	
 		</div>
-		<div class="row">
-			<div class="col-md-1">Source</div>
-			<div class="col-md-1">Ticker</div>
-			<div class="col-md-1">Currency</div>
-			<div class="col-md-1">Factor</div>
-			<div class="col-md-1">is active</div>
-		</div>
-	</div>
-	<div class="panel-body">
-		{% set aid = asset.id %}
-		{% for t in tickers %}
-		<div class="row">
-			<div class="col-md-1">{{t.source}}</div>
-			<div class="col-md-1">{{t.ticker}}</div>
-			<div class="col-md-1">{{t.curr}}</div>
-			<div class="col-md-1">{{t.factor}}</div>
-			<div class="col-md-6">{% if t.active %}yes{% else %}no{% endif %}</div>
-			<div class="col-md-1 text-right">
-				<a class="btn btn-xs btn-link" href="{{relpath}}/tickers/{{aid}}/{{t.id}}/edit">Edit</a>
-				<a class="btn btn-xs btn-link" href="{{relpath}}/tickers/{{aid}}/{{t.id}}/destroy">Delete</a>
-			</div>
-		</div>
-		{% endfor %}
+		<form class="table_cell" action="ticker/edit">
+			<input id="edit_id" type="text" name="ticker_id" value="" hidden/>
+			<input type="text" name="asset_id" value="{{asset_id}}" hidden/>
+			<input class="button" id="edit_button" type="submit" value="Edit" disabled />
+		</form>
+		<form class="table_cell" action="ticker/delete">
+			<input id="delete_id" type="text" name="ticker_id" value="" hidden/>
+			<input type="text" name="asset_id" value="{{asset_id}}" hidden/>
+			<input class="button" id="delete_button" type="submit" value="Delete" disabled />
+		</form>
 	</div>
 </div>
-{% else %}
-<h1>Please log in.</h1>
-{% endif %}
+<div id='ticker_table'></div>
+{% endblock content %}
 
