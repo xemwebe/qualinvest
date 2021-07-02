@@ -82,11 +82,11 @@
 	</script>
 {% endblock %}
 {% block content %}
-<div class="row" style="margin-bottom: 20px;">
-	<div class="col-md-3 form-group" id="asset_form">
-		<label class="control-label col-md-2" for="asset_id">Asset:</label>
-		<div class="col-md-5">
-		<select class="form-control col-md-6" id="asset" name="asset_id" onchange="asset_change()"> 
+<div class="table" style="margin-bottom: 20px;">
+	<div class="table_row">
+		<label class="table_cell" for="asset_id">Asset:</label>
+		<div class="table_cell horizontalgap" style="width:10px"></div>
+		<select class="table_cell" id="asset" name="asset_id" onchange="asset_change()"> 
 		{% if assets %}
 			<option value=null {% if not asset_id %}selected{% endif%}></option>
 			{% for asset in assets %}
@@ -94,30 +94,32 @@
 			{% endfor %}
 		{% endif %}
 		</select> 
-		</div>
-	</div>
-	{% if comdirect %}
-	<div class="col-md-1">
-		<a class="button" id="codi_link" href="https://www.comdirect.de/inf/aktien/detail/uebersicht.html?ID_NOTATION={{comdirect}}" target="_blank">comdirect</a>
-    </div>
-	{% endif %}
-	{% if gurufocus %}
-	<div class="col-md-1">
-		<a class="button" id="gf_link" href="https://www.gurufocus.com/stock/{{gurufocus}}" target="_blank">gurufocus</a>
-    </div>
-	{% endif %}
-	<div class="col-md-offset-5 col-md-2 text-right">
-		<a class="button" href="asset/edit">New Asset</a>	
 	</div>
 </div>
-<div class="row">
-	<div class="col-lg-6 col-sm-12 left">
-	 	<p>
-			<div id="chart_div"></div>
-		</p>
+<div class="table" style="margin-bottom: 20px">
+	<div class="table_row">
+		<a class="button table_cell" href="asset/edit">New Asset</a>	
+		{% if comdirect %}
+			<div class="table_cell horizontalgap" style="width:5px"></div>
+			<a class="button table_cell" id="codi_link" href="https://www.comdirect.de/inf/aktien/detail/uebersicht.html?ID_NOTATION={{comdirect}}" target="_blank">comdirect</a>
+		{% endif %}
+		{% if gurufocus %}
+			<div class="table_cell horizontalgap" style="width:5px"></div>
+			<a class="button table_cell" id="gf_link" href="https://www.gurufocus.com/stock/{{gurufocus}}" target="_blank">gurufocus</a>
+		{% endif %}
 	</div>
-	<div class="col-lg-6 col-sm-12 left">
-		<p><div id="asset_transactions"></div></p>
+</div>
+<div class="table" style="margin-bottom: 20px;">
+	<div class="table_row">
+		<div class="table_cell">
+		 	<p>
+				<div id="chart_div"></div>
+			</p>
+		</div>
+		<div class="table_cell horizontalgap" style="width:30px"></div>
+		<div class="table_cell">
+			<p><div id="asset_transactions"></div></p>
+		</div>
 	</div>
 </div>
 {% endblock %}

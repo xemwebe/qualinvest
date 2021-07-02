@@ -1,5 +1,8 @@
 body { 
   font-family: "Nimbus Sans", "Lucida Sans Unicode", Helvetica, "Lucida Grande", sans-serif; 
+  margin-top: 0px;
+  margin-left: 20px;
+  margin-right: 20px;
 }
 
 .input {
@@ -51,9 +54,9 @@ body {
   display: none;
   position: absolute;
   background-color: #f1f1f1;
-  min-width: 160px;
+  min-width: 80px;
   overflow: auto;
-  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+  box-shadow: 0px 8px 16px 0px #00000033;
   z-index: 1;
 }
 
@@ -67,7 +70,14 @@ body {
 .dropdown a:hover {background-color: #ddd;}
 
 .show {display: block;}
-  
+
+h1 {
+  text-align: center;
+}
+
+form {
+  margin: 0 auto;
+}
 
 .table  { 
   display: table;
@@ -75,7 +85,17 @@ body {
 }
 
 .table_row { display: table-row;  }
-.table_cell { display: table-cell; }
+.table_cell { 
+  display: table-cell; 
+  vertical-align: top;
+}
+
+div.horizontalgap {
+  float: left;
+  overflow: hidden;
+  height: 1px;
+  width: 0px;
+}
 
 label.upLabel input[type="file"] {
     position: absolute;
@@ -99,4 +119,46 @@ label.upLabel input[type="file"] {
 }
 .upLabel:valid+span {
     color: #4A4;
+}
+
+
+/* navigation styles */
+nav {
+  background: #061348;
+  background: linear-gradient(to bottom, rgba(6, 19, 72, 1) 0%, rgba(15, 31, 91, 1) 100%);
+}
+.nav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+.nav li {
+  display: inline;
+  margin: 0px;
+}
+nav ul.nav {
+  width: 1120px;
+  margin: 0 auto;
+  min-width: 120px;
+}
+.nav a {
+  display: inline-block;
+  padding: 10px;
+  width: 120px;
+  text-decoration: none;
+  color: rgb(248, 244, 19);
+  font-family: arial;
+  line-height: 30px;
+  height: 30px;
+  margin: 0px;
+  border-top: none;
+}
+a.nav_home {
+  max-width: 50px;
+  width: 50px !important;
+}
+.nav a:hover {
+  background-color: #344da7;
+  height: 100%;
 }
