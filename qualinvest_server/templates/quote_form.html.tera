@@ -6,8 +6,8 @@
 	<script src="https://unpkg.com/flatpickr"></script>
 {% endblock jsdata %}
 {% block content %}
-<h1>Insert manual Quote for asset '{{asset_name}}'</h1>
-<div class="table">
+<h1 align="center">Insert manual Quote for asset '{{asset_name}}'</h1>
+<div class="center table">
 	<form action="new" method="post">
 		<input type="text" name="asset_id" value="{{asset_id}}" hidden/>
 		<div class="table_row">
@@ -27,6 +27,7 @@
 	</form>
 	<a class="button" href="{{relpath}}/quotes?asset_id={{asset_id}}">Cancel</a>
 </div>
+
 <script>
 const calendars = flatpickr(".fpcalendar", {});
 </script>

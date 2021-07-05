@@ -57,48 +57,50 @@
 </script>
 {% endblock jsdata %}
 {% block content %}
-<h1>Quotes for asset '{{asset_name}}'</h1>
-<div class="table" style="margin-bottom: 20px;">
-	<div class="table_row">
-		<form action="quote/renew_history">
-			<input name="asset_id" value={{asset_id}} hidden>
+<h1 align="center">Quotes for asset '{{asset_name}}'</h1>
+<div class="center table" style="margin-bottom: 20px;">
+	<form action="quote/renew_history">
+		<input name="asset_id" value={{asset_id}} hidden>
+		<div class="table_row">
 			<label class="table_cell" for="ticker_id">Ticker:</label>
 			<select class="table_cell" id="ticker" name="ticker_id"> 
 				{% for ticker in tickers %}
 				<option value="{{ticker.id}}">{{ticker.source}}: {{ticker.name}}</option> 
 				{% endfor %}
 			</select> 
+		</div>
+		<div class="table_row">
 			<label class="table_cell" for="start_date">Start Date:</label>
 			<input class="table_cell fpcalendar flatpickr flatpickr-input" name="start" id="start_date" type="text" value="">
+		</div>
+		<div class="table_row">
 			<label class="table_cell" for="end_date">End Date:</label>
 			<input class="table_cell fpcalendar flatpickr flatpickr-input" name="end" id="end_date" type="text" value="">
 			<input class="table_cell button" type="submit" value="Renew history">
-		</form>
-	</div>	
-	<div class="table_row">
-		<form action="quote/update">
-			<input name="asset_id" value={{asset_id}} hidden>
+		</div>
+	</form>
+	<form action="quote/update">
+		<input name="asset_id" value={{asset_id}} hidden>
+		<div class="table_row">
 			<label class="table_cell" for="ticker_id">Ticker:</label>
 			<select class="table_cell" id="ticker" name="ticker_id"> 
 				{% for ticker in tickers %}
 				<option value="{{ticker.id}}">{{ticker.source}}: {{ticker.name}}</option> 
 				{% endfor %}
-			</select> 
+			</select>
 			<input class="table_cell button" type="submit" value="Update">
-		</form>
-	</div>
-	<div class="table_row" style="margin-bottom: 20px;">
-		<div class="table_cell">
-			<a class="button" href="quote/new?asset_id={{asset_id}}">New</a>	
 		</div>
+		</form>
+	<div class="table_row" style="margin-bottom: 20px;">
+		<a class="table_cell button" href="quote/new?asset_id={{asset_id}}">New</a>	
 		<form class="table_cell" action="quote/delete">
+			<input class="button" id="delete_button" type="submit" value="Delete" disabled />
 			<input id="delete_id" type="text" name="quote_id" value="" hidden/>
 			<input type="text" name="asset_id" value="{{asset_id}}" hidden/>
-			<input class="button" id="delete_button" type="submit" value="Delete" disabled />
 		</form>
 	</div>
 </div>
-<div id='quote_table'></div>
+<div class="center" style="max-width: 500px;" id='quote_table'></div>
 <script>
 const calendars = flatpickr(".fpcalendar", {});
 var presetRange = false;

@@ -1,21 +1,24 @@
-body { 
-  font-family: "Nimbus Sans", "Lucida Sans Unicode", Helvetica, "Lucida Grande", sans-serif; 
-  margin-top: 0px;
-  margin-left: 20px;
-  margin-right: 20px;
+label {
+  padding: 0px 5px;
 }
 
-.input {
-    padding-left: 35px;
-    padding-right: 15px;
+.table  {
+  display: table;
+  table-layout: fixed;
 }
 
-.filter-block {
-    background-color: #f1f1f1;
-    padding-top: 15px;
-    padding-bottom: 15px;
-    padding-left: 15px;
-    margin-bottom: 15px;
+.table_row {
+  display: table-row;
+ }
+
+.table_cell {
+  display: table-cell;
+  vertical-align: top;
+}
+
+.table_cell_mid {
+  display: table-cell;
+  vertical-align: middle;
 }
 
 .button {
@@ -31,6 +34,45 @@ body {
     margin: 2px 2px;
     cursor: pointer;
   }
+  
+div.center{
+    height: auto;
+    margin: 0 auto;
+}
+
+div.right{
+  display: inline-block;
+  margin-right: 0px;
+}
+
+form{
+    margin: 0 auto;
+}
+
+body {
+  font-family: "Nimbus Sans", "Lucida Sans Unicode", Helvetica, "Lucida Grande", sans-serif;
+  margin-top: 0px;
+  margin-left: 20px;
+  margin-right: 20px;
+}
+
+p.block {
+  text-align: left;
+  max-width: 450px;
+}
+
+.input {
+    padding-left: 35px;
+    padding-right: 15px;
+}
+
+.filter-block {
+    background-color: #f1f1f1;
+    padding-top: 15px;
+    padding-bottom: 15px;
+    padding-left: 15px;
+    margin-bottom: 15px;
+}
 
 .dropbtn {
   background-color: #3498DB;
@@ -67,28 +109,13 @@ body {
   display: block;
 }
 
-.dropdown a:hover {background-color: #ddd;}
+.dropdown a:hover {
+  background-color: #ddd;
+ }
 
-.show {display: block;}
-
-h1 {
-  text-align: center;
-}
-
-form {
-  margin: 0 auto;
-}
-
-.table  { 
-  display: table;
-  table-layout: fixed;
-}
-
-.table_row { display: table-row;  }
-.table_cell { 
-  display: table-cell; 
-  vertical-align: top;
-}
+.show {
+  display: block;
+ }
 
 div.horizontalgap {
   float: left;
@@ -114,10 +141,10 @@ label.upLabel input[type="file"] {
 .upLabel:active {
     background: #CCF;
 }
-.upLabel:invalid+span {
+.upLabel:invalid + span {
     color: #4A4;
 }
-.upLabel:valid+span {
+.upLabel:valid + span {
     color: #4A4;
 }
 
@@ -137,27 +164,31 @@ nav {
   display: inline;
   margin: 0px;
 }
+
 nav ul.nav {
   width: 1120px;
   margin: 0 auto;
   min-width: 120px;
 }
+
 .nav a {
   display: inline-block;
   padding: 10px;
   width: 120px;
   text-decoration: none;
   color: rgb(248, 244, 19);
-  font-family: arial;
+  font-family: arial sans-serif;
   line-height: 30px;
   height: 30px;
   margin: 0px;
   border-top: none;
 }
+
 a.nav_home {
   max-width: 50px;
   width: 50px !important;
 }
+
 .nav a:hover {
   background-color: #344da7;
   height: 100%;

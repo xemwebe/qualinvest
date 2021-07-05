@@ -1,30 +1,21 @@
 {% extends "layout" %}
 {% block pagetitle %}{{ super() }} - Login{% endblock pagetitle %}
 {% block content %}
-<div class="row">
-<div class="col-md-offset-4 col-md-4">
-<div class="panel panel-default">
-<div class="panel-heading">Please sign in to continue!</div>
-<div class="panel-body">
-  {% if alert_message %}
-	<div class="alert alert-{{alert_type}}">{{alert_message}}</div>
-  {% endif %}
+<div class="center table">
+  <h2>Please sign in to continue!</h2>
   <form action="{{relpath}}/login" method="POST">
-  <div class="form-group">
-    <input type="text" class="form-control" name="username" placeholder="Username" {% if user %}value="{{user}}"{% endif %}>
-  </div>
-  <div class="form-group">
-  	<input  type="password" class="form-control" name="password" placeholder="Password">
-  </div>
-  <input hidden type="text" name="redirect" {% if redirect %}value="{{redirect}}"{% else %}value="{{relpath}}/"{% endif %}>
-  <div class="row">
-  <div class="col-md-offset-1 col-md-10">
-	<button class="btn btn-primary btn-block" type="submit">Login</button>
-  </div>
-  </div>
+    <div class="table_row">
+      <label class="table_cell" for="username">Unsername:</label>
+      <input type="text" class="table_cell" id="username" name="username" placeholder="Username" {% if user %}value="{{user}}"{% endif %}>
+    </div>
+    <div class="table_row">
+      <label class="table_cell" for="password">Password:</label>
+      <input  type="password" class="table_cell" id="password" name="password" placeholder="Password">
+    </div>
+    <input hidden type="text" name="redirect" {% if redirect %}value="{{redirect}}"{% else %}value="{{relpath}}/"{% endif %}>
+    <div class="table_row">
+      <button class="table_cell button" type="submit">Login</button>
+    </div>
   </form>
-</div>
-</div>
-</div>
 </div>
 {% endblock content %}

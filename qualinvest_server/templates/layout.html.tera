@@ -27,7 +27,7 @@
 
 
 
-	{% block alert %}{% if alert_msg %}<div class="alert alert-{{alert_type}}">{{alert_msg}}</div>{% endif %}{% endblock alert %}
+	{% block alert %}{% if alert_msg %}<div class="center alert alert-{{alert_type}}">{{alert_msg}}</div>{% endif %}{% endblock alert %}
 	{% block content %}{% endblock content %}
 	{% block auth %}{% endblock auth %}
 </body>

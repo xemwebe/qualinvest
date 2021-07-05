@@ -1,26 +1,29 @@
 {% extends "layout" %}
 {% block pagetitle %}{{ super() }} - Home{% endblock pagetitle %}
 {% block content %}
-{% if not user %}
-<div class="warning">
-	<h1>Please log in!</h1>
+<div align="center">
+	{% if not user %}
+		<div class="warning">
+			<h1>Please log in!</h1>
+		</div>
+	{% elif user.is_admin %}
+		<div class="warning"> You are logged in as administrator. </div>
+	{% endif %} 
+	<h1>Quant Invest</h1>
+	<p class="block">Quant Invest is a tool to manage a portfolio of investments of common assets 
+	like shares, bonds or loans.</p>
+
+	<p class="block">The functionality covers basic book-keeping of positions, 
+	paid fees and tax and calculation of a couple of performance figures, 
+	eg. realised and unrealised p&amp;l over specific time periods. 
+	Market data is automatically retreived from various, 
+	configurable sources.</p>
+
+	<p class="block">Data is stored persistently in an attached PostgreSQL database. 
+	The application itsself is writen in <a href="https://www.rust-lang.org/" target="_blank">rust</a>.</p>
+
+	<p class="block">For more information, please contact 
+		<a href="mailto:mwb@quantlink.de?Subject=Quinvestor">the author</a>.
+	</p>
 </div>
-{% elif user.is_admin %}
-<div class="warning"> You are logged in as administrator. </div>
-{% endif %} 
-<h1>Quant Invest</h1>
-<p>Quant Invest is a tool to manage a portfolio of investments of common assets 
-like shares, bonds or loans.</p>
-
-<p>The functionality covers basic book-keeping of positions, 
-paid fees and tax and calculation of a couple of performance figures, 
-eg. realised and unrealised p&amp;l over specific time periods. 
-Market data is automatically retreived from various, 
-configurable sources.</p>
-
-<p>Data is stored persistently in an attached PostgreSQL database. 
-The application itsself is writen in <a href="https://www.rust-lang.org/" target="_blank">rust</a>.</p>
-
-<p>For more information, please contact 
-<a href="mailto:mwb@quantlink.de?Subject=Quinvestor">the author</a>.</p>
 {% endblock content %}

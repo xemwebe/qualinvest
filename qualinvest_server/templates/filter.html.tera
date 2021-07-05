@@ -68,47 +68,53 @@ function setRange() {
 {% endblock jsdata %}
 {% block content %}
 {{super()}}
-<div class="filter-block">
- 	<button id="filter_button"  class="button" onclick="toggleFilter()">Show Filter</button>
-	<div id="period_info" display="inline"> 
-		Start Date: <span id="info_start">{{filter.start_date}}</span> 
-		End Date: <span id="info_end">{{filter.end_date}}</span>
+<div class="filter-block" align="center">
+	<div class="table">
+		<div class="table_row">
+	 		<button id="filter_button"  class="button table_cell" onclick="toggleFilter()">Show Filter</button>
+			<div class="table_cell_mid" id="period_info" > 
+				<span style="margin-left: 30px">Start Date:</span><span style="margin-left: 10px;" id="info_start">{{filter.start_date}}</span> 
+				<span style="margin-left: 20px">End Date:</span> <span tyle="margin-left: 10px;" id="info_end">{{filter.end_date}}</span>
+			</div>
+		</div>
 	</div>
-	<div class="filter" id="filter" style="display: none">
-		<form {% block form_action %}{% endblock form_action %} method="post">
-			<div class="form-group">
-				<div class="col-md-2">
-					<input type="submit" class="button" id="apply_filter_button" value="Apply Filter" disabled>
+	<div class="table">
+		<div id="filter" style="display: none">
+			<form {% block form_action %}{% endblock form_action %} method="post">
+				<div class="table_row">
+					<input type="submit" class="button table_cell" id="apply_filter_button" value="Apply Filter" disabled>
 				</div>
-				<div class="col-md-2">
-					<select class="form-control" id="range_select" onchange="setRange()"> 
+				<div class="table_row">
+					<select class="table_cell" id="range_select" onchange="setRange()"> 
 						<option value="custom" selected>Custom</option> 
 						<option value="daily" >Daily</option> 
 						<option value="mtd" >Month-to-Date</option> 
 						<option value="ytd" >Year-to-Date</option> 
 					</select> 
 				</div>
-				<label class="control-label col-md-1" for="start_date">Start Date:</label>
-				<div class="col-md-2">
-					<input class="fpcalendar flatpickr flatpickr-input" onchange="formChange()" name="start_date" id="start_date" type="text" value={{filter.start_date}}>
+				<div class="table_row">
+					<label class="table_cell" for="start_date">Start Date:</label>
+					<div class="table_cell">
+						<input class="fpcalendar flatpickr flatpickr-input" onchange="formChange()" name="start_date" id="start_date" type="text" value={{filter.start_date}}>
+					</div>
+					<label class="table_cell" for="end_date">End Date:</label>
+					<div class="table_cell">
+						<input class="fpcalendar flatpickr flatpickr-input" onchange="formChange()" name="end_date" id="end_date" type="text" value={{filter.end_date}}>
+					</div>
 				</div>
-				<label class="control-label col-md-1" for="end_date">End Date:</label>
-				<div class="col-md-2">
-					<input class="fpcalendar flatpickr flatpickr-input" onchange="formChange()" name="end_date" id="end_date" type="text" value={{filter.end_date}}>
+				<div class="table_row">
+					<label class="table_cell">Select account(s):</label>
+					<div class="table_cell">
+						<select class="selectpicker" name="account_ids" id="account_ids" multiple onclick="formChange()">
+						{% for acc in valid_accounts %}
+							<option value={{acc.id}}
+								{% if acc.id in filter.account_ids %}selected{% endif %}>{{acc.broker}}: {{acc.account_name}}</option>
+						{% endfor %}
+						</select>
+					</div>
 				</div>
-			</div>
-			<div class="form-group">
-				<div class="col-md-6">
-				<label>Select account(s):</label></div>
-				<div class="col-md-6">
-					<select class="selectpicker" name="account_ids" id="account_ids" multiple onclick="formChange()">
-					{% for acc in valid_accounts %}
-						<option value={{acc.id}}
-							{% if acc.id in filter.account_ids %}selected{% endif %}>{{acc.broker}}: {{acc.account_name}}</option>
-					{% endfor %}
-				</select></div>
-			</div>
-		</form>
+			</form>
+		</div>
 	</div>
 </div>
 <script>

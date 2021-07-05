@@ -4,7 +4,7 @@
   {{super()}}
 {% endblock jsdata %}
 {% block content %}
-<div class="table">
+<div class="center table">
 	<form action="edit" method="post">
 		<input type="text" name="asset_id" value="{{asset_id}}" hidden/>
 		<input type="text" name="ticker_id" value="{{ticker.id}}" hidden/>

@@ -82,43 +82,45 @@
 	</script>
 {% endblock %}
 {% block content %}
-<div class="table" style="margin-bottom: 20px;">
-	<div class="table_row">
-		<label class="table_cell" for="asset_id">Asset:</label>
-		<div class="table_cell horizontalgap" style="width:10px"></div>
-		<select class="table_cell" id="asset" name="asset_id" onchange="asset_change()"> 
-		{% if assets %}
-			<option value=null {% if not asset_id %}selected{% endif%}></option>
-			{% for asset in assets %}
-				<option value="{{asset.id}}" {% if asset_id and asset.id == asset_id %}selected{% endif %}>{{asset.name}}</option> 
-			{% endfor %}
-		{% endif %}
-		</select> 
-	</div>
-</div>
-<div class="table" style="margin-bottom: 20px">
-	<div class="table_row">
-		<a class="button table_cell" href="asset/edit">New Asset</a>	
-		{% if comdirect %}
-			<div class="table_cell horizontalgap" style="width:5px"></div>
-			<a class="button table_cell" id="codi_link" href="https://www.comdirect.de/inf/aktien/detail/uebersicht.html?ID_NOTATION={{comdirect}}" target="_blank">comdirect</a>
-		{% endif %}
-		{% if gurufocus %}
-			<div class="table_cell horizontalgap" style="width:5px"></div>
-			<a class="button table_cell" id="gf_link" href="https://www.gurufocus.com/stock/{{gurufocus}}" target="_blank">gurufocus</a>
-		{% endif %}
-	</div>
-</div>
-<div class="table" style="margin-bottom: 20px;">
-	<div class="table_row">
-		<div class="table_cell">
-		 	<p>
-				<div id="chart_div"></div>
-			</p>
+<div class="center" align="center">
+	<div class="table" style="margin-bottom: 20px;">
+		<div class="table_row">
+			<label class="table_cell" for="asset_id">Asset:</label>
+			<div class="table_cell horizontalgap" style="width:10px"></div>
+			<select class="table_cell" id="asset" name="asset_id" onchange="asset_change()"> 
+			{% if assets %}
+				<option value=null {% if not asset_id %}selected{% endif%}></option>
+				{% for asset in assets %}
+					<option value="{{asset.id}}" {% if asset_id and asset.id == asset_id %}selected{% endif %}>{{asset.name}}</option> 
+				{% endfor %}
+			{% endif %}
+			</select> 
 		</div>
-		<div class="table_cell horizontalgap" style="width:30px"></div>
-		<div class="table_cell">
-			<p><div id="asset_transactions"></div></p>
+	</div>
+	<div class="table" style="margin-bottom: 20px">
+		<div class="table_row">
+			<a class="button table_cell" href="asset/edit">New Asset</a>	
+			{% if comdirect %}
+				<div class="table_cell horizontalgap" style="width:5px"></div>
+				<a class="button table_cell" id="codi_link" href="https://www.comdirect.de/inf/aktien/detail/uebersicht.html?ID_NOTATION={{comdirect}}" target="_blank">comdirect</a>
+			{% endif %}
+			{% if gurufocus %}
+				<div class="table_cell horizontalgap" style="width:5px"></div>
+				<a class="button table_cell" id="gf_link" href="https://www.gurufocus.com/stock/{{gurufocus}}" target="_blank">gurufocus</a>
+			{% endif %}
+		</div>
+	</div>
+	<div class="table" style="margin-bottom: 20px;">
+		<div class="table_row">
+			<div class="table_cell">
+				<p>
+					<div id="chart_div"></div>
+				</p>
+			</div>
+			<div class="table_cell horizontalgap" style="width:30px"></div>
+			<div class="table_cell">
+				<p><div id="asset_transactions"></div></p>
+			</div>
 		</div>
 	</div>
 </div>

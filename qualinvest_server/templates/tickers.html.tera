@@ -58,8 +58,8 @@
 </script>
 {% endblock jsdata %}
 {% block content %}
-<h1>Ticker for asset '{{asset_name}}'</h1>
-<div class="table" style="margin-bottom: 20px;">
+<h1 align="center">Ticker for asset '{{asset_name}}'</h1>
+<div class="center table" style="margin-bottom: 20px;">
 	<div class="table_row" style="margin-bottom: 20px;">
 		<div class="table_cell">
 			<a class="button" href="ticker/edit?asset_id={{asset_id}}">New</a>	
@@ -76,6 +76,6 @@
 		</form>
 	</div>
 </div>
-<div id='ticker_table'></div>
+<div class="center"id='ticker_table' style="max-width: 300px;"></div>
 {% endblock content %}
 
