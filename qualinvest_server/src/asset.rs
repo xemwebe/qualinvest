@@ -134,9 +134,11 @@ pub async fn save_asset(form: Form<AssetForm>, user: UserCookie, state: &State<S
     let asset_id = db.get_asset_id(&asset).await;
     if let Some(id) = asset_id {
         asset.id = Some(id);
-        db.update_asset(&asset).await;
+        db.update_asset(&asset).await
+            .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=format!("Updating asset failed, error was {}", e))))))?;
     } else {
-        db.insert_asset_if_new(&asset, true).await;
+        let _asset_id = db.insert_asset_if_new(&asset, true).await
+            .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=format!("Couldn't insert assert, error was {}", e))))))?;
     }
 
     Ok(Redirect::to(format!("{}{}", state.rel_path, uri!(assets()))))

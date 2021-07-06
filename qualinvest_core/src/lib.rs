@@ -20,6 +20,7 @@ pub mod position;
 pub mod read_pdf;
 pub mod user;
 pub mod postgres_user;
+pub mod sanitization;
 
 /// Configuration parameters
 #[derive(Debug, Deserialize)]

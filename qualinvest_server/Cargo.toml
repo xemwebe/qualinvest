@@ -18,8 +18,6 @@ finql-postgres = { version="0.2.3", path="../finql/finql-postgres" }
 finql-data = { version="0.1.5", path="../finql/finql-data" }
 chrono = "0.4"
 qualinvest_core = { version="0.1.2", path="../qualinvest_core" }
-unic-ucd = "0.9"
-htmlescape = "0.3"
 tera = "1.2"
 clap = "2.33"
 toml = "0.5"

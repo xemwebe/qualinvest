@@ -1,6 +1,4 @@
 
-use super::sanitization::*;
-
 use std::collections::HashMap;
 use std::marker::Sized;
 use std::sync::Arc;
@@ -12,7 +10,7 @@ use rocket::request::{FromRequest,Outcome};
 use rocket::http::{Cookie, CookieJar};
 use rocket::form::FromForm;
 
-use qualinvest_core::user::UserHandler;
+use qualinvest_core::{user::UserHandler, sanitization::{sanitize, sanitize_password}};
 
 #[derive(Debug, Clone,FromForm)]
 pub struct UserQuery {

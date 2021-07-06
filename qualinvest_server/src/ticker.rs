@@ -5,10 +5,8 @@ use rocket::response::Redirect;
 use rocket_dyn_templates::Template;
 use rocket::form::{Form, FromForm};
 use super::rocket_uri_macro_error_msg;
-use super::rocket_uri_macro_login;
 
 use finql_data::{AssetHandler, QuoteHandler};
-use qualinvest_core::accounts::AccountHandler;
 
 use crate::user::UserCookie;
 use crate::layout::layout;

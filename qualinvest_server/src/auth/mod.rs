@@ -36,7 +36,4 @@
 
 */
 
-extern crate unic_ucd;
-extern crate htmlescape;
 pub mod authorization;
-pub mod sanitization;

@@ -208,10 +208,8 @@ pub fn parse_and_store<'a>(
         let hash = sha256_hash(path)?;
         match db.lookup_hash(&hash).await {
             Ok((ids, _path)) => {
-                if ids.len() > 0 {
-                    if config.warn_old {
-                        return Err(ReadPDFError::AlreadyParsed);
-                    }
+                if ids.len() > 0 && config.warn_old {
+                    return Err(ReadPDFError::AlreadyParsed);
                 }
             },
             Err(_) => {}
@@ -400,7 +398,7 @@ pub async fn make_transactions(
         currency: tri.total_amount.currency,
     };
     for tax in &tri.extra_taxes {
-        total_tax.add(*tax, time, &mut fx_converter, true).await?;
+        total_tax.add(*tax, time, &fx_converter, true).await?;
     }
     if total_tax.amount != 0.0 {
         transactions.push(Transaction {
@@ -422,7 +420,7 @@ pub async fn make_transactions(
     };
     for accrued in &tri.accruals {
         total_accrued
-            .add(*accrued, time, &mut fx_converter, true)
+            .add(*accrued, time, &fx_converter, true)
             .await
             .map_err(|_| ReadPDFError::CurrencyMismatch)?;
     }

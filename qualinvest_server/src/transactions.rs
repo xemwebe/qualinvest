@@ -254,14 +254,17 @@ pub async fn pdf_upload<'r>(mut data: Form<PDFUploadFormData<'r>>, user: UserCoo
         rename_asset: data.rename_asset,
         default_account: data.default_account,
     };
-
+    if ! user.is_admin {
+        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="Only admins may upload pdf files!")))));
+    }
     // parse each each pdf found
     let mut errors = Vec::new();
     let tmp_dir = TempDir::new()
         .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="Failed to create tmp directory")))))?;
     for (i,doc) in data.doc_name.iter_mut().enumerate() {
         let tmp_path = tmp_dir.path().clone().join(format!("qltmp_pdf{}",i));
-        doc.persist_to(&tmp_path).await;
+        doc.persist_to(&tmp_path).await
+            .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="Persisting uploaded file failed.")))))?;
         if let Some(raw_name) = doc.raw_name() {
             let file_name = raw_name.dangerous_unsafe_unsanitized_raw().html_escape().to_string();            
 
