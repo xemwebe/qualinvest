@@ -46,10 +46,8 @@ pub async fn show_quotes(asset_id: usize, user_opt: Option<UserCookie>, state: &
     }
     let all_quotes = join_all(f_quotes).await;
     let mut quotes = Vec::new();
-    for q in all_quotes {
-        if let Ok(q) = q {
-            quotes.extend(q);
-        }
+    for q in all_quotes.into_iter().flatten() {
+        quotes.extend(q);
     }
     quotes.sort_by(|a,b|b.cmp(a));
 

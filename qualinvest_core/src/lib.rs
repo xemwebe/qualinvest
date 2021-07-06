@@ -72,14 +72,10 @@ fn add_provider(
     token: &Option<String>,
     source: MarketDataSource,
 ) {
-    match token {
-        Some(token) => {
-            match source.get_provider(token.clone()) {
-                Some(provider) => market.add_provider(source.to_string(), provider),
-                None => (),
-            };
+    if let Some(token) = token {
+        if let Some(provider) = source.get_provider(token.clone()) {
+            market.add_provider(source.to_string(), provider)
         }
-        None => (),
     }
 }
 

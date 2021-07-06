@@ -12,27 +12,26 @@ pub fn parse_ids(s: &str) -> Vec<usize> {
     }
 
     let mut ids = Vec::new();
-    for sub in s.split(",") {
+    for sub in s.split(',') {
         match RANGE.captures(sub) {
             Some(range) => {
                 let start = range[1].parse::<usize>();
                 let end = range[2].parse::<usize>();
-                if start.is_ok() && end.is_ok() {
-                    for i in start.unwrap()..end.unwrap()+1 {
-                        ids.push(i);
+                if let Ok(start) = start {
+                    if let Ok(end) = end {
+                        for i in start..end+1 {
+                            ids.push(i);
+                        }
                     }
                 }
             },
             None => {
-                match NUM.captures(sub) {
-                    Some(num) => {
-                        let num = num[1].parse::<usize>();
-                        if let Ok(num) = num {
-                            ids.push(num);
-                        }
-                    },
-                    None => {},
-                };
+                if let Some(num) = NUM.captures(sub) {
+                    let num = num[1].parse::<usize>();
+                    if let Ok(num) = num {
+                        ids.push(num);
+                    }
+                }
             },
         }
     }
@@ -40,7 +39,7 @@ pub fn parse_ids(s: &str) -> Vec<usize> {
 }
 
 
-pub fn basename<'a>(path: &'a str) -> Cow<'a, str> {
+pub fn basename(path: &'_ str) -> Cow<'_, str> {
     let mut pieces = path.rsplitn(2, |c| c == '/' || c == '\\');
     match pieces.next() {
         Some(p) => p.into(),

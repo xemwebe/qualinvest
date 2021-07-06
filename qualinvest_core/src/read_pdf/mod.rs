@@ -54,7 +54,7 @@ impl fmt::Display for ReadPDFError {
             ReadPDFError::CurrencyMismatch => "Currency mismatch".to_string(),
             ReadPDFError::ParseDate => "Date parsing error".to_string(),
             ReadPDFError::ConsistencyCheckFailed(msg) => format!("Consistency check failed: {}", msg),
-            ReadPDFError::AlreadyParsed => format!("File has already been parsed successfully"),
+            ReadPDFError::AlreadyParsed => "File has already been parsed successfully".to_string(),
             ReadPDFError::NotFound(str) => format!("Critical keyword could not be found: {}", str),
             ReadPDFError::UnknownDocumentType => "Unknown document type".to_string(),
             ReadPDFError::MissingFileName => "No proper file name has been delivered".to_string(),
@@ -152,7 +152,7 @@ impl ParsedTransactionInfo {
 
 pub fn rounded_equal(x: f64, y: f64, precision: i32) -> bool {
     let factor = 10.0_f64.powi(precision);
-    return (x * factor).round() == (y * factor).round();
+    ((x * factor).round() - (y * factor).round()).abs() < 1.0
 }
 
 pub fn text_from_pdf(file: &Path) -> Result<String, ReadPDFError> {
@@ -169,17 +169,13 @@ pub fn text_from_pdf(file: &Path) -> Result<String, ReadPDFError> {
 /// (e.g. '.' as thousands separator and ',' as decimal separator)
 pub fn german_string_to_float(num_string: &str) -> Result<f64, ReadPDFError> {
     let sign_less_string = num_string.replace("-", "");
-    let positive = if sign_less_string != num_string {
-        false
-    } else {
-        true
-    };
+    let positive = sign_less_string == num_string;
     let result = sign_less_string
         .trim()
         .replace(".", "")
         .replace(",", ".")
         .parse()
-        .map_err(|err| ReadPDFError::ParseFloat(err));
+        .map_err(ReadPDFError::ParseFloat);
     match result {
         Ok(num) => {
             if positive {
@@ -206,13 +202,10 @@ pub fn parse_and_store<'a>(
     async move {
         let file_name = sanitize(file_name);
         let hash = sha256_hash(path)?;
-        match db.lookup_hash(&hash).await {
-            Ok((ids, _path)) => {
-                if ids.len() > 0 && config.warn_old {
-                    return Err(ReadPDFError::AlreadyParsed);
-                }
-            },
-            Err(_) => {}
+        if let Ok((ids, _path)) = db.lookup_hash(&hash).await {
+            if !ids.is_empty() && config.warn_old {
+                return Err(ReadPDFError::AlreadyParsed);
+            }
         }
 
         // Start parsing document
@@ -231,7 +224,7 @@ pub fn parse_and_store<'a>(
                         account_name,
                     };
                     db.insert_account_if_new(&account).await
-                        .map_err(|err| ReadPDFError::DBError(err))?
+                        .map_err(ReadPDFError::DBError)?
                 };
 
                 // Retrieve all transaction relevant data from pdf
@@ -244,27 +237,27 @@ pub fn parse_and_store<'a>(
                 let transactions_info = make_transactions(&tri).await;
                 match transactions_info {
                     Ok((transactions, asset)) => {
-                        let asset_id = if asset.name == "" {
+                        let asset_id = if asset.name.is_empty() {
                             db.get_asset_by_isin(&asset.isin.unwrap()).await
                                 .map_err(|_| ReadPDFError::NotFound("could not find ISIN in db"))?
                                 .id
                                 .unwrap()
                         } else {
                             db.insert_asset_if_new(&asset, config.rename_asset).await
-                                .map_err(|e| ReadPDFError::DBError(e))?
+                                .map_err(ReadPDFError::DBError)?
                         };
                         let mut trans_ids = Vec::new();
                         for trans in transactions {
                             let mut trans = trans.clone();
                             trans.set_asset_id(asset_id);
-                            if trans_ids.len() > 0 {
+                            if !trans_ids.is_empty() {
                                 trans.set_transaction_ref(trans_ids[0]);
                             }
                             let trans_id = db.insert_transaction(&trans).await
-                                .map_err(|e| ReadPDFError::DBError(e))?;
+                                .map_err(ReadPDFError::DBError)?;
                             trans_ids.push(trans_id);
                             let _ = db.add_transaction_to_account(acc_id, trans_id).await
-                                .map_err(|e| ReadPDFError::DBError(e))?;
+                                .map_err(ReadPDFError::DBError)?;
                         }
                         store_pdf_as_name(path, &file_name, &hash, &config).await?;
                         db.insert_doc(&trans_ids, &hash, &file_name).await?;
@@ -309,7 +302,7 @@ pub async fn check_consistency(tri: &ParsedTransactionInfo) -> Result<(), ReadPD
         add_by_currency(accrued, &mut check_sum, &mut foreign_check_sum);
     }
     check_sum
-        .add(foreign_check_sum, time, &mut fx_converter, true)
+        .add(foreign_check_sum, time, &fx_converter, true)
         .await?;
 
     // Final sum should be nearly zero
@@ -318,7 +311,7 @@ pub async fn check_consistency(tri: &ParsedTransactionInfo) -> Result<(), ReadPD
             "Sum of payments does not equal total payments, difference is {}.",
             check_sum.amount
         );
-        return Err(ReadPDFError::ConsistencyCheckFailed(warning));
+        Err(ReadPDFError::ConsistencyCheckFailed(warning))
     } else {
         Ok(())
     }
@@ -377,7 +370,7 @@ pub async fn make_transactions(
         currency: tri.total_amount.currency,
     };
     for fee in &tri.extra_fees {
-        total_fee.add(*fee, time, &mut fx_converter, true).await?;
+        total_fee.add(*fee, time, &fx_converter, true).await?;
     }
     if total_fee.amount != 0.0 {
         transactions.push(Transaction {

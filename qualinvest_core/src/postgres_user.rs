@@ -66,7 +66,7 @@ impl UserHandler for PostgresDB {
             ).fetch_one(&self.pool).await
             .map_err(|e| DataError::InsertFailed(e.to_string()))?;
         let id: i32 = row.id;
-        user.salt_hash = gen_salt_hash(self, id as usize).await.ok_or(DataError::InsertFailed("reading hash of just inserted user failed".to_string()))?;
+        user.salt_hash = gen_salt_hash(self, id as usize).await.ok_or_else(|| DataError::InsertFailed("reading hash of just inserted user failed".to_string()))?;
         Ok(id as usize)
     }
     
@@ -190,7 +190,7 @@ impl UserHandler for PostgresDB {
                 new_password,
             ).execute(&self.pool).await
             .map_err(|e| DataError::InsertFailed(e.to_string()))?;
-        user.salt_hash = gen_salt_hash(self, id).await.ok_or(DataError::InsertFailed("reading hash of just inserted user failed".to_string()))?;
+        user.salt_hash = gen_salt_hash(self, id).await.ok_or_else(|| DataError::InsertFailed("reading hash of just inserted user failed".to_string()))?;
         Ok(())
     }
 
@@ -208,7 +208,7 @@ impl UserHandler for PostgresDB {
                 , (user_id as i32), (account_id as i32))
                 .fetch_all(&self.pool).await
                 .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
-        if rows.len() > 0 {
+        if !rows.is_empty() {
             let id: i32 = rows[0].id;
             Ok(id as usize)
         } else {
@@ -251,7 +251,7 @@ impl UserHandler for PostgresDB {
     }
 
     /// Remove all ids form ids the user has no access to
-    async fn valid_accounts(&self, user_id: usize, ids: &Vec<usize>) -> Result<Vec<usize>, DataError> {
+    async fn valid_accounts(&self, user_id: usize, ids: &[usize]) -> Result<Vec<usize>, DataError> {
         let user_accounts = self.get_user_accounts(user_id).await?;
         let mut valid_ids = Vec::new();
         for id in ids {

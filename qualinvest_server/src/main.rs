@@ -20,7 +20,6 @@ use rocket::request::{FlashMessage};
 use rocket::form::Form;
 use rocket_dyn_templates::Template;
 use rocket::figment::Figment;
-use tera;
 
 use finql_postgres::PostgresDB;
 use qualinvest_core::{Config, MarketDataProviders};
@@ -115,7 +114,7 @@ async fn process_login(form: Form<UserForm>, cookies: &CookieJar<'_>,
 
 #[get("/logout")]
 async fn logout(user: Option<UserCookie>, cookies: &CookieJar<'_>, state: &State<ServerState>) -> Result<Flash<Redirect>, Redirect> {
-    if let Some(_) = user {
+    if user.is_some() {
         cookies.remove_private(Cookie::named(UserCookie::cookie_id()));
         Ok(Flash::success(Redirect::to(format!("{}/", state.rel_path)), "Successfully logged out."))
     } else {

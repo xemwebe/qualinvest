@@ -4,7 +4,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 fn trim_account(account: &str) -> String {
-    account.trim().replace(" ", "").to_string()
+    account.trim().replace(" ", "")
 }
 
 pub fn parse_account_info(text: &str) -> Result<(String, String), ReadPDFError> {

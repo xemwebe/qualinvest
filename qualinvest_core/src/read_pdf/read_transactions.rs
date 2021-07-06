@@ -138,7 +138,7 @@ fn parse_amount(regex: &Regex, text: &str) -> Result<Option<CashAmount>, ReadPDF
         Some(cap) => {
             let amount = german_string_to_float(&cap[2])?;
             let currency =
-                Currency::from_str(&cap[1]).map_err(|err| ReadPDFError::ParseCurrency(err))?;
+                Currency::from_str(&cap[1]).map_err(ReadPDFError::ParseCurrency)?;
             Ok(Some(CashAmount { amount, currency }))
         }
     }
@@ -175,7 +175,7 @@ fn parse_fx_rate(text: &str) -> Result<(Option<f64>, Option<CashAmount>), ReadPD
     let cap = cap.unwrap();
     let fx_rate = german_string_to_float(&cap[1])?;
     let amount = german_string_to_float(&cap[3])?;
-    let currency = Currency::from_str(&cap[2]).map_err(|err| ReadPDFError::ParseCurrency(err))?;
+    let currency = Currency::from_str(&cap[2]).map_err(ReadPDFError::ParseCurrency)?;
 
     Ok((Some(fx_rate), Some(CashAmount { amount, currency })))
 }
@@ -207,7 +207,7 @@ fn parse_doc_type(text: &str) -> Result<DocumentType, ReadPDFError> {
             // should never happen
             _ => Err(ReadPDFError::UnknownDocumentType),
         }
-    } else if matches.len() == 0 {
+    } else if matches.is_empty() {
         // No document type found, must be tax document
         match TAX_TYPE.captures(text) {
             Some(_) => Ok(DocumentType::Tax),
@@ -240,7 +240,7 @@ fn parse_pre_tax(
             Some(cap) => {
                 let amount = german_string_to_float(&cap[2])?;
                 let currency =
-                    Currency::from_str(&cap[1]).map_err(|err| ReadPDFError::ParseCurrency(err))?;
+                    Currency::from_str(&cap[1]).map_err(ReadPDFError::ParseCurrency)?;
                 let valuta = match VALUTA.captures(text) {
                     Some(cap) => Ok(german_string_to_date(&cap[1])?),
                     None => match VALUTA_ALT.captures(text) {
@@ -258,7 +258,7 @@ fn parse_pre_tax(
         Some(cap) => {
             let amount = german_string_to_float(&cap[3])?;
             let currency =
-                Currency::from_str(&cap[2]).map_err(|err| ReadPDFError::ParseCurrency(err))?;
+                Currency::from_str(&cap[2]).map_err(ReadPDFError::ParseCurrency)?;
             let valuta = german_string_to_date(&cap[1])?;
             Ok((CashAmount { amount, currency }, valuta))
         }
@@ -291,7 +291,7 @@ fn add_or_append(
 
 fn parse_payment_components(
     payments: &mut Vec<CashAmount>,
-    regex_vec: &Vec<Regex>,
+    regex_vec: &[Regex],
     text: &str,
     factor: f64,
 ) -> Result<(), ReadPDFError> {
@@ -367,7 +367,7 @@ pub fn parse_transactions(text: &str) -> Result<ParsedTransactionInfo, ReadPDFEr
             Some(position) => {
                 let amount = german_string_to_float(&position[3])?;
                 let currency = Currency::from_str(&position[2])
-                    .map_err(|err| ReadPDFError::ParseCurrency(err))?;
+                    .map_err(ReadPDFError::ParseCurrency)?;
                 pre_tax_fee_value = Some(CashAmount { amount, currency });
                 Some(german_string_to_float(&position[1])?)
             }

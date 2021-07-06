@@ -351,7 +351,7 @@ async fn main() {
             qualinvest_core::update_ticker(ticker_id, db.clone(), &config.market_data).await.unwrap();
         } else {
             let failed_ticker = qualinvest_core::update_quotes(db, &config.market_data).await.unwrap();
-            if failed_ticker.len() > 0 {
+            if !failed_ticker.is_empty() {
                 println!("Some ticker could not be updated: {:?}", failed_ticker);
             }
         }

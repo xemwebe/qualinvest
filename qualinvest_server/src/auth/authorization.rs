@@ -42,7 +42,7 @@ pub trait AuthorizeCookie : CookieId {
     fn store_cookie(&self) -> String;
     
     /// Deserialize the cookie data type - must be implemented by cookie data type
-    fn retrieve_cookie(cookie_string: String) -> Option<Self> where Self: Sized;
+    fn retrieve_cookie(cookie_string: &str) -> Option<Self> where Self: Sized;
     
     /// Deletes a cookie.  This does not need to be implemented, it defaults to removing
     /// the private key with the named specified by cookie_id() method.
@@ -152,7 +152,7 @@ pub trait AuthorizeForm : CookieId {
             },
             Err(fail) => {
                 let mut furl = err_redir.into();
-                if &fail.user != "" {
+                if !&fail.user.is_empty() {
                     let furl_qrystr = Self::fail_url(&fail.user);
                     furl.push_str(&furl_qrystr);
                 }
@@ -174,7 +174,7 @@ pub trait AuthorizeForm : CookieId {
             },
             Err(fail) => {
                 let mut furl = String::from(err_redir);
-                if &fail.user != "" {
+                if !&fail.user.is_empty() {
                     let furl_qrystr = Self::fail_url(&fail.user);
                     furl.push_str(&furl_qrystr);
                 }
@@ -236,7 +236,7 @@ impl<'r, T: AuthorizeCookie> FromRequest<'r> for AuthCont<T> {
         
         match cookies.get_private(cid) {
             Some(cookie) => {
-                if let Some(cookie_deserialized) = T::retrieve_cookie(cookie.value().to_string()) {
+                if let Some(cookie_deserialized) = T::retrieve_cookie(&cookie.value()) {
                     Outcome::Success(
                         AuthCont {
                             cookie: cookie_deserialized,

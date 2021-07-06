@@ -89,11 +89,7 @@ impl TransactionForm {
     fn from(t: &Transaction, account: &Account) -> Result<TransactionForm,&'static str> {
         let mut tf = TransactionForm::new(account)?;
         tf.id = t.id;
-        tf.note = if let Some(s) = &t.note {
-            Some(s.clone())
-        } else {
-            None
-        };
+        tf.note = t.note.as_ref().cloned();
         tf.cash_amount = t.cash_flow.amount.amount;
         tf.date = NaiveDateForm::new(t.cash_flow.date);
         tf.currency = t.cash_flow.amount.currency.to_string();
@@ -153,10 +149,7 @@ impl TransactionForm {
                 },
                 date: self.date.date,
             },
-            note: match &self.note {
-                None => None,
-                Some(s) => Some(s.clone(),)
-            },
+            note: self.note.as_ref().cloned(),
         };
         Ok(t)
     } 
@@ -245,7 +238,7 @@ pub struct UploadError {
 
 #[post("/pdf_upload", data="<data>")]
 /// Uploading pdf documents via web form
-pub async fn pdf_upload<'r>(mut data: Form<PDFUploadFormData<'r>>, user: UserCookie, state: &State<ServerState>) 
+pub async fn pdf_upload(mut data: Form<PDFUploadFormData<'_>>, user: UserCookie, state: &State<ServerState>) 
 -> Result<Template, Redirect> {
     let pdf_config = PdfParseParams{
         doc_path: state.doc_path.clone(),
@@ -262,7 +255,7 @@ pub async fn pdf_upload<'r>(mut data: Form<PDFUploadFormData<'r>>, user: UserCoo
     let tmp_dir = TempDir::new()
         .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="Failed to create tmp directory")))))?;
     for (i,doc) in data.doc_name.iter_mut().enumerate() {
-        let tmp_path = tmp_dir.path().clone().join(format!("qltmp_pdf{}",i));
+        let tmp_path = tmp_dir.path().join(format!("qltmp_pdf{}",i));
         doc.persist_to(&tmp_path).await
             .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="Persisting uploaded file failed.")))))?;
         if let Some(raw_name) = doc.raw_name() {

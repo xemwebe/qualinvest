@@ -158,7 +158,7 @@ impl PortfolioPosition {
     }
 
     pub async fn add_quote(&mut self, time: DateTime<Utc>, market: &Market) {
-        for (_, pos) in &mut self.assets {
+        for pos in self.assets.values_mut() {
             pos.add_quote(time, market).await;
         }
     }
@@ -173,7 +173,7 @@ impl PortfolioPosition {
             tax: self.cash.tax,
             fees: self.cash.fees,
         };
-        for (_,pos) in &self.assets {
+        for pos in self.assets.values() {
             let pos_value = if let Some(quote) = pos.last_quote {
                 pos.position * quote
             } else {
@@ -223,10 +223,8 @@ impl PortfolioPosition {
 }
 
 /// Search for transaction referred to by transaction_ref and return associated asset_id
-fn get_asset_id(transactions: &Vec<Transaction>, trans_ref: Option<usize>) -> Option<usize> {
-    if trans_ref.is_none() {
-        return None;
-    }
+fn get_asset_id(transactions: &[Transaction], trans_ref: Option<usize>) -> Option<usize> {
+    trans_ref?;
     for trans in transactions {
         if trans.id == trans_ref {
             return match trans.transaction_type {
@@ -246,7 +244,7 @@ fn get_asset_id(transactions: &Vec<Transaction>, trans_ref: Option<usize>) -> Op
 /// Calculate the total position since inception caused by a given set of transactions.
 pub fn calc_position(
     base_currency: Currency,
-    transactions: &Vec<Transaction>,
+    transactions: &[Transaction],
 ) -> Result<PortfolioPosition, PositionError> {
     let mut positions = PortfolioPosition::new(base_currency);
     calc_delta_position(&mut positions, transactions)?;
@@ -257,7 +255,7 @@ pub fn calc_position(
 /// Given a PortfolioPosition, calculate changes to position by a given set of transactions.
 pub fn calc_delta_position(
     positions: &mut PortfolioPosition,
-    transactions: &Vec<Transaction>,
+    transactions: &[Transaction],
 ) -> Result<(), PositionError> {
     let base_currency = positions.cash.currency;
     for trans in transactions {
@@ -324,8 +322,7 @@ pub fn calc_delta_position(
             }
             TransactionType::Fee { transaction_ref } => {
                 let asset_id = get_asset_id(transactions, transaction_ref);
-                if asset_id.is_some() {
-                    let asset_id = asset_id.unwrap();
+                if let Some(asset_id) = asset_id {
                     match positions.assets.get_mut(&asset_id) {
                         None => {
                             let mut new_pos = Position::new(Some(asset_id), base_currency);
@@ -342,8 +339,7 @@ pub fn calc_delta_position(
             }
             TransactionType::Tax { transaction_ref } => {
                 let asset_id = get_asset_id(transactions, transaction_ref);
-                if asset_id.is_some() {
-                    let asset_id = asset_id.unwrap();
+                if let Some(asset_id) = asset_id {
                     match positions.assets.get_mut(&asset_id) {
                         None => {
                             let mut new_pos = Position::new(Some(asset_id), base_currency);
@@ -366,7 +362,7 @@ pub fn calc_delta_position(
 /// Calculate position and P&L since inception.
 /// All transaction with cash flow dates before the given date a taken into account and valued
 /// using the latest available quote before midnight of that date.
-pub async fn calculate_position_and_pnl(currency: Currency, account_ids: &Vec<usize>, date: NaiveDate, db: Arc<PostgresDB>) 
+pub async fn calculate_position_and_pnl(currency: Currency, account_ids: &[usize], date: NaiveDate, db: Arc<PostgresDB>) 
     -> Result<(PortfolioPosition, PositionTotals), PositionError> {
     let transactions = db.get_transactions_before_time(account_ids, date).await;
     let mut position = if let Ok(transactions) = transactions {
@@ -374,7 +370,7 @@ pub async fn calculate_position_and_pnl(currency: Currency, account_ids: &Vec<us
     } else {
         PortfolioPosition::new(currency)
     };
-    position.get_asset_names(db.clone()).await.map_err(|e| PositionError::NoAsset(e))?;
+    position.get_asset_names(db.clone()).await.map_err(PositionError::NoAsset)?;
     let date_time: DateTime<Utc> = DateTime::<Utc>::from(Local.from_local_datetime(&date.and_hms(0,0,0)).unwrap());
     let quote_handler: Arc<dyn QuoteHandler+Send+Sync> = db;
     let market = Market::new(quote_handler);
@@ -390,7 +386,7 @@ pub async fn calculate_position_and_pnl(currency: Currency, account_ids: &Vec<us
 /// with the latest quotes before that date, the final position is valued with the latest
 /// quotes before the date after `end`. With this method, P&L is additive, i.e. adding the 
 /// P&L figures of directly succeeding date periods should sum up to the P&L of the joined period.
-pub async fn calculate_position_for_period(currency: Currency, account_ids: &Vec<usize>, 
+pub async fn calculate_position_for_period(currency: Currency, account_ids: &[usize], 
         start: NaiveDate, end: NaiveDate, db: Arc<PostgresDB>) 
             -> Result<(PortfolioPosition, PositionTotals), PositionError> {
     let (mut position, _) = calculate_position_and_pnl(currency, account_ids, start, db.clone()).await?;
@@ -399,7 +395,7 @@ pub async fn calculate_position_for_period(currency: Currency, account_ids: &Vec
     if let Ok(transactions) = transactions {
         calc_delta_position(&mut position, &transactions)?;
     }
-    position.get_asset_names(db.clone()).await.map_err(|e| PositionError::NoAsset(e))?;
+    position.get_asset_names(db.clone()).await.map_err(PositionError::NoAsset)?;
     let end_date_time: DateTime<Utc> = DateTime::<Utc>::from(Local.from_local_datetime(&end.succ().and_hms(0,0,0)).unwrap());
     let quote_handler = db as Arc<dyn QuoteHandler+Send+Sync>;
     let market = Market::new(quote_handler);

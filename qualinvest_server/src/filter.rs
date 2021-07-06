@@ -151,7 +151,7 @@ pub struct FilterForm {
 
 impl PlainFilter {
     pub async fn from_query<'a>(accounts: Option<String>, start: Option<String>, end: Option<String>, user: &'a user::UserCookie, 
-        user_accounts: &Vec<Account>, rel_path: &str, db: Arc<dyn UserHandler+Send+Sync+'a>) -> Result<PlainFilter, Redirect> {
+        user_accounts: &[Account], rel_path: &str, db: Arc<dyn UserHandler+Send+Sync+'a>) -> Result<PlainFilter, Redirect> {
         let end_date = match end {
             Some(s) => date_from_string(s.as_str(), rel_path)?,
             None => Local::now().naive_local().date()
@@ -182,7 +182,7 @@ impl PlainFilter {
 
 impl FilterForm {
     fn to_query(&self) -> String {
-        if self.account_ids.len() == 0 {
+        if self.account_ids.is_empty() {
             String::new()
         } else {
             let mut query  = format!("?accounts={}", self.account_ids[0]);

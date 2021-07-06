@@ -59,9 +59,8 @@ impl AuthorizeCookie for UserCookie {
     /// The retrieve_cookie() method deserializes a string
     /// into a cookie data type.
     #[allow(unused_variables)]
-    fn retrieve_cookie(string: String) -> Option<Self> {
-        let mut des_buf = string.clone();
-        let des: Result<UserCookie, _> = ::serde_json::from_str(&mut des_buf);
+    fn retrieve_cookie(string: &str) -> Option<Self> {
+        let des: Result<UserCookie, _> = ::serde_json::from_str(string);
         if let Ok(cooky) = des {
             Some(cooky)
         } else {
@@ -77,7 +76,7 @@ impl AuthorizeForm for UserForm {
     /// Authenticate the credentials inside the login form
     async fn authenticate(&self, db: Arc<dyn UserHandler+Send+Sync>) -> Result<Self::CookieType, AuthFail> {
         let user = db.get_user_by_credentials(&self.username, &self.password).await
-            .ok_or(AuthFail::new(self.username.clone(), "Authentication failed.".to_string()))?;
+            .ok_or_else(|| AuthFail::new(self.username.clone(), "Authentication failed.".to_string()))?;
         if user.id.is_none() { return Err(AuthFail::new(self.username.clone(), "Authentication failed.".to_string())); }
         Ok(UserCookie {
             userid: user.id.unwrap(),
@@ -127,7 +126,7 @@ impl<'r> FromRequest<'r> for UserCookie {
         
         match cookies.get_private(cid) {
             Some(cookie) => {
-                if let Some(cookie_deserialized) = UserCookie::retrieve_cookie(cookie.value().to_string()) {
+                if let Some(cookie_deserialized) = UserCookie::retrieve_cookie(&cookie.value()) {
                     Outcome::Success(
                         cookie_deserialized
                     )

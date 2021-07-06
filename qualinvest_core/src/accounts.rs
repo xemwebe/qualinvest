@@ -93,31 +93,31 @@ pub trait AccountHandler: TransactionHandler {
     /// Get transactions filtered by a list of account ids
     async fn get_all_transactions_with_accounts(
         &self,
-        accounts: &Vec<usize>,
+        accounts: &[usize],
     ) -> Result<Vec<Transaction>, DataError>;
 
     /// Get transactions filtered by a list of account ids and cash dates before time
     async fn get_transactions_before_time(
         &self,
-        accounts: &Vec<usize>,
+        accounts: &[usize],
         time: NaiveDate,
     ) -> Result<Vec<Transaction>, DataError>;
 
     /// Get transactions filtered by a list of account ids and cash dates in time range
     async fn get_transactions_in_range(
         &self,
-        accounts: &Vec<usize>,
+        accounts: &[usize],
         start: NaiveDate,
         end: NaiveDate,
     ) -> Result<Vec<Transaction>, DataError>;
 
     /// Get transactions view for list of account ids that a related to a given asset
-    async fn get_transaction_view_for_accounts_and_asset(&self, accounts: &Vec<usize>, asset_id: usize) -> Result<Vec<TransactionView>, DataError>;
+    async fn get_transaction_view_for_accounts_and_asset(&self, accounts: &[usize], asset_id: usize) -> Result<Vec<TransactionView>, DataError>;
 
     /// Get transactions view by accounts
     async fn get_transaction_view_for_accounts(
         &self,
-        accounts: &Vec<usize>,
+        accounts: &[usize],
     ) -> Result<Vec<TransactionView>, DataError>;
 
     /// Change the account a transaction identified by id belongs to
@@ -373,7 +373,7 @@ impl AccountHandler for PostgresDB {
     /// Get transactions filtered by a list of account ids
     async fn get_all_transactions_with_accounts(
         &self,
-        accounts: &Vec<usize>,
+        accounts: &[usize],
     ) -> Result<Vec<Transaction>, DataError> {
         let mut transactions = Vec::new();
         for i in accounts {
@@ -385,7 +385,7 @@ impl AccountHandler for PostgresDB {
     /// Get transactions filtered by a list of account ids and cash dates before time
     async fn get_transactions_before_time(
         &self,
-        accounts: &Vec<usize>,
+        accounts: &[usize],
         time: NaiveDate,
     ) -> Result<Vec<Transaction>, DataError> {
         let mut transactions = Vec::new();
@@ -398,7 +398,7 @@ impl AccountHandler for PostgresDB {
     /// Get transactions filtered by a list of account ids and cash dates in time range
     async fn get_transactions_in_range(
         &self,
-        accounts: &Vec<usize>,
+        accounts: &[usize],
         start: NaiveDate,
         end: NaiveDate,
     ) -> Result<Vec<Transaction>, DataError> {
@@ -413,9 +413,9 @@ impl AccountHandler for PostgresDB {
     /// Get transactions view by accounts
     async fn get_transaction_view_for_accounts(
         &self,
-        accounts: &Vec<usize>,
+        accounts: &[usize],
     ) -> Result<Vec<TransactionView>, DataError> {
-        if accounts.len() == 0 {
+        if accounts.is_empty(){
             return Err(DataError::DataAccessFailure("transaction view requires account list".to_string()));
         }
         let mut query_string = r#"SELECT
@@ -455,10 +455,7 @@ impl AccountHandler for PostgresDB {
             let id: i32 = row.try_get("id").map_err(|e| DataError::NotFound(e.to_string()))?;
             let group_id: i32 = row.try_get("group_id").map_err(|e| DataError::NotFound(e.to_string()))?;
             let asset_id: Option<i32> = row.try_get("asset_id").map_err(|e| DataError::NotFound(e.to_string()))?;
-            let asset_id = match asset_id {
-                Some(id) => Some(id as usize),
-                None => None,
-            };
+            let asset_id = asset_id.map(|id| id as usize);
             let account_id: i32 = row.try_get("account_id").map_err(|e| DataError::NotFound(e.to_string()))?;
             let date: chrono::NaiveDate = row.try_get("cash_date").map_err(|e| DataError::NotFound(e.to_string()))?;
             let cash_date = date.format("%Y-%m-%d").to_string();          
@@ -483,8 +480,8 @@ impl AccountHandler for PostgresDB {
 
 
     /// Get transactions view for list of account ids that are related to a given asset
-    async fn get_transaction_view_for_accounts_and_asset(&self, accounts: &Vec<usize>, asset_id: usize) -> Result<Vec<TransactionView>, DataError> {
-        if accounts.len() == 0 {
+    async fn get_transaction_view_for_accounts_and_asset(&self, accounts: &[usize], asset_id: usize) -> Result<Vec<TransactionView>, DataError> {
+        if accounts.is_empty() {
             return Err(DataError::DataAccessFailure("transaction view requires account list".to_string()));
         }
         let mut query_string = r#"SELECT
@@ -523,10 +520,7 @@ impl AccountHandler for PostgresDB {
             let id: i32 = row.try_get("id").map_err(|e| DataError::NotFound(e.to_string()))?;
             let group_id: i32 = row.try_get("group_id").map_err(|e| DataError::NotFound(e.to_string()))?;
             let asset_id: Option<i32> = row.try_get("asset_id").map_err(|e| DataError::NotFound(e.to_string()))?;
-            let asset_id = match asset_id {
-                Some(id) => Some(id as usize),
-                None => None,
-            };
+            let asset_id = asset_id.map(|id| id as usize);
             let account_id: i32 = row.try_get("account_id").map_err(|e| DataError::NotFound(e.to_string()))?;
             let date: chrono::NaiveDate = row.try_get("cash_date").map_err(|e| DataError::NotFound(e.to_string()))?;
             let cash_date = date.format("%Y-%m-%d").to_string();          
