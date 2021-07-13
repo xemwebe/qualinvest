@@ -8,7 +8,7 @@ use finql_data::Currency;
 use crate::user::UserCookie;
 use crate::layout::layout;
 use crate::filter;
-use qualinvest_core::position::calculate_position_for_period;
+use qualinvest_core::position::calculate_position_for_period_for_accounts;
 use super::{rocket_uri_macro_login,rocket_uri_macro_error_msg};
 use super::ServerState;
 
@@ -29,7 +29,7 @@ pub async fn position(accounts: Option<String>, start: Option<String>, end: Opti
     let user_accounts = user_accounts.unwrap();
 
     let filter = filter::PlainFilter::from_query(accounts, start, end, &user, &user_accounts, &state.rel_path, db.clone()).await?;
-    let (position, totals) = calculate_position_for_period(currency, 
+    let (position, totals) = calculate_position_for_period_for_accounts(currency, 
         &filter.account_ids, filter.start_date, filter.end_date, db).await
         .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=format!("Calculation of position failed: {:?}",e))))))?;
 

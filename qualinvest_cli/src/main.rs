@@ -309,7 +309,7 @@ async fn main() {
                 .await.unwrap(),
             None => db.get_all_transactions().await.unwrap(),
         };
-        let mut position = calc_position(currency, &transactions).unwrap();
+        let mut position = calc_position(currency, &transactions, None).unwrap();
         position.get_asset_names(db.clone()).await.unwrap();
         
         if matches.is_present("quote") {

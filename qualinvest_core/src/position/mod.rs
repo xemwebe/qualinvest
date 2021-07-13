@@ -245,9 +245,10 @@ fn get_asset_id(transactions: &[Transaction], trans_ref: Option<usize>) -> Optio
 pub fn calc_position(
     base_currency: Currency,
     transactions: &[Transaction],
+    date: Option<NaiveDate>,
 ) -> Result<PortfolioPosition, PositionError> {
     let mut positions = PortfolioPosition::new(base_currency);
-    calc_delta_position(&mut positions, transactions)?;
+    calc_delta_position(&mut positions, transactions, None, date)?;
     Ok(positions)
 }
 
@@ -256,9 +257,16 @@ pub fn calc_position(
 pub fn calc_delta_position(
     positions: &mut PortfolioPosition,
     transactions: &[Transaction],
-) -> Result<(), PositionError> {
+    start: Option<NaiveDate>,
+    end: Option<NaiveDate>) -> Result<(), PositionError> {
     let base_currency = positions.cash.currency;
     for trans in transactions {
+        if start.is_some() && trans.cash_flow.date < start.unwrap() {
+            continue;
+        }
+        if end.is_some() && trans.cash_flow.date >= end.unwrap() {
+            continue;
+        }
         // currently, we assume that all cash flows are in the same currency
         if trans.cash_flow.amount.currency != base_currency {
             return Err(PositionError::ForeignCurrency);
@@ -359,21 +367,19 @@ pub fn calc_delta_position(
     Ok(())
 }
 
-/// Calculate position and P&L since inception.
-/// All transaction with cash flow dates before the given date a taken into account and valued
+/// Calculate position and P&L since for list of transactions.
+/// All transaction with cash flow dates before the given date are taken into account and valued
 /// using the latest available quote before midnight of that date.
-pub async fn calculate_position_and_pnl(currency: Currency, account_ids: &[usize], date: NaiveDate, db: Arc<PostgresDB>) 
+pub async fn calculate_position_and_pnl(currency: Currency, transactions: &[Transaction], date: Option<NaiveDate>, db: Arc<dyn QuoteHandler+Send+Sync>) 
     -> Result<(PortfolioPosition, PositionTotals), PositionError> {
-    let transactions = db.get_transactions_before_time(account_ids, date).await;
-    let mut position = if let Ok(transactions) = transactions {
-        calc_position(currency, &transactions)?
+    let mut position = calc_position(currency, &transactions, date)?;
+    position.get_asset_names(db.clone().into_arc_dispatch()).await.map_err(PositionError::NoAsset)?;
+    let date_time: DateTime<Utc> = if let Some(date) = date {
+        DateTime::<Utc>::from(Local.from_local_datetime(&date.and_hms(0,0,0)).unwrap())
     } else {
-        PortfolioPosition::new(currency)
+        Utc::now()
     };
-    position.get_asset_names(db.clone()).await.map_err(PositionError::NoAsset)?;
-    let date_time: DateTime<Utc> = DateTime::<Utc>::from(Local.from_local_datetime(&date.and_hms(0,0,0)).unwrap());
-    let quote_handler: Arc<dyn QuoteHandler+Send+Sync> = db;
-    let market = Market::new(quote_handler);
+    let market = Market::new(db);
     position.add_quote(date_time, &market).await;
     let totals = position.calc_totals();
     Ok((position, totals))
@@ -386,16 +392,13 @@ pub async fn calculate_position_and_pnl(currency: Currency, account_ids: &[usize
 /// with the latest quotes before that date, the final position is valued with the latest
 /// quotes before the date after `end`. With this method, P&L is additive, i.e. adding the 
 /// P&L figures of directly succeeding date periods should sum up to the P&L of the joined period.
-pub async fn calculate_position_for_period(currency: Currency, account_ids: &[usize], 
-        start: NaiveDate, end: NaiveDate, db: Arc<PostgresDB>) 
+pub async fn calculate_position_for_period(currency: Currency, transactions: &[Transaction], 
+        start: NaiveDate, end: NaiveDate, db: Arc<dyn QuoteHandler+Send+Sync>) 
             -> Result<(PortfolioPosition, PositionTotals), PositionError> {
-    let (mut position, _) = calculate_position_and_pnl(currency, account_ids, start, db.clone()).await?;
+    let (mut position, _) = calculate_position_and_pnl(currency, transactions, Some(start), db.clone()).await?;
     position.reset_pnl();
-    let transactions = db.get_transactions_in_range(account_ids, start, end).await;
-    if let Ok(transactions) = transactions {
-        calc_delta_position(&mut position, &transactions)?;
-    }
-    position.get_asset_names(db.clone()).await.map_err(PositionError::NoAsset)?;
+    calc_delta_position(&mut position, &transactions, Some(start), Some(end))?;
+    position.get_asset_names(db.clone().into_arc_dispatch()).await.map_err(PositionError::NoAsset)?;
     let end_date_time: DateTime<Utc> = DateTime::<Utc>::from(Local.from_local_datetime(&end.succ().and_hms(0,0,0)).unwrap());
     let quote_handler = db as Arc<dyn QuoteHandler+Send+Sync>;
     let market = Market::new(quote_handler);
@@ -403,6 +406,16 @@ pub async fn calculate_position_for_period(currency: Currency, account_ids: &[us
     let totals = position.calc_totals();
     Ok((position, totals))
 }
+
+// Calculate position for a given period for transactions in a set of accounts
+pub async fn calculate_position_for_period_for_accounts(currency: Currency, account_ids: &[usize], 
+    start: NaiveDate, end: NaiveDate, db: Arc<PostgresDB>) 
+        -> Result<(PortfolioPosition, PositionTotals), PositionError> {
+    let transactions = db.get_transactions_before_time(account_ids, end).await
+        .map_err(PositionError::NoTransaction)?;
+    calculate_position_for_period(currency, &transactions, start, end, db).await
+}
+
 
 #[cfg(test)]
 mod tests {
