@@ -8,8 +8,7 @@ use rocket::form::{Form, FromForm};
 use super::rocket_uri_macro_error_msg;
 use super::rocket_uri_macro_login;
 
-use finql_data::{AssetHandler, Quote, QuoteHandler};
-use finql::date_time_helper::date_time_from_str_standard;
+use finql_data::{AssetHandler, Quote, QuoteHandler, date_time_helper::date_time_from_str_standard};
 
 use crate::user::UserCookie;
 use crate::layout::layout;

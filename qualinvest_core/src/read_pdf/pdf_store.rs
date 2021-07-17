@@ -43,7 +43,7 @@ mod tests {
     #[test]
     fn test_hash() {
         let file = "LICENSE-MIT";
-        let hash = sha256_hash(file).unwrap();
+        let hash = sha256_hash(&Path::new("..").join(file)).unwrap();
         assert_eq!(
             hash,
             "0998C58A8B2993EA0B3AA8EBAF260606A8F84F3C1005F060A72C814199BDD0BA".to_string()
