@@ -38,7 +38,7 @@
 			{% else %}
 				<button class="button" type="submit">Create</button>
 			{% endif %}
-			<a class="button" href="{{relpath}}/tickres?asset_id={{asset_id}}">Cancel</a>
+			<a class="button" href="{{relpath}}tickres?asset_id={{asset_id}}">Cancel</a>
 		</div>
 	</form>
 </div>

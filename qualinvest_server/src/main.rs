@@ -38,6 +38,7 @@ mod quotes;
 use auth::authorization::*;
 use user::*;
 use layout::*;
+use qualinvest_core::sanitization::filter_non_characters;
 
 pub struct ServerState {
     rel_path: String,
@@ -109,16 +110,16 @@ async fn process_login(form: Form<UserForm>, cookies: &CookieJar<'_>,
         state: &State<ServerState>) -> Result<Redirect, Flash<Redirect>> {
     let db = state.postgres_db.clone();
     let login = form.into_inner();
-    login.flash_redirect(login.redirect.clone(), format!("{}/login", state.rel_path), cookies, db).await
+    login.flash_redirect(login.redirect.clone(), format!("{}login", state.rel_path), cookies, db).await
 }
 
 #[get("/logout")]
 async fn logout(user: Option<UserCookie>, cookies: &CookieJar<'_>, state: &State<ServerState>) -> Result<Flash<Redirect>, Redirect> {
     if user.is_some() {
         cookies.remove_private(Cookie::named(UserCookie::cookie_id()));
-        Ok(Flash::success(Redirect::to(format!("{}/", state.rel_path)), "Successfully logged out."))
+        Ok(Flash::success(Redirect::to(format!("{}", state.rel_path)), "Successfully logged out."))
     } else {
-        Err(Redirect::to(format!("{}/login", state.rel_path)))
+        Err(Redirect::to(format!("{}login", state.rel_path)))
     }
 }
 
@@ -206,18 +207,24 @@ async fn rocket() -> _ {
     };
     let templates = filter::set_filter();
 
-    let mount_path = match config.server.relative_path {
-        Some(ref path) => {
-            format!("/{}", &path)
+    let rel_path = match config.server.relative_path {
+        Some(path) => {
+            let mut rel_path = path.clone();
+            if rel_path.ends_with('/') { rel_path.pop(); }
+            if rel_path != "" {
+                rel_path.push('/');
+            }
+            rel_path
         },
-        None => "/".to_string(),
+        None => "".to_string(),
     };
     let server_state = ServerState {
-        rel_path: mount_path.clone(),
+        rel_path: rel_path.clone(),
         postgres_db: Arc::new(postgres_db),
         doc_path: config.pdf.doc_path.clone(),
         market_data: config.market_data,
     };
+    let mount_path = format!("/{}", rel_path);
     let base_path = Origin::parse(&mount_path).expect("Invalid base path.");
     rocket::custom(rocket_config)
         .attach(templates)

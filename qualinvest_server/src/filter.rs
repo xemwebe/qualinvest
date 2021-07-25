@@ -201,7 +201,7 @@ impl FilterForm {
 #[post("/filter/<view>", data="<form>")]
 pub fn process_filter(view: String, form: Form<FilterForm>, state: &State<ServerState>) -> Redirect {
     let filter_form = form.into_inner();
-    let query_string = format!("{}/{}{}", state.rel_path, view, filter_form.to_query());
+    let query_string = format!("{}{}{}", state.rel_path, view, filter_form.to_query());
     Redirect::to(query_string)
 }
 

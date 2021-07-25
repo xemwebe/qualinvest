@@ -78,7 +78,7 @@ pub async fn delete_ticker(ticker_id: usize, asset_id: usize, user: UserCookie, 
     }
     db.delete_ticker(ticker_id).await
         .map_err(|_| Redirect::to(uri!(error_msg(msg="Deleting of ticker failed."))))?;
-    Ok(Redirect::to(format!("{}/tickers?asset_id={}", state.rel_path, asset_id)))
+    Ok(Redirect::to(format!("{}tickers?asset_id={}", state.rel_path, asset_id)))
 }
 
 /// Structure for storing information in ticker form
@@ -130,5 +130,5 @@ pub async fn save_ticker(form: Form<TickerForm>, user: UserCookie, state: &State
             state.rel_path, uri!(error_msg(msg="failed to store ticker in database.".to_string())))))?;
     }
 
-    Ok(Redirect::to(format!("{}/tickers?asset_id={}", state.rel_path, ticker_form.asset_id)))
+    Ok(Redirect::to(format!("{}tickers?asset_id={}", state.rel_path, ticker_form.asset_id)))
 }
