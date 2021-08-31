@@ -38,7 +38,6 @@ mod quotes;
 use auth::authorization::*;
 use user::*;
 use layout::*;
-use qualinvest_core::sanitization::filter_non_characters;
 
 pub struct ServerState {
     rel_path: String,

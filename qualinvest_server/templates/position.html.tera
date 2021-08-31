@@ -1,6 +1,6 @@
 {% extends "filter" %}
 {% block pagetitle %}{{super()}} - Position{% endblock pagetitle %}
-{% block form_action %}action="{{relpath}}filter/position"{% endblock form_action %}
+{% block form_action %}action="{{relpath}}position"{% endblock form_action %}
 {% block jsdata %}
 {{super()}}
 	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
@@ -13,20 +13,20 @@
 		data.addColumn('string', 'Asset');
 		data.addColumn('number', 'Position');
 		data.addColumn('number', 'Price');
-	data.addColumn('string', 'Currency');
-	data.addColumn('number', 'Total Value in EUR');
-	data.addColumn('number', 'Value in %');
-	data.addColumn('number', 'Total P&L');
-	data.addColumn('number', 'P&L in %')
-	data.addColumn('number', 'Unrealized P&L');
-	data.addColumn('number', 'Trading P&L');
-	data.addColumn('number', 'Dividends');
-	data.addColumn('number', 'Interest');
-	data.addColumn('number', 'Fees');
-	data.addColumn('number', 'Tax');
-	{% set totalValue = totals.value %}
-	{% set totalPnL = totals.unrealized_pnl + totals.trading_pnl + totals.dividend + totals.interest + totals.fees + totals.tax %}
-	data.addRows([
+		data.addColumn('string', 'Currency');
+		data.addColumn('number', 'Total Value in EUR');
+		data.addColumn('number', 'Value in %');
+		data.addColumn('number', 'Total P&L');
+		data.addColumn('number', 'P&L in %')
+		data.addColumn('number', 'Unrealized P&L');
+		data.addColumn('number', 'Trading P&L');
+		data.addColumn('number', 'Dividends');
+		data.addColumn('number', 'Interest');
+		data.addColumn('number', 'Fees');
+		data.addColumn('number', 'Tax');
+		{% set totalValue = totals.value %}
+		{% set totalPnL = totals.unrealized_pnl + totals.trading_pnl + totals.dividend + totals.interest + totals.fees + totals.tax %}
+		data.addRows([
 		[	{v: '       ', f: ''},  
 		{v: -1e10, f: '' }, 
 		{v: -1e10, f: '' },
