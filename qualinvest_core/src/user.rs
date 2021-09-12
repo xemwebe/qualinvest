@@ -1,7 +1,9 @@
 use async_trait::async_trait;
-
+use std::default::Default;
+use serde::{Serialize,Deserialize};
 use crate::accounts::{Account,AccountHandler};
 use finql_data::DataError;
+use chrono::NaiveDate;
 
 /// User information as stored in database
 #[derive(Debug)]
@@ -11,6 +13,15 @@ pub struct User {
     pub display: Option<String>,
     pub salt_hash: String,
     pub is_admin: bool,
+}
+
+/// User settings stored in database
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct UserSettings {
+    pub period_start: Option<NaiveDate>,
+    pub period_end: Option<NaiveDate>,
+    // User accounts selected to be used for portfolio analysis
+    pub account_ids: Vec<usize>,
 }
 
 #[async_trait]
@@ -64,5 +75,11 @@ pub trait UserHandler: AccountHandler {
     /// Remove this transaction and all its dependencies, if it belongs to an account the user has
     /// access rights for.
     async fn remove_transaction(&self, trans_id: usize, user_id: usize)-> Result<(), DataError>;
+
+    /// Get user settings
+    async fn get_user_settings(&self, user_id: usize) -> UserSettings;
+
+    /// Set user settings
+    async fn set_user_settings(&self, user_id: usize, settings: &UserSettings) -> Result<(), DataError>;
 }
 

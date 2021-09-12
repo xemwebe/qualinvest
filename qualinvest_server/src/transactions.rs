@@ -14,38 +14,27 @@ use qualinvest_core::PdfParseParams;
 use qualinvest_core::read_pdf::{parse_and_store};
 use crate::user::UserCookie;
 use crate::layout::layout;
-use crate::filter;
 use crate::form_types::NaiveDateForm;
 use std::str::FromStr;
 use super::rocket_uri_macro_error_msg;
 use super::rocket_uri_macro_login;
 use super::ServerState;
 
-#[get("/transactions?<accounts>&<start>&<end>")]
-pub async fn transactions(accounts: Option<String>, start: Option<String>, end: Option<String>, 
-    user_opt: Option<UserCookie>, state: &State<ServerState>) -> Result<Template,Redirect> {
+#[get("/transactions")]
+pub async fn transactions(user_opt: Option<UserCookie>, state: &State<ServerState>) -> Result<Template,Redirect> {
     if user_opt.is_none() {
         return Err(Redirect::to(format!("{}{}",state.rel_path, uri!(login(redirect=Some("transactions"))))));
     }
     let user = user_opt.unwrap();
 
     let db = state.postgres_db.clone();
-    let user_accounts = user.get_accounts(db.clone()).await;
-    if user_accounts.is_none() {
-        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="Please ask the administrator to set up an account for you first.")))));
-    }
-    let user_accounts = user_accounts.unwrap();
-
-    let filter = filter::PlainFilter::from_query(accounts, start, end, &user, &user_accounts, &state.rel_path, db.clone()).await?;
-
-    let transactions = db.get_transaction_view_for_accounts(&filter.account_ids).await
+    let user_settings = db.get_user_settings(user.userid).await;
+    let transactions = db.get_transaction_view_for_accounts(&user_settings.account_ids).await
         .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=format!("Couldn't get transactions for your account, error was {}", e))))))?;
 
     let mut context = state.default_context();
     context.insert("transactions", &transactions);
-    context.insert("valid_accounts", &user_accounts);
     context.insert("user", &user);
-    context.insert("filter", &filter);
     Ok(layout("transactions", &context.into_json()))
 }
 
@@ -303,7 +292,7 @@ pub async fn delete_transaction(transaction_id: usize, user: UserCookie, state: 
 
     db.remove_transaction(transaction_id, user.userid).await
         .map_err(|_| Redirect::to(uri!(error_msg(msg="data_access_failure_access_denied"))))?;
-    Ok(Redirect::to(format!("{}{}", state.rel_path, uri!(transactions(Option::<String>::None, Option::<String>::None, Option::<String>::None)))))
+    Ok(Redirect::to(format!("{}{}", state.rel_path, uri!(transactions()))))
 }
 
 #[post("/transactions", data = "<form>")]
@@ -362,5 +351,5 @@ pub async fn process_transaction(form: Form<TransactionForm>, user: UserCookie, 
             .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="insert_new_transaction_failed")))))?;
     }
 
-    Ok(Redirect::to(format!("{}{}", state.rel_path, uri!(transactions(Option::<String>::None, Option::<String>::None, Option::<String>::None)))))
+    Ok(Redirect::to(format!("{}{}", state.rel_path, uri!(transactions()))))
 }

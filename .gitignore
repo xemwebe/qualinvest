@@ -8,3 +8,6 @@ qualinvest.toml
 
 /dist_package
 qualinvest.tar.gz
+
+/static
+/templates

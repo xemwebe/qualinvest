@@ -35,6 +35,8 @@ mod layout;
 mod form_types;
 mod ticker;
 mod quotes;
+mod user_settings;
+
 use auth::authorization::*;
 use user::*;
 use layout::*;
@@ -221,7 +223,7 @@ async fn rocket() -> _ {
         rel_path: rel_path.clone(),
         postgres_db: Arc::new(postgres_db),
         doc_path: config.pdf.doc_path.clone(),
-        market_data: config.market_data,
+        market_data: config.market_data
     };
     let mount_path = format!("/{}", rel_path);
     let base_path = Origin::parse(&mount_path).expect("Invalid base path.");
@@ -257,7 +259,8 @@ async fn rocket() -> _ {
             ticker::edit_ticker,
             ticker::save_ticker,
             ticker::delete_ticker,
-            filter::process_filter,
+            user_settings::show_settings,
+            user_settings::save_settings,
             static_files,
             error_msg
         ])

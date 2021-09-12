@@ -1,4 +1,4 @@
-{% extends "filter" %}
+{% extends "layout" %}
 {% block pagetitle %}{{super()}} - Transactions{% endblock  pagetitle %}
 {% block form_action %}action="{{relpath}}transactions"{% endblock form_action %}
 {% block jsdata %}

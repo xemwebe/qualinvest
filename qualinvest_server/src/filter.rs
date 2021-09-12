@@ -1,23 +1,12 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use rocket_dyn_templates::{Template, Engines};
 use rocket_dyn_templates::tera::{self, Value};
 use rocket::fairing::Fairing;
-use rocket::response::Redirect;
-use rocket::State;
-use rocket::form::{Form,FromForm};
 
 use num_format::{Locale, WriteFormatted};
 use unicode_segmentation::UnicodeSegmentation;
 use crate::helper;
-use crate::helper::date_from_string;
-use chrono::{Local,NaiveDate};
-use crate::user;
-use crate::form_types::NaiveDateForm;
-use qualinvest_core::user::UserHandler;
-use qualinvest_core::accounts::Account;
-use super::ServerState;
 
 fn format_num_precision(num: f64, precision: i32) -> String {
     let fac10 = 10_f64.powi(precision);
@@ -133,75 +122,3 @@ mod tests {
         assert_eq!(format_num_precision(12345.6789, 3), "12,345.679".to_string());
     }
 }
-
-
-#[derive(Debug,Serialize,Deserialize)]
-pub struct PlainFilter {
-    pub account_ids: Vec<usize>,
-    pub start_date: NaiveDate,
-    pub end_date: NaiveDate,
-}
-
-#[derive(Debug,Serialize,Deserialize,FromForm)]
-pub struct FilterForm {
-    pub account_ids: Vec<String>,
-    pub start_date: NaiveDateForm,
-    pub end_date: NaiveDateForm,
-}
-
-impl PlainFilter {
-    pub async fn from_query<'a>(accounts: Option<String>, start: Option<String>, end: Option<String>, user: &'a user::UserCookie, 
-        user_accounts: &[Account], rel_path: &str, db: Arc<dyn UserHandler+Send+Sync+'a>) -> Result<PlainFilter, Redirect> {
-        let end_date = match end {
-            Some(s) => date_from_string(s.as_str(), rel_path)?,
-            None => Local::now().naive_local().date()
-        };
-        let start_date = match start {
-            Some(s) => date_from_string(s.as_str(), rel_path)?,
-            None => end_date
-        };
-        let account_ids =
-            if let Some(accounts) = accounts {
-                let accounts = helper::parse_ids(&accounts);
-                if user.is_admin {
-                    accounts
-                } else {
-                    db.valid_accounts(user.userid, &accounts).await
-                        .map_err(|_| Redirect::to(format!("{}{}",rel_path, "/err/valid_accounts")))?
-                }
-        } else {
-            let mut account_ids = Vec::new();
-            for account in user_accounts {
-                account_ids.push(account.id.unwrap());
-            }
-            account_ids
-        };
-        Ok(PlainFilter{account_ids, start_date, end_date})
-    }
-}
-
-impl FilterForm {
-    fn to_query(&self) -> String {
-        if self.account_ids.is_empty() {
-            String::new()
-        } else {
-            let mut query  = format!("?accounts={}", self.account_ids[0]);
-            for id in &self.account_ids[1..] {
-                query = format!("{},{}", query, *id);
-            }
-            query = format!("{}&start={}&end={}",query
-                ,self.start_date.date.format("%Y-%m-%d").to_string()
-                ,self.end_date.date.format("%Y-%m-%d").to_string()
-            );
-            query
-        }
-    }
-}
-
-#[post("/filter/<view>", data="<form>")]
-pub fn process_filter(view: String, form: Form<FilterForm>, state: &State<ServerState>) -> Redirect {
-    let filter_form = form.into_inner();
-    let query_string = format!("{}{}{}", state.rel_path, view, filter_form.to_query());
-    Redirect::to(query_string)
-}
-

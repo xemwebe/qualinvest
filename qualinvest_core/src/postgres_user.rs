@@ -1,9 +1,8 @@
 use async_trait::async_trait;
-
 use finql_postgres::PostgresDB;
 use finql_data::DataError;
 
-use crate::user::{User, UserHandler};
+use crate::user::{User, UserHandler, UserSettings};
 use crate::accounts::Account;
 
 async fn gen_salt_hash(db: &PostgresDB, user_id: usize) -> Option<String> {
@@ -53,6 +52,14 @@ impl UserHandler for PostgresDB {
             FOREIGN KEY(account_id) REFERENCES accounts(id))"
         ).execute(&self.pool).await
          .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
+        sqlx::query!(
+            "CREATE TABLE IF NOT EXISTS user_settings (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER UNIQUE,
+                settings JSON,
+                FOREIGN KEY(user_id) REFERENCES users(id))"
+            ).execute(&self.pool).await
+             .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
         sqlx::query!("CREATE EXTENSION pgcrypto").execute(&self.pool).await
             .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
         Ok(())
@@ -235,7 +242,7 @@ impl UserHandler for PostgresDB {
 
     /// Get list of account ids a user as access to
     async fn get_user_accounts(&self, user_id: usize) -> Result<Vec<Account>, DataError> {
-        let rows= sqlx::query!("SELECT a.id, a.broker, a.account_name FROM accounts a, account_rights r WHERE r.account_id = a.id AND r.user_id=$1", 
+        let rows = sqlx::query!("SELECT a.id, a.broker, a.account_name FROM accounts a, account_rights r WHERE r.account_id = a.id AND r.user_id=$1", 
                 (user_id as i32)).fetch_all(&self.pool).await
                 .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
         let mut accounts = Vec::new();
@@ -329,5 +336,32 @@ impl UserHandler for PostgresDB {
                 .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
         }
         Ok(())
+    }
+
+    /// Get user settings
+    async fn get_user_settings(&self, user_id: usize) -> UserSettings {
+        let row = sqlx::query!("SELECT settings FROM user_settings WHERE user_id=$1", user_id as i32)
+            .fetch_one(&self.pool).await;
+        if let Ok(row) = row {
+            if let Some(settings_value) = row.settings {
+                let settings: UserSettings = serde_json::value::from_value(settings_value).unwrap_or_default();
+                return settings;
+            }
+        }
+        Default::default()
+    }
+
+    /// Set user settings
+    async fn set_user_settings(&self, user_id: usize, settings: &UserSettings) -> Result<(), DataError> {
+        if let Ok(settings_json) = serde_json::to_value(settings) {
+            sqlx::query!(r"INSERT INTO user_settings (user_id, settings)
+            VALUES($1,$2) 
+            ON CONFLICT (user_id) 
+            DO 
+            UPDATE SET settings = $2", user_id as i32, settings_json)
+                .execute(&self.pool).await.map_err(|e| DataError::InsertFailed(e.to_string()))?;
+            return Ok(());
+        }
+        Err(DataError::InsertFailed("Serializing user settings failed.".to_string()))
     }
 }

@@ -1,4 +1,5 @@
 {% extends "layout" %}
+{% block pagetitle %}{{super()}} - Settings{% endblock  pagetitle %}
 {% block jsdata %}
 {{super()}}
 <link rel="stylesheet" href="https://unpkg.com/flatpickr/dist/flatpickr.min.css">
@@ -71,7 +72,7 @@ function setRange() {
 <div class="filter-block" align="center">
 	<div class="table">
 		<div class="table_row">
-	 		<button id="filter_button"  class="button table_cell" onclick="toggleFilter()">Show Filter</button>
+	 		<button id="filter_button"  class="button table_cell" onclick="toggleFilter()">Edit Settings</button>
 			<div class="table_cell_mid" id="period_info" > 
 				<span style="margin-left: 30px">Start Date:</span><span style="margin-left: 10px;" id="info_start">{{filter.start_date}}</span> 
 				<span style="margin-left: 20px">End Date:</span> <span tyle="margin-left: 10px;" id="info_end">{{filter.end_date}}</span>
@@ -80,7 +81,7 @@ function setRange() {
 	</div>
 	<div class="table">
 		<div id="filter" style="display: none">
-			<form {% block form_action %}{% endblock form_action %} method="post">
+			<form action="{{relpath}}save_settings"  method="post">
 				<div class="table_row">
 					<input type="submit" class="button table_cell" id="apply_filter_button" value="Apply Filter" disabled>
 				</div>
