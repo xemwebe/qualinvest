@@ -292,7 +292,7 @@ pub async fn delete_transaction(transaction_id: usize, user: UserCookie, state: 
 
     db.remove_transaction(transaction_id, user.userid).await
         .map_err(|_| Redirect::to(uri!(error_msg(msg="data_access_failure_access_denied"))))?;
-    Ok(Redirect::to(format!("{}{}", state.rel_path, uri!(transactions()))))
+    Ok(Redirect::to(format!("/{}transactions", state.rel_path)))
 }
 
 #[post("/transactions", data = "<form>")]
@@ -351,5 +351,8 @@ pub async fn process_transaction(form: Form<TransactionForm>, user: UserCookie, 
             .map_err(|_| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="insert_new_transaction_failed")))))?;
     }
 
-    Ok(Redirect::to(format!("{}{}", state.rel_path, uri!(transactions()))))
+    println!("uri!(transactions)={}", uri!(transactions));
+    println!("state.rel_path={}", state.rel_path);
+    println!("total redirect: {}{}", state.rel_path, uri!(transactions));
+    Ok(Redirect::to(format!("/{}transactions", state.rel_path)))
 }

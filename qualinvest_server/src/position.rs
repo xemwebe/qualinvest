@@ -23,9 +23,10 @@ pub async fn position(user_opt: Option<UserCookie>,
     let currency = Currency::from_str("EUR").unwrap();
     let db = state.postgres_db.clone();
     let user_settings = db.get_user_settings(user.userid).await;
-    let period_end = user_settings.period_start.unwrap_or(chrono::Utc::now().naive_local().date());
-    let period_start = user_settings.period_end.unwrap_or(period_end);
+    let period_end = user_settings.period_end.unwrap_or(chrono::Utc::now().naive_local().date());
+    let period_start = user_settings.period_start.unwrap_or(period_end);
 
+    println!("Calculate position as of {} with PnL since {} for account ids {:?}", period_end, period_start, user_settings.account_ids);
     let (position, totals) = calculate_position_for_period_for_accounts(currency, 
         &user_settings.account_ids, period_start, period_end, db).await
         .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=format!("Calculation of position failed: {:?}",e))))))?;

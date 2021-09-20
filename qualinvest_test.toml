@@ -1,0 +1,24 @@
+debug = false
+
+[db] 
+host = '/var/run/postgresql'
+name = 'testqlinvestdb'
+user = 'qltester'
+password = 'DwStY6hhM9jGbdCZdRWJ' 
+
+[pdf]
+doc_path = '/tmp/.qlinv_docs'
+warn_old = false
+consistency_check = true
+rename_asset = false
+
+[market_data]
+alpha_vantage_token = ""
+gurufocus_token = ""
+eod_historical_data_token = ""
+
+[server]
+port = 8000
+relative_path = ""
+secret_key = "cUagfL6pfOZmSrn/3WTDef8tLTdaMSfIwjHCd/EaxPg="
+

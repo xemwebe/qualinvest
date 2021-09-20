@@ -5,23 +5,23 @@
 <link rel="stylesheet" href="https://unpkg.com/flatpickr/dist/flatpickr.min.css">
 <script src="https://unpkg.com/flatpickr"></script>
 <script>
-function toggleFilter() {
-  var x = document.getElementById("filter");
-  var y = document.getElementById("filter_button");
+function togglesettings() {
+  var x = document.getElementById("settings");
+  var y = document.getElementById("settings_button");
   var z = document.getElementById("period_info");
   if (x.style.display === "none") {
     x.style.display = "block";
 	z.style.display = "none";
-    y.textContent = "Hide Filter";
+    y.textContent = "Hide settings";
   } else {
     x.style.display = "none";
 	z.style.display = "inline";
-    y.textContent = "Show Filter";
+    y.textContent = "Show settings";
   }
 }
 
 function formChange() {
-	document.getElementById('apply_filter_button').disabled = false;
+	document.getElementById('apply_settings_button').disabled = false;
 	document.getElementById('info_start').textContent = document.getElementById('start_date').value;
 	document.getElementById('info_end').textContent = document.getElementById('end_date').value;
 	if(!presetRange) {
@@ -69,54 +69,39 @@ function setRange() {
 {% endblock jsdata %}
 {% block content %}
 {{super()}}
-<div class="filter-block" align="center">
-	<div class="table">
+<h2 align="center">Settings for user {{user.username}}</h2>
+<div align="center table">
+	<form action="save_settings"  method="post">
 		<div class="table_row">
-	 		<button id="filter_button"  class="button table_cell" onclick="toggleFilter()">Edit Settings</button>
-			<div class="table_cell_mid" id="period_info" > 
-				<span style="margin-left: 30px">Start Date:</span><span style="margin-left: 10px;" id="info_start">{{filter.start_date}}</span> 
-				<span style="margin-left: 20px">End Date:</span> <span tyle="margin-left: 10px;" id="info_end">{{filter.end_date}}</span>
+			<input type="submit" class="button table_cell" id="apply_settings_button" value="Save settings">
+		</div>
+		<div class="table_row">
+			<select class="table_cell" id="range_select" onchange="setRange()"> 
+				<option value="custom" selected>Custom</option> 
+				<option value="daily" >Daily</option> 
+				<option value="mtd" >Month-to-Date</option> 
+				<option value="ytd" >Year-to-Date</option> 
+			</select> 
+		</div>
+		<div class="table_row">
+			<label class="table_cell" for="start_date">Period Start:</label>
+			<input class="fpcalendar flatpickr flatpickr-input" onchange="formChange()" name="start_date" id="start_date" type="text" value={{settings.period_start}}>
+		</div>
+		<div class="table_row">
+			<label class="table_cell" for="end_date">Period End:</label>
+			<input class="fpcalendar flatpickr flatpickr-input" onchange="formChange()" name="end_date" id="end_date" type="text" value={{settings.period_end}}>
+		</div>
+		<div class="table_row">
+		<label class="table_cell">Select account(s):</label>
+			<div class="table_cell">
+				<select class="selectpicker" name="account_ids" id="account_ids" multiple onclick="formChange()">
+					{% for acc in valid_accounts %}
+						<option value={{acc.id}}
+						{% if acc.id in settings.account_ids %}selected{% endif %}>{{acc.broker}}: {{acc.account_name}}</option>
+					{% endfor %}
+				</select>
 			</div>
-		</div>
-	</div>
-	<div class="table">
-		<div id="filter" style="display: none">
-			<form action="{{relpath}}save_settings"  method="post">
-				<div class="table_row">
-					<input type="submit" class="button table_cell" id="apply_filter_button" value="Apply Filter" disabled>
-				</div>
-				<div class="table_row">
-					<select class="table_cell" id="range_select" onchange="setRange()"> 
-						<option value="custom" selected>Custom</option> 
-						<option value="daily" >Daily</option> 
-						<option value="mtd" >Month-to-Date</option> 
-						<option value="ytd" >Year-to-Date</option> 
-					</select> 
-				</div>
-				<div class="table_row">
-					<label class="table_cell" for="start_date">Start Date:</label>
-					<div class="table_cell">
-						<input class="fpcalendar flatpickr flatpickr-input" onchange="formChange()" name="start_date" id="start_date" type="text" value={{filter.start_date}}>
-					</div>
-					<label class="table_cell" for="end_date">End Date:</label>
-					<div class="table_cell">
-						<input class="fpcalendar flatpickr flatpickr-input" onchange="formChange()" name="end_date" id="end_date" type="text" value={{filter.end_date}}>
-					</div>
-				</div>
-				<div class="table_row">
-					<label class="table_cell">Select account(s):</label>
-					<div class="table_cell">
-						<select class="selectpicker" name="account_ids" id="account_ids" multiple onclick="formChange()">
-						{% for acc in valid_accounts %}
-							<option value={{acc.id}}
-								{% if acc.id in filter.account_ids %}selected{% endif %}>{{acc.broker}}: {{acc.account_name}}</option>
-						{% endfor %}
-						</select>
-					</div>
-				</div>
-			</form>
-		</div>
-	</div>
+	</form>
 </div>
 <script>
 const calendars = flatpickr(".fpcalendar", {});

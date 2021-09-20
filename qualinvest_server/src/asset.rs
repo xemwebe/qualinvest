@@ -141,5 +141,5 @@ pub async fn save_asset(form: Form<AssetForm>, user: UserCookie, state: &State<S
             .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=format!("Couldn't insert assert, error was {}", e))))))?;
     }
 
-    Ok(Redirect::to(format!("{}{}", state.rel_path, uri!(assets()))))
+    Ok(Redirect::to(format!("/{}assets", state.rel_path)))
 }

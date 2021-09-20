@@ -38,9 +38,11 @@ pub async fn show_settings(user_opt: Option<UserCookie>, state: &State<ServerSta
         return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="No user account found".to_string())))));
     }
     let user_accounts = user_accounts.unwrap();
+    let settings = db.get_user_settings(user.userid).await;
 
     let mut context = state.default_context();
     context.insert("valid_accounts", &user_accounts);
+    context.insert("settings", &settings);
     context.insert("user", &user);
     Ok(layout("user_settings", &context.into_json()))
 }
@@ -83,7 +85,7 @@ pub async fn save_settings(form: Form<UserSettingsForm>, user_opt: Option<UserCo
     let result = db.set_user_settings(user.userid, &user_settings).await;
 
     match result {
-        Ok(()) => Redirect::to(format!("{}settings", state.rel_path )),
+        Ok(()) => Redirect::to("settings"),
         Err(_) => Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="Failed ot save user settings".to_string())))),
     }
 }

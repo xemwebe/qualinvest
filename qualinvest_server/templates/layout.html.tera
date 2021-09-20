@@ -6,18 +6,18 @@
 
 	<title>{% block pagetitle %}QuantInvest{% endblock pagetitle%}</title>
 
-	<link rel="stylesheet" href="{{relpath}}static/qualinv.css" />
+	<link rel="stylesheet" href="/{{relpath}}static/qualinv.css" />
 	{% block jsdata %}{% endblock jsdata %}
 </head>
 <body style="padding-top: 15px;">
 	<nav class="nav">
 		<ul>
-			<li><a href="{{relpath}}">QuantInvest</a></li>
-			<li><a href="{{relpath}}transactions">Transactions</a></li>
-			<li><a href="{{relpath}}position">Position</a></li>
-			<li><a href="{{relpath}}asset">Analysis</a></li>
-			<li><a href="{{relpath}}assets">Assets</a></li>
-			<li><a href="{{relpath}}settings">Settings</a></li>
+			<li><a href="/{{relpath}}">QuantInvest</a></li>
+			<li><a href="/{{relpath}}transactions">Transactions</a></li>
+			<li><a href="/{{relpath}}position">Position</a></li>
+			<li><a href="/{{relpath}}asset">Analysis</a></li>
+			<li><a href="/{{relpath}}assets">Assets</a></li>
+			<li><a href="/{{relpath}}settings">Settings</a></li>
 			{% if not user.userid %}
 			<li><a href="{{relpath}}login?redir={{relpath}}">Login</a></li>
 			{% else %}

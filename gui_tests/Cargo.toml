@@ -1,0 +1,14 @@
+[package]
+name = "gui_tests"
+version = "0.1.0"
+authors = ["Mark Beinker <mwb@quantlink.de>"]
+edition = "2018"
+description = "Automated GUI tests based on selenium"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/xemwebe/qualinvest"
+keywords = ["finance", "investment", "quantitative", "analysis", "gui", "test"]
+
+[dependencies]
+thirtyfour = "0.27"
+tokio = "1.0"
+color-eyre = "0.5"
