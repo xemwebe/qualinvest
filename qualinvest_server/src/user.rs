@@ -21,7 +21,7 @@ pub struct UserCookie {
 impl UserCookie {
     pub async fn get_accounts(&self, db: Arc<dyn UserHandler+Send+Sync>) -> Option<Vec<Account>> {
         if self.is_admin {
-            db.get_all_accounts().await.ok()
+            Some(db.get_all_accounts().await)
         } else {
             db.get_user_accounts(self.userid).await.ok()
         }

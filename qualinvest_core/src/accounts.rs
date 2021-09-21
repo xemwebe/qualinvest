@@ -49,7 +49,7 @@ pub trait AccountHandler: TransactionHandler {
     async fn get_all_account_ids(&self) -> Result<Vec<usize>, DataError>;
 
     /// Get list of all accounts
-    async fn get_all_accounts(&self) -> Result<Vec<Account>, DataError>;
+    async fn get_all_accounts(&self) -> Vec<Account>;
 
     /// Add a transaction to the account
     async fn add_transaction_to_account(
@@ -213,21 +213,22 @@ impl AccountHandler for PostgresDB {
         Ok(ids)
     }
 
-    async fn get_all_accounts(&self) -> Result<Vec<Account>, DataError> {
+    async fn get_all_accounts(&self) -> Vec<Account> {
         let rows = sqlx::query!(
                 "SELECT id, broker, account_name FROM accounts"
-            ).fetch_all(&self.pool).await
-            .map_err(|e| DataError::NotFound(e.to_string()))?;
+            ).fetch_all(&self.pool).await;
         let mut accounts = Vec::new();
-        for row in rows {
-            let id: i32 = row.id;
-            accounts.push(Account{
-                id: Some(id as usize),
-                broker: row.broker,
-                account_name: row.account_name,
-            });
+        if let Ok(rows) = rows {
+            for row in rows {
+                let id: i32 = row.id;
+                accounts.push(Account{
+                    id: Some(id as usize),
+                    broker: row.broker,
+                    account_name: row.account_name,
+                });
+            }
         }
-        Ok(accounts)
+        accounts
     }
 
     /// Insert transaction to account relation

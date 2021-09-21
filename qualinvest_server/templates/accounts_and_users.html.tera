@@ -1,0 +1,24 @@
+{% extends "layout" %}
+{% block pagetitle %}{{super()}} - Manage users and accounts{% endblock pagetitle %}
+{% block content %}
+{% block jsdata %}{% endblock jsdata %}
+{{super()}}
+<div class="center" align="center">
+	<form action="/{{relpath}}account/add" method="post">
+		<h2>Add new account</h2>
+		<div class="table">
+			<div class="table_row">
+				<label class="table_cell" for="account_name">Acount name:</label>
+				<input class="table_cell" id="account_name" name="account_name" type="text">
+			</div>
+			<div class="table_row">
+				<label class="table_cell" for="broker">Bank/Broker:</label>
+				<input class="table_cell" id="broker" name="broker" type="text">
+			</div>
+			<div class="table_row">
+				<button class="button table_cell" type="submit">Add</button>
+			</div>
+		</div>
+	</form>
+</div>
+{% endblock content %}

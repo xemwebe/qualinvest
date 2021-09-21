@@ -6,7 +6,7 @@ use finql_data::DataError;
 use chrono::NaiveDate;
 
 /// User information as stored in database
-#[derive(Debug)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct User {
     pub id: Option<usize>,
     pub name: String,
@@ -45,6 +45,8 @@ pub trait UserHandler: AccountHandler {
     async fn get_admin_id(&self, name: &str) -> Option<usize>;
     /// Get user id if user name and password are valid
     async fn get_user_id_by_credentials(&self, name: &str, password: &str) -> Option<usize>; 
+    /// Get list of all users
+    async fn get_all_users(&self) -> Vec<User>; 
 
     /// Update user, but let password unchanged
     async fn update_user(&self, user: &User) -> Result<(), DataError>;

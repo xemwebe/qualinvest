@@ -31,6 +31,7 @@ use rocket::figment::Figment;
 use finql_postgres::PostgresDB;
 use qualinvest_core::{Config, MarketDataProviders};
 
+mod accounts;
 mod asset;
 mod position;
 mod transactions;
@@ -268,6 +269,13 @@ async fn rocket() -> _ {
             ticker::delete_ticker,
             user_settings::show_settings,
             user_settings::save_settings,
+            accounts::accounts,
+            accounts::add_account,
+            accounts::update_account,
+            accounts::delete_account,
+            accounts::add_user,
+            accounts::update_user,
+            accounts::delete_user,
             static_files,
             error_msg
         ])

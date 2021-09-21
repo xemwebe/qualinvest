@@ -165,6 +165,27 @@ impl UserHandler for PostgresDB {
             }
     }
 
+    /// Get list of all users
+    async fn get_all_users(&self) -> Vec<User> {
+        let rows = sqlx::query!(
+                "SELECT id, name, display, is_admin FROM users"
+            ).fetch_all(&self.pool).await;
+        let mut users = Vec::new();
+        if let Ok(rows) = rows {
+            for row in rows {
+                let id: i32 = row.id;
+                users.push(User {
+                    id: Some(id as usize),
+                    name: row.name,
+                    display: if row.display.is_empty() { None } else { Some(row.display) },
+                    salt_hash: "".to_string(),
+                    is_admin: row.is_admin,
+                });
+            }
+        }
+        users
+    }
+
     /// Update user 
     async fn update_user(&self, user: &User) -> Result<(), DataError> {
         if user.id.is_none() {
