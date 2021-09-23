@@ -1,24 +1,64 @@
 {% extends "layout" %}
 {% block pagetitle %}{{super()}} - Manage users and accounts{% endblock pagetitle %}
 {% block content %}
-{% block jsdata %}{% endblock jsdata %}
+{% block jsdata %}
+<script>
+last_row=1;
+function add_account_row() {
+	accounts_table = document.getElementById("accounts_table");
+	last_row += 1;
+	accounts_table.innerHTML += `<div class="table_row" id="row${last_row}">
+		<div class="table_cell">
+		<img class="icon" width=25 src="static/check.svg" onclick="send_account_row(${last_row})">
+		<img class="icon" width=25 src="static/edit.svg" onclick="edit_account_row(${last_row})">
+		<img class="icon" width=25 src="static/cross.svg" onclick="delete_account_row(${last_row})">
+		</div>
+			<div class="table_cell"><input name="account_name" type="text"></div>
+			<div class="table_cell"><input name="broker" type="text"></div>
+			<div class="table_cell"><input name="users" type="text"></div>
+		</div>`;
+}
+function send_account_row(row_id) {
+	var row = document.getElementById(`row${row_id}`)
+	inputs = row.getElementsByTagName("input");
+	account_name = inputs[0].value;
+	broker = inputs[1].value;
+	var xhr = new XMLHttpRequest();
+	xhr.open("POST", '/account/add')
+	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+	xhr.onreadystatechange = function() { 
+		location.reload()
+	}
+	xhr.send(`account_name=${account_name}&broker=${broker}`);	
+}
+function edit_account_row(row_id) {
+	alert("Edit row id was: " + row_id);
+}
+function delete_account_row(row_id) {
+	alert("Delete row id was: " + row_id);
+}
+</script>
+{% endblock jsdata %}
 {{super()}}
 <div class="center" align="center">
-	<form action="/{{relpath}}account/add" method="post">
-		<h2>Add new account</h2>
-		<div class="table">
-			<div class="table_row">
-				<label class="table_cell" for="account_name">Acount name:</label>
-				<input class="table_cell" id="account_name" name="account_name" type="text">
-			</div>
-			<div class="table_row">
-				<label class="table_cell" for="broker">Bank/Broker:</label>
-				<input class="table_cell" id="broker" name="broker" type="text">
-			</div>
-			<div class="table_row">
-				<button class="button table_cell" type="submit">Add</button>
-			</div>
+	<h2>Manage accounts</h2>
+	<div class="table" id="accounts_table">
+		<div class="table_row">
+			<div class="table_cell"><img class="icon" width=30 src="static/plus.svg" onclick="add_account_row()"></div>
+			<div class="table_cell">Acount Number</div>
+			<div class="table_cell">Bank/Broker</div>
+			<div class="table_cell">Users with Access</div>
 		</div>
-	</form>
+		<div class="table_row">
+			<div class="table_cell">
+				<img class="icon" width=25 src="static/check.svg" onclick="send_account_row(1)">
+				<img class="icon" width=25 src="static/edit.svg" onclick="edit_account_row(1)">
+				<img class="icon" width=25 src="static/cross.svg" onclick="delete_account_row(1)">
+			</div>
+			<div class="table_cell"><input name="account_name" id="a1" type="text"></div>
+			<div class="table_cell"><input name="broker" id="b1" type="text"></div>
+			<div class="table_cell"><input name="users" id="u1" type="text"></div>
+		</div>
+	</div>
 </div>
 {% endblock content %}

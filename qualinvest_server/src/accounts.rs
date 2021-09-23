@@ -6,7 +6,7 @@ use rocket_dyn_templates::Template;
 use rocket::form::{Form, FromForm};
 use super::rocket_uri_macro_error_msg;
 
-use qualinvest_core::accounts::AccountHandler;
+use qualinvest_core::accounts::{Account, AccountHandler};
 use qualinvest_core::user::UserHandler;
 use crate::user::UserCookie;
 use crate::layout::layout;
@@ -16,8 +16,18 @@ use super::ServerState;
 #[derive(Debug,Serialize,Deserialize,FromForm)]
 pub struct AccountForm {
     pub id: Option<usize>,
-    pub broker: Option<String>,
-    pub account_name: Option<String>
+    pub broker: String,
+    pub account_name: String
+}
+
+impl AccountForm {
+    pub fn to_account(&self) -> Account {
+        Account{
+            id: self.id,
+            account_name: self.account_name.clone(),
+            broker: self.broker.clone(),
+        }
+    }
 }
 
 /// Structure for storing information in accounts form
@@ -51,6 +61,8 @@ pub async fn add_account(form: Form<AccountForm>, user: UserCookie, state: &Stat
     if !user.is_admin {
         return  Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="You must be admin user to add accounts!")))));
     }
+    state.postgres_db.insert_account_if_new(&form.into_inner().to_account()).await
+        .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=format!("Adding account failed: {}", e))))))?;
 
     Ok(Redirect::to(format!("/{}accounts", state.rel_path)))
 }
