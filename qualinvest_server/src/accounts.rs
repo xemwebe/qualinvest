@@ -45,7 +45,7 @@ pub async fn accounts(user: UserCookie, state: &State<ServerState>) -> Result<Te
         return  Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="You must be admin user to edit assets!")))));
     }
 
-    let db = state.postgres_db.clone();
+    let db = state.postgres_db.clone(); 
     let accounts = db.get_all_accounts().await;
     let users = db.get_all_users().await;
 
@@ -61,26 +61,27 @@ pub async fn add_account(form: Form<AccountForm>, user: UserCookie, state: &Stat
     if !user.is_admin {
         return  Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="You must be admin user to add accounts!")))));
     }
-    state.postgres_db.insert_account_if_new(&form.into_inner().to_account()).await
+
+    let account = &form.into_inner().to_account();
+    if account.id.is_none() {
+        state.postgres_db.insert_account_if_new(account).await
         .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=format!("Adding account failed: {}", e))))))?;
-
-    Ok(Redirect::to(format!("/{}accounts", state.rel_path)))
-}
-
-#[post("/account/update", data = "<form>")]
-pub async fn update_account(form: Form<AccountForm>, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
-    if !user.is_admin {
-        return  Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="You must be admin user to update accounts!")))));
+    } else {
+        state.postgres_db.update_account(account).await
+        .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=format!("Updating account failed: {}", e))))))?;
     }
 
     Ok(Redirect::to(format!("/{}accounts", state.rel_path)))
 }
 
-#[get("/account/delete?<account_id>")]
-pub async fn delete_account(account_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
+#[get("/account/delete?<id>")]
+pub async fn delete_account(id: usize, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
     if !user.is_admin {
         return  Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="You must be admin user to delete accounts!")))));
     }
+
+    state.postgres_db.delete_account(id).await
+        .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=format!("Delete account failed: {}", e))))))?;
 
     Ok(Redirect::to(format!("/{}accounts", state.rel_path)))
 }

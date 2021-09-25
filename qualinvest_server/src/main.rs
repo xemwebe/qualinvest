@@ -271,7 +271,6 @@ async fn rocket() -> _ {
             user_settings::save_settings,
             accounts::accounts,
             accounts::add_account,
-            accounts::update_account,
             accounts::delete_account,
             accounts::add_user,
             accounts::update_user,

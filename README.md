@@ -22,3 +22,7 @@ qualinvest_core --init-database --config config.toml
 ```
 
 where the config file contains the credentials for the new, empty database.
+
+# Other stuff
+
+We use pictograms from Entypo pictograms by Daniel Bruce — www.entypo.com, licensed under http://creativecommons.org/licenses/by-sa/4.0/.

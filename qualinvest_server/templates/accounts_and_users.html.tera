@@ -3,40 +3,162 @@
 {% block content %}
 {% block jsdata %}
 <script>
-last_row=1;
+
 function add_account_row() {
+	editable_row = document.getElementById("acc_idnew");
+	if(editable_row) return;
+
 	accounts_table = document.getElementById("accounts_table");
-	last_row += 1;
-	accounts_table.innerHTML += `<div class="table_row" id="row${last_row}">
+	accounts_table.innerHTML += `<div class="table_row" id="acc_idnew">
 		<div class="table_cell">
-		<img class="icon" width=25 src="static/check.svg" onclick="send_account_row(${last_row})">
-		<img class="icon" width=25 src="static/edit.svg" onclick="edit_account_row(${last_row})">
-		<img class="icon" width=25 src="static/cross.svg" onclick="delete_account_row(${last_row})">
+		<img class="icon" width=25 src="static/unlocked.svg" onclick="location.reload(true)">
+		<img class="icon" width=25 src="static/check.svg" onclick="send_account_row('new')">
+		<img class="icon" width=25 src="static/cross.svg" onclick="delete_account_row('new')" hidden>
 		</div>
 			<div class="table_cell"><input name="account_name" type="text"></div>
 			<div class="table_cell"><input name="broker" type="text"></div>
-			<div class="table_cell"><input name="users" type="text"></div>
 		</div>`;
 }
+
 function send_account_row(row_id) {
-	var row = document.getElementById(`row${row_id}`)
+	var row = document.getElementById(`acc_id${row_id}`)
 	inputs = row.getElementsByTagName("input");
 	account_name = inputs[0].value;
 	broker = inputs[1].value;
+	if(account_name == "" || broker == "") return;
 	var xhr = new XMLHttpRequest();
 	xhr.open("POST", '/account/add')
 	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 	xhr.onreadystatechange = function() { 
-		location.reload()
+		location.reload(true)
 	}
-	xhr.send(`account_name=${account_name}&broker=${broker}`);	
+	body = `account_name=${account_name}&broker=${broker}`
+	if(row_id != "new") {
+		body += `&id=${row_id}`;
+	}
+	xhr.send(body);	
 }
+
 function edit_account_row(row_id) {
-	alert("Edit row id was: " + row_id);
+	var row = document.getElementById(`acc_id${row_id}`)
+	for(e of row.children) {
+		for(f of e.children) {
+			name = f.getAttribute("name");
+			if(name == "account_name" || name == "broker") {
+				f.disabled = false;
+			}
+			src = f.getAttribute("src");
+			if(src == "static/check.svg") {
+				f.disabled = false;
+			}
+			if(src == "static/cross.svg") {
+				f.hidden = true;
+			}
+			if(src == "static/check.svg") {
+				f.hidden = false;
+			}
+			if(src == "static/locked.svg") {
+				f.setAttribute("src", "static/unlocked.svg");
+				f.setAttribute("onclick", "location.reload(true)");
+			}
+		}
+	}
 }
+
 function delete_account_row(row_id) {
-	alert("Delete row id was: " + row_id);
+
+	var row = document.getElementById(`acc_id${row_id}`)
+	if(row_id == "new") {
+		return;
+	}
+	inputs = row.getElementsByTagName("input");
+	var xhr = new XMLHttpRequest();
+	xhr.open("GET", `/account/delete?id=${row_id}`)
+	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+	xhr.onreadystatechange = function() { 
+		location.reload(true)
+	}
+	xhr.send();	
 }
+
+function add_user() {
+	editable_row = document.getElementById("user_idnew");
+	if(editable_row) return;
+
+	accounts_table = document.getElementById("users_table");
+	accounts_table.innerHTML += `<div class="table_row" id="user_idnew">
+		<div class="table_cell">
+		<img class="icon" width=25 src="static/unlocked.svg" onclick="location.reload(true)">
+		<img class="icon" width=25 src="static/check.svg" onclick="send_user('new')">
+		<img class="icon" width=25 src="static/cross.svg" onclick="delete_user('new')" hidden>
+		</div>
+			<div class="table_cell"><input name="name" type="text"></div>
+			<div class="table_cell"><input name="display" type="text"></div>
+			<div class="table_cell"><input name="is_admin" type="checkbox" checked></div>
+		</div>`;
+}
+
+function send_user(row_id) {
+	var row = document.getElementById(`user_id${row_id}`)
+	inputs = row.getElementsByTagName("input");
+	name = inputs[0].value;
+	if(name == "") return;
+	display = inputs[1].value;
+	is_admin = inputs[2].checked;
+	var xhr = new XMLHttpRequest();
+	xhr.open("POST", '/user/add')
+	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+	xhr.onreadystatechange = function() { 
+		//location.reload(true)
+	}
+	body = `name=${name}&is_admin=${is_admin}&display=${display}`
+	if(row_id != "new") {
+		body += `&id=${row_id}`;
+	}
+	xhr.send(body);	
+}
+
+function edit_user(row_id) {
+	var row = document.getElementById(`user_id${row_id}`)
+	for(e of row.children) {
+		for(f of e.children) {
+			name = f.getAttribute("name");
+			if(name == "name" || name == "display" || name == "is_admin") {
+				f.disabled = false;
+			}
+			src = f.getAttribute("src");
+			if(src == "static/check.svg") {
+				f.disabled = false;
+			}
+			if(src == "static/cross.svg") {
+				f.hidden = true;
+			}
+			if(src == "static/check.svg") {
+				f.hidden = false;
+			}
+			if(src == "static/locked.svg") {
+				f.setAttribute("src", "static/unlocked.svg");
+				f.setAttribute("onclick", "location.reload(true)");
+			}
+		}
+	}
+}
+
+function delete_user(row_id) {
+
+	var row = document.getElementById(`user_id${row_id}`)
+	if(row_id == "new") {
+		return;
+	}
+	var xhr = new XMLHttpRequest();
+	xhr.open("GET", `/user/delete?id=${row_id}`)
+	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+	xhr.onreadystatechange = function() { 
+		location.reload(true)
+	}
+	xhr.send();	
+}
+
 </script>
 {% endblock jsdata %}
 {{super()}}
@@ -47,18 +169,43 @@ function delete_account_row(row_id) {
 			<div class="table_cell"><img class="icon" width=30 src="static/plus.svg" onclick="add_account_row()"></div>
 			<div class="table_cell">Acount Number</div>
 			<div class="table_cell">Bank/Broker</div>
-			<div class="table_cell">Users with Access</div>
+			<div class="table_cell"></div>
 		</div>
-		<div class="table_row">
-			<div class="table_cell">
-				<img class="icon" width=25 src="static/check.svg" onclick="send_account_row(1)">
-				<img class="icon" width=25 src="static/edit.svg" onclick="edit_account_row(1)">
-				<img class="icon" width=25 src="static/cross.svg" onclick="delete_account_row(1)">
+		{% for a in accounts %}
+			<div class="table_row" id="acc_id{{a.id}}">
+				<div class="table_cell">
+					<img class="icon" width=25 src="static/locked.svg" onclick="edit_account_row('{{a.id}}')" >
+					<img class="icon" width=25 src="static/check.svg" onclick="send_account_row('{{a.id}}')" hidden>
+					<img class="icon" width=25 src="static/cross.svg" onclick="delete_account_row('{{a.id}}')">
+				</div>
+				<div class="table_cell"><input name="account_name" type="text" value="{{a.account_name}}" disabled></div>
+				<div class="table_cell"><input name="broker" type="text" value="{{a.broker}}" disabled></div>
+				<div class="table_cell"><input name="id" type="text" value="{{a.id}}" hidden></div>
 			</div>
-			<div class="table_cell"><input name="account_name" id="a1" type="text"></div>
-			<div class="table_cell"><input name="broker" id="b1" type="text"></div>
-			<div class="table_cell"><input name="users" id="u1" type="text"></div>
+		{% endfor %}
+	</div>
+	<h2>Manage accounts</h2>
+	<div class="table" id="users_table">
+		<div class="table_row">
+			<div class="table_cell"><img class="icon" width=30 src="static/plus.svg" onclick="add_user()"></div>
+			<div class="table_cell">Loginname</div>
+			<div class="table_cell">Anzeigename</div>
+			<div class="table_cell">Admin</div>
+			<div class="table_cell"></div>
 		</div>
+		{% for u in users %}
+			<div class="table_row" id="user_id{{u.id}}">
+				<div class="table_cell">
+					<img class="icon" width=25 src="static/locked.svg" onclick="edit_user('{{u.id}}')" >
+					<img class="icon" width=25 src="static/check.svg" onclick="send_user('{{u.id}}')" hidden>
+					<img class="icon" width=25 src="static/cross.svg" onclick="delete_user('{{u.id}}')">
+				</div>
+				<div class="table_cell"><input name="name" type="text" value="{{u.name}}" disabled></div>
+				<div class="table_cell"><input name="display" type="text" value="{{u.display}}" disabled></div>
+				<div class="table_cell"><input name="is_admin" type="checkbox" {%if u.is_admin %}checked{% endif %} disabled></div>
+				<div class="table_cell"><input name="id" type="text" value="{{u.id}}" hidden></div>
+			</div>
+		{% endfor %}
 	</div>
 </div>
 {% endblock content %}

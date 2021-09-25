@@ -42,6 +42,13 @@ pub trait AccountHandler: TransactionHandler {
     /// Insert new account info in database, if it not yet exist
     async fn insert_account_if_new(&self, account: &Account) -> Result<usize, DataError>;
 
+    /// Update an existing accounts name and/or broker
+    async fn update_account(&self, account: &Account) -> Result<(), DataError>;
+
+    /// Remove account from database 
+    /// Fails if it does not exist or is referenced by other tables.
+    async fn delete_account(&self, account_id: usize) -> Result<(), DataError>;
+
     /// Get account id for given account
     async fn get_account_id(&self, account: &Account) -> Result<usize, DataError>;
 
@@ -188,6 +195,30 @@ impl AccountHandler for PostgresDB {
                 Ok(id as usize)
             }
         }
+    }
+
+    /// Update an existing accounts name and/or broker
+    async fn update_account(&self, account: &Account) -> Result<(), DataError>{
+        if let Some(id) = account.id {
+            let row = sqlx::query!(
+                "UPDATE accounts SET 
+                    account_name=$1, 
+                    broker=$2
+                WHERE id=($3)",
+                account.account_name, account.broker, id as i32).execute(&self.pool).await
+            .map_err(|e| DataError::UpdateFailed(e.to_string()))?;
+        }
+        Ok(())
+    }
+
+    /// Remove account from database 
+    /// Fails if account is referenced by other tables.
+    async fn delete_account(&self, account_id: usize) -> Result<(), DataError>{
+        let row = sqlx::query!(
+            "DELETE FROM accounts WHERE id=($1)",
+            account_id as i32).execute(&self.pool).await
+            .map_err(|e| DataError::UpdateFailed(e.to_string()))?;
+        Ok(())
     }
 
     /// Get ID of given account
