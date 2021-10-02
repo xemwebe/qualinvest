@@ -49,20 +49,18 @@ pub async fn show_settings(user_opt: Option<UserCookie>, state: &State<ServerSta
 
 #[post("/save_settings", data="<form>")]
 pub async fn save_settings(form: Form<UserSettingsForm>, user_opt: Option<UserCookie>, 
-    state: &State<ServerState>) -> Redirect {
-    if user_opt.is_none() {
-        return Redirect::to(format!("{}{}", state.rel_path, uri!(login(redirect=Some("position")))));
-    }
-    let user = user_opt.unwrap();
+    state: &State<ServerState>) -> Result<Redirect, Redirect> {
+    let user = user_opt.ok_or(
+        Redirect::to(format!("{}{}", state.rel_path, uri!(login(redirect=Some("position")))))
+    )?;
 
     let db = state.postgres_db.clone();
-    let user_accounts = user.get_accounts(db.clone()).await;
-    if user_accounts.is_none() {
-        return Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="No user account found".to_string()))));
-    }
+    let user_accounts = user.get_accounts(db.clone()).await
+        .ok_or(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="No user account found".to_string()))))
+    )?;
 
     let mut all_user_account_ids = HashSet::new();
-    for account in user_accounts.unwrap() {
+    for account in user_accounts {
         if let Some(id) = account.id {
             all_user_account_ids.insert(id);
         }
@@ -85,8 +83,8 @@ pub async fn save_settings(form: Form<UserSettingsForm>, user_opt: Option<UserCo
     let result = db.set_user_settings(user.userid, &user_settings).await;
 
     match result {
-        Ok(()) => Redirect::to("settings"),
-        Err(_) => Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="Failed ot save user settings".to_string())))),
+        Ok(()) => Ok(Redirect::to("settings")),
+        Err(_) => Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="Failed ot save user settings".to_string()))))),
     }
 }
 

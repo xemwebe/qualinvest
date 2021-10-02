@@ -273,7 +273,6 @@ async fn rocket() -> _ {
             accounts::add_account,
             accounts::delete_account,
             accounts::add_user,
-            accounts::update_user,
             accounts::delete_user,
             static_files,
             error_msg

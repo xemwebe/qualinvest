@@ -1,5 +1,4 @@
 use thirtyfour::prelude::*;
-use tokio;
 
 #[tokio::main]
 async fn main() -> color_eyre::Result<()> {
@@ -31,7 +30,7 @@ async fn main() -> color_eyre::Result<()> {
           break;
       }
     }
-    assert_eq!(found_logout, true);
+    assert!(found_logout);
     println!("Login was successful");
   
     // // Navigate to page, by chaining futures together and awaiting the result.

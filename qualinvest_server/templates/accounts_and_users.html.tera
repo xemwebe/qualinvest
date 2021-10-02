@@ -10,11 +10,11 @@ function add_account_row() {
 
 	accounts_table = document.getElementById("accounts_table");
 	accounts_table.innerHTML += `<div class="table_row" id="acc_idnew">
-		<div class="table_cell">
-		<img class="icon" width=25 src="static/unlocked.svg" onclick="location.reload(true)">
-		<img class="icon" width=25 src="static/check.svg" onclick="send_account_row('new')">
-		<img class="icon" width=25 src="static/cross.svg" onclick="delete_account_row('new')" hidden>
-		</div>
+			<div class="table_cell">
+				<img class="icon" width=25 src="static/unlocked.svg" onclick="location.reload(true)">
+				<img class="icon" width=25 src="static/check.svg" onclick="send_account_row('new')">
+				<img class="icon" width=25 src="static/cross.svg" onclick="delete_account_row('new')" hidden>
+			</div>
 			<div class="table_cell"><input name="account_name" type="text"></div>
 			<div class="table_cell"><input name="broker" type="text"></div>
 		</div>`;
@@ -29,7 +29,8 @@ function send_account_row(row_id) {
 	var xhr = new XMLHttpRequest();
 	xhr.open("POST", '/account/add')
 	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-	xhr.onreadystatechange = function() { 
+	xhr.onreadystatechange = function() {
+		console.log(xhr.responseURL); 
 		location.reload(true)
 	}
 	body = `account_name=${account_name}&broker=${broker}`
@@ -87,14 +88,15 @@ function add_user() {
 
 	accounts_table = document.getElementById("users_table");
 	accounts_table.innerHTML += `<div class="table_row" id="user_idnew">
-		<div class="table_cell">
-		<img class="icon" width=25 src="static/unlocked.svg" onclick="location.reload(true)">
-		<img class="icon" width=25 src="static/check.svg" onclick="send_user('new')">
-		<img class="icon" width=25 src="static/cross.svg" onclick="delete_user('new')" hidden>
-		</div>
+			<div class="table_cell">
+				<img class="icon" width=25 src="static/unlocked.svg" onclick="location.reload(true)">
+				<img class="icon" width=25 src="static/check.svg" onclick="send_user('new')">
+				<img class="icon" width=25 src="static/cross.svg" onclick="delete_user('new')" hidden>
+			</div>
 			<div class="table_cell"><input name="name" type="text"></div>
 			<div class="table_cell"><input name="display" type="text"></div>
 			<div class="table_cell"><input name="is_admin" type="checkbox" checked></div>
+			<div class="table_cell"><input name="password" type="password" value="dummypassword"</div>
 		</div>`;
 }
 
@@ -104,14 +106,27 @@ function send_user(row_id) {
 	name = inputs[0].value;
 	if(name == "") return;
 	display = inputs[1].value;
-	is_admin = inputs[2].checked;
+	{% if user.is_admin %}
+		is_admin = inputs[2].checked;
+		password = inputs[3].value;
+	{% else %}
+		is_admin = false;
+		password = inputs[2].value;
+	{% endif %}
+	if(password == "dummypassword") {
+		password = "";
+	}
 	var xhr = new XMLHttpRequest();
 	xhr.open("POST", '/user/add')
 	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 	xhr.onreadystatechange = function() { 
-		//location.reload(true)
+		console.log(xhr.responseURL);
+		location.reload(true);
 	}
 	body = `name=${name}&is_admin=${is_admin}&display=${display}`
+	if(password != "") {
+		body += `&password=${password}`;
+	}
 	if(row_id != "new") {
 		body += `&id=${row_id}`;
 	}
@@ -123,7 +138,7 @@ function edit_user(row_id) {
 	for(e of row.children) {
 		for(f of e.children) {
 			name = f.getAttribute("name");
-			if(name == "name" || name == "display" || name == "is_admin") {
+			if(name == "name" || name == "display" || name == "is_admin" || name == "password") {
 				f.disabled = false;
 			}
 			src = f.getAttribute("src");
@@ -144,6 +159,7 @@ function edit_user(row_id) {
 	}
 }
 
+{% if user.is_admin %}
 function delete_user(row_id) {
 
 	var row = document.getElementById(`user_id${row_id}`)
@@ -158,6 +174,7 @@ function delete_user(row_id) {
 	}
 	xhr.send();	
 }
+{% endif %}
 
 </script>
 {% endblock jsdata %}
@@ -184,13 +201,14 @@ function delete_user(row_id) {
 			</div>
 		{% endfor %}
 	</div>
-	<h2>Manage accounts</h2>
+	<h2>Manage account{% if user.is_admin %}s{% endif %}</h2>
 	<div class="table" id="users_table">
 		<div class="table_row">
-			<div class="table_cell"><img class="icon" width=30 src="static/plus.svg" onclick="add_user()"></div>
+			<div class="table_cell"><img class="icon" width=30 src="static/plus.svg" onclick="add_user()" {% if not user.is_admin %}hidden{% endif %}></div>
 			<div class="table_cell">Loginname</div>
 			<div class="table_cell">Anzeigename</div>
-			<div class="table_cell">Admin</div>
+			{% if user.is_admin %}<div class="table_cell">Admin</div>{% endif %}
+			<div class="table_cell">Password</div>
 			<div class="table_cell"></div>
 		</div>
 		{% for u in users %}
@@ -198,14 +216,47 @@ function delete_user(row_id) {
 				<div class="table_cell">
 					<img class="icon" width=25 src="static/locked.svg" onclick="edit_user('{{u.id}}')" >
 					<img class="icon" width=25 src="static/check.svg" onclick="send_user('{{u.id}}')" hidden>
-					<img class="icon" width=25 src="static/cross.svg" onclick="delete_user('{{u.id}}')">
+					{% if user.is_admin %}<img class="icon" width=25 src="static/cross.svg" onclick="delete_user('{{u.id}}')">{% endif %}
 				</div>
 				<div class="table_cell"><input name="name" type="text" value="{{u.name}}" disabled></div>
 				<div class="table_cell"><input name="display" type="text" value="{{u.display}}" disabled></div>
-				<div class="table_cell"><input name="is_admin" type="checkbox" {%if u.is_admin %}checked{% endif %} disabled></div>
-				<div class="table_cell"><input name="id" type="text" value="{{u.id}}" hidden></div>
+				{% if user.is_admin %}<div class="table_cell"><input name="is_admin" type="checkbox" {%if u.is_admin %}checked{% endif %} disabled></div>{% endif %}
+				<div class="table_cell"><input name="password" type="password" value="dummypassword" disabled></div>
 			</div>
 		{% endfor %}
 	</div>
+	{% if user.is_admin %}
+	<h2>Manage User accounts</h2>
+	<div class="table" id="accounts_table">
+		<div class="table_row">
+			<label class="table_cell" for="user_ua">User:</label>
+			<div class="table_cell horizontalgap" style="width:10px"></div>
+			<select class="table_cell" id="user_ua" name="user_id" onchange="user_change()"> 
+			{% if users %}
+				{% for u in users %}
+						{% if not u.is_admin %}
+							<option value="{{u.id}}">{{u.display}}</option> 
+						{% endif %}
+				{% endfor %}
+			{% endif %}
+			</select>
+			<div class="table_cell">
+				<button class="button" type="button" onclick="update_user_accounts()">Update</button>
+			</div>
+		</div>
+		<div class="table_row">
+			<label class="table_cell" for="account_ua">User accounts:</label>
+			<div class="table_cell horizontalgap" style="width:10px"></div>
+			<select class="table_cell selectpicker" id="account_ua" name="account_ids" multiple> 
+			{% if accounts %}
+				<option value=null></option>
+				{% for a in accounts %}
+					<option value="{{a.id}}">{{a.broker}}: {{a.account_name}}</option> 
+				{% endfor %}
+			{% endif %}
+			</select> 
+		</div>
+	</div>
+	{% endif %}
 </div>
 {% endblock content %}

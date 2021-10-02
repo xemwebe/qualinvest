@@ -113,7 +113,7 @@ pub async fn update_quote_history(
     market_data: &MarketDataProviders,
 ) -> Result<(), MarketError> {
     let mut market = finql::Market::new(db);
-    set_market_providers(&mut market, &market_data);
+    set_market_providers(&mut market, market_data);
     market.update_quote_history(ticker_id, start, end).await
 }
 
@@ -145,6 +145,6 @@ pub async fn update_quotes(
     market_data: &MarketDataProviders,
 ) -> Result<Vec<usize>, MarketError> {
     let mut market = finql::Market::new(db);
-    set_market_providers(&mut market, &market_data);
+    set_market_providers(&mut market, market_data);
     market.update_quotes().await
 }

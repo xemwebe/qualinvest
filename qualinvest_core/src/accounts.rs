@@ -7,7 +7,7 @@ use sqlx::Row;
 use finql_data::{DataError, TransactionHandler, Transaction};
 use finql_postgres::{PostgresDB, transaction_handler::RawTransaction};
 
-#[derive(Debug,Serialize,Deserialize)]
+#[derive(Debug,Clone,Serialize,Deserialize)]
 pub struct Account {
     pub id: Option<usize>,
     pub broker: String,
@@ -200,7 +200,7 @@ impl AccountHandler for PostgresDB {
     /// Update an existing accounts name and/or broker
     async fn update_account(&self, account: &Account) -> Result<(), DataError>{
         if let Some(id) = account.id {
-            let row = sqlx::query!(
+            sqlx::query!(
                 "UPDATE accounts SET 
                     account_name=$1, 
                     broker=$2
@@ -214,7 +214,7 @@ impl AccountHandler for PostgresDB {
     /// Remove account from database 
     /// Fails if account is referenced by other tables.
     async fn delete_account(&self, account_id: usize) -> Result<(), DataError>{
-        let row = sqlx::query!(
+        sqlx::query!(
             "DELETE FROM accounts WHERE id=($1)",
             account_id as i32).execute(&self.pool).await
             .map_err(|e| DataError::UpdateFailed(e.to_string()))?;

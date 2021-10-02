@@ -18,9 +18,7 @@
 			<li><a href="/{{relpath}}asset">Analysis</a></li>
 			<li><a href="/{{relpath}}assets">Assets</a></li>
 			<li><a href="/{{relpath}}settings">Settings</a></li>
-			{% if user.is_admin %}
 			<li><a href="/{{relpath}}accounts">Accounts</a></li>
-			{% endif %}
 			{% if not user.userid %}
 			<li><a href="{{relpath}}login?redir={{relpath}}">Login</a></li>
 			{% else %}

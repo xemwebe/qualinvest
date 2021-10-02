@@ -38,13 +38,13 @@ pub struct UserForm {
 
 impl CookieId for UserCookie {
     fn cookie_id<'a>() -> &'a str {
-        "plain_acid"
+        "ql_acid"
     }
 }
 
 impl CookieId for UserForm {
     fn cookie_id<'a>() -> &'a str {
-        "plain_acid"
+        "ql_acid"
     }
 } 
 

@@ -11,7 +11,6 @@ pub struct User {
     pub id: Option<usize>,
     pub name: String,
     pub display: Option<String>,
-    pub salt_hash: String,
     pub is_admin: bool,
 }
 
@@ -33,7 +32,7 @@ pub trait UserHandler: AccountHandler {
     async fn init_users(&self) -> Result<(), DataError>;
 
     /// Insert new account info in database, if it not yet exist
-    async fn insert_user(&self, user: &mut User, password: &str) -> Result<usize, DataError>;
+    async fn insert_user(&self, user: &User, password: &str) -> Result<usize, DataError>;
 
     /// Get full user information if user name and password are valid
     async fn get_user_by_credentials(& self, name: &str, password: &str) -> Option<User>;
@@ -52,7 +51,7 @@ pub trait UserHandler: AccountHandler {
     async fn update_user(&self, user: &User) -> Result<(), DataError>;
 
     /// Update user password 
-    async fn update_password(&self, user: &mut User, password: &str) -> Result<(), DataError>;
+    async fn update_password(&self, user_id: usize, password: &str) -> Result<(), DataError>;
 
     /// Remove all user information form data base
     async fn delete_user(&self, user_id: usize) -> Result<(), DataError>;
@@ -63,10 +62,10 @@ pub trait UserHandler: AccountHandler {
     /// Remove right to access account given by account_id from user with id user_id
     async fn remove_account_right(&self, user_id: usize, account_id: usize) -> Result<(), DataError>;
     
-    /// Get list of account ids a user given by user_id as access to
+    /// Get list of account ids a user given by user_id has access to
     async fn get_user_accounts(&self, user_id: usize) -> Result<Vec<Account>, DataError>;
 
-    /// Remove all ids form ids the user has no access to
+    /// Remove all account ids form ids the user has no access to
     async fn valid_accounts(&self, user_id: usize, ids: &[usize]) -> Result<Vec<usize>, DataError>;
    
     /// Get the account the transaction given by id belongs to, 

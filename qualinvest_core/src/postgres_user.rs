@@ -5,19 +5,6 @@ use finql_data::DataError;
 use crate::user::{User, UserHandler, UserSettings};
 use crate::accounts::Account;
 
-async fn gen_salt_hash(db: &PostgresDB, user_id: usize) -> Option<String> {
-    match sqlx::query!(
-        "SELECT salt_hash FROM users WHERE id = $1", (user_id as i32),
-        ).fetch_one(&db.pool).await {
-            Err(_) => None,
-            Ok(row) => {
-                let salt_hash: String = row.salt_hash;
-                Some(salt_hash)
-            }
-
-        }
-}
-
 #[async_trait]
 impl UserHandler for PostgresDB {
     /// Clean database by dropping all tables related to user management and run init_users
@@ -65,22 +52,22 @@ impl UserHandler for PostgresDB {
         Ok(())
     }
 
-    /// Insert new account info in database, if it not yet exist
-    async fn insert_user(&self, user: &mut User, password: &str) -> Result<usize, DataError> {
+    /// Insert new user into database, fails if user with same name already exists
+    async fn insert_user(&self, user: &User, password: &str) -> Result<usize, DataError> {
         let row = sqlx::query!(
-                "INSERT INTO users (name, display, salt_hash, is_admin) VALUES ($1, $2, crypt($3,gen_salt('bf',8)), $4) RETURNING id",
+                "INSERT INTO users (name, display, salt_hash, is_admin) 
+                VALUES ($1, $2, crypt($3,gen_salt('bf',8)), $4) RETURNING id",
                 user.name, user.display, password, user.is_admin,
             ).fetch_one(&self.pool).await
             .map_err(|e| DataError::InsertFailed(e.to_string()))?;
         let id: i32 = row.id;
-        user.salt_hash = gen_salt_hash(self, id as usize).await.ok_or_else(|| DataError::InsertFailed("reading hash of just inserted user failed".to_string()))?;
         Ok(id as usize)
     }
     
     /// Get full user information if user name and password are valid
     async fn get_user_by_credentials(&self, name: &str, password: &str) -> Option<User> {
         match sqlx::query!(
-                "SELECT id, name, display, salt_hash, is_admin FROM users WHERE name = $1 AND 
+                "SELECT id, name, display, is_admin FROM users WHERE name = $1 AND 
                 salt_hash = crypt($2, salt_hash)",
                 name, password,
             ).fetch_one(&self.pool).await {
@@ -91,7 +78,6 @@ impl UserHandler for PostgresDB {
                         id: Some(id as usize),
                         name: row.name,
                         display: if row.display.is_empty() { None } else { Some(row.display) },
-                        salt_hash: row.salt_hash,
                         is_admin: row.is_admin,
                     })
                 }
@@ -102,7 +88,7 @@ impl UserHandler for PostgresDB {
     /// Get full user information for given user id
     async fn get_user_by_id(&self, user_id: usize) -> Option<User> {
         match sqlx::query!(
-                "SELECT id, name, display, salt_hash, is_admin FROM users WHERE id = $1",
+                "SELECT id, name, display, is_admin FROM users WHERE id = $1",
                 (user_id as i32),
             ).fetch_one(&self.pool).await {
                 Err(_) => None,
@@ -112,7 +98,6 @@ impl UserHandler for PostgresDB {
                         id: Some(id as usize),
                         name: row.name,
                         display: if row.display.is_empty() { None } else { Some(row.display) },
-                        salt_hash: row.salt_hash,
                         is_admin: row.is_admin,
                     })
                 }
@@ -178,7 +163,6 @@ impl UserHandler for PostgresDB {
                     id: Some(id as usize),
                     name: row.name,
                     display: if row.display.is_empty() { None } else { Some(row.display) },
-                    salt_hash: "".to_string(),
                     is_admin: row.is_admin,
                 });
             }
@@ -203,22 +187,13 @@ impl UserHandler for PostgresDB {
     }
 
     /// Update user password
-    async fn update_password(&self, user: &mut User, new_password: &str) -> Result<(), DataError> {
-        if user.id.is_none() {
-            return Err(DataError::NotFound(
-                "not yet stored to database".to_string(),
-            ));
-        }
-        let id = user.id.unwrap();
+    async fn update_password(&self, user_id: usize, new_password: &str) -> Result<(), DataError> {
         sqlx::query!(
-                "UPDATE users SET salt_hash=crypt($3, gen_salt('bf',8)) WHERE id=$1 AND 
-                salt_hash = crypt($2, salt_hash)",
-                (id as i32),
-                user.salt_hash,
+                "UPDATE users SET salt_hash=crypt($2, gen_salt('bf',8)) WHERE id=$1",
+                (user_id as i32),
                 new_password,
             ).execute(&self.pool).await
             .map_err(|e| DataError::InsertFailed(e.to_string()))?;
-        user.salt_hash = gen_salt_hash(self, id).await.ok_or_else(|| DataError::InsertFailed("reading hash of just inserted user failed".to_string()))?;
         Ok(())
     }
 
