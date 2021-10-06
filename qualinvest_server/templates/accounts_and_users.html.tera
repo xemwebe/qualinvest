@@ -162,17 +162,41 @@ function edit_user(row_id) {
 {% if user.is_admin %}
 function delete_user(row_id) {
 
-	var row = document.getElementById(`user_id${row_id}`)
+	var row = document.getElementById(`user_id${row_id}`);
 	if(row_id == "new") {
 		return;
 	}
 	var xhr = new XMLHttpRequest();
-	xhr.open("GET", `/user/delete?id=${row_id}`)
+	xhr.open("GET", `/user/delete?id=${row_id}`);
 	xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 	xhr.onreadystatechange = function() { 
 		location.reload(true)
 	}
 	xhr.send();	
+}
+
+users_accounts = {
+	{% for user, accounts in user_accounts %}
+		{{user}}: [{% for a in accounts %}{{a.id}},{% endfor %}],
+	{% endfor %}
+};
+
+function user_changed() {
+	user = document.getElementById('user_ua').value;
+	accounts = []
+	if (user) {
+		accounts = users_accounts[user];
+	}
+	account_selection = document.getElementById('account_ua');
+	for (a of account_selection.children) {
+		console.log(a);
+		if(a.value=="null") {
+			console.log(`a.value==null and ${accounts.length==0}`);
+			a.selected = accounts.length==0;
+		} else {
+			a.selected = accounts.includes(parseInt(a.value));
+		}
+	}
 }
 {% endif %}
 
@@ -226,12 +250,13 @@ function delete_user(row_id) {
 		{% endfor %}
 	</div>
 	{% if user.is_admin %}
-	<h2>Manage User accounts</h2>
+	<h2>Manage User's accounts</h2>
+	<form method="post" action="/user_accounts">
 	<div class="table" id="accounts_table">
 		<div class="table_row">
 			<label class="table_cell" for="user_ua">User:</label>
 			<div class="table_cell horizontalgap" style="width:10px"></div>
-			<select class="table_cell" id="user_ua" name="user_id" onchange="user_change()"> 
+			<select class="table_cell" id="user_ua" name="user_id" onchange="user_changed()"> 
 			{% if users %}
 				{% for u in users %}
 						{% if not u.is_admin %}
@@ -241,13 +266,13 @@ function delete_user(row_id) {
 			{% endif %}
 			</select>
 			<div class="table_cell">
-				<button class="button" type="button" onclick="update_user_accounts()">Update</button>
+				<button class="button" type="submit">Update</button>
 			</div>
 		</div>
 		<div class="table_row">
-			<label class="table_cell" for="account_ua">User accounts:</label>
+			<label class="table_cell" for="account_ua">User's accounts:</label>
 			<div class="table_cell horizontalgap" style="width:10px"></div>
-			<select class="table_cell selectpicker" id="account_ua" name="account_ids" multiple> 
+			<select class="table_cell selectpicker" id="account_ua" name="accounts" multiple> 
 			{% if accounts %}
 				<option value=null></option>
 				{% for a in accounts %}
@@ -257,6 +282,10 @@ function delete_user(row_id) {
 			</select> 
 		</div>
 	</div>
+	</form>
+	<script>
+		user_changed();
+	</script>
 	{% endif %}
 </div>
 {% endblock content %}

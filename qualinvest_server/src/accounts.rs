@@ -1,10 +1,12 @@
+/// Viewing and analyzing assets
+
+use std::collections::HashMap;
+use std::collections::HashSet;
 use super::{rocket_uri_macro_error_msg, rocket_uri_macro_login};
 use rocket::form::{Form, FromForm};
 use rocket::response::Redirect;
 use rocket::State;
 use rocket_dyn_templates::Template;
-/// Viewing and analyzing assets
-use std::collections::HashMap;
 
 use super::ServerState;
 use crate::layout::layout;
@@ -28,6 +30,13 @@ impl AccountForm {
             broker: self.broker.clone(),
         }
     }
+}
+
+/// Structure for storing information users accounts
+#[derive(Debug, Serialize, Deserialize, FromForm)]
+pub struct UserAccountsForm {
+    pub user_id: usize,
+    pub accounts: Option<Vec<usize>>,
 }
 
 /// Structure for storing information in accounts form
@@ -251,5 +260,38 @@ pub async fn delete_user(
         ))
     })?;
 
+    Ok(Redirect::to(format!("/{}accounts", state.rel_path)))
+}
+
+#[post("/user_accounts", data="<form>")]
+pub async fn user_accounts(
+    form: Form<UserAccountsForm>,
+    user: UserCookie,
+    state: &State<ServerState>,
+) -> Result<Redirect, Redirect> {
+    if !user.is_admin {
+        return Err(Redirect::to(format!(
+            "{}{}",
+            state.rel_path,
+            uri!(error_msg(
+                msg = "You must be admin user to change other users accounts; to change your own accounts, use the accounts menu!"
+            ))
+        )));
+    }
+
+    let user_accounts = &form.into_inner();
+    let old_accounts: HashSet<usize> = state.postgres_db.get_user_accounts(user_accounts.user_id).await
+        .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg = format!("Updating users accounts user failed: {}", e))))))?
+        .into_iter().map(|a| a.id).flatten().collect();
+    let new_accounts: HashSet<usize> = user_accounts.accounts.iter().flatten().map(|id| *id).collect();
+    for u in (&old_accounts - &new_accounts).into_iter() {
+        state.postgres_db.remove_account_right(user_accounts.user_id, u).await
+        .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg = format!("Updating users accounts user failed: {}", e))))))?;
+    }
+    for u in (&new_accounts - &old_accounts).into_iter() {
+        state.postgres_db.add_account_right(user_accounts.user_id, u).await
+        .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg = format!("Updating users accounts user failed: {}", e))))))?;
+    }
+    
     Ok(Redirect::to(format!("/{}accounts", state.rel_path)))
 }
