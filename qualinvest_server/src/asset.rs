@@ -98,11 +98,7 @@ pub async fn assets(user_opt: Option<UserCookie>, state: &State<ServerState>) ->
 
 
 #[get("/asset/edit?<asset_id>")]
-pub async fn edit_asset(asset_id: Option<usize>, user_opt: Option<UserCookie>, state: &State<ServerState>) -> Result<Template,Redirect> {
-    if user_opt.is_none() {
-        return Err(Redirect::to(format!("{}{}",state.rel_path, uri!(login(redirect=Some("assets"))))));
-    }
-    let user = user_opt.unwrap();
+pub async fn edit_asset(asset_id: Option<usize>, user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
     if !user.is_admin {
         return  Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="You must be admin user to edit assets!")))));
     }
@@ -120,6 +116,18 @@ pub async fn edit_asset(asset_id: Option<usize>, user_opt: Option<UserCookie>, s
     context.insert("asset", &asset);
     context.insert("user", &user);
     Ok(layout("asset_form", &context.into_json()))
+}
+
+#[get("/asset/delete?<asset_id>")]
+pub async fn delete_asset(asset_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<Redirect, Redirect> {
+    if !user.is_admin {
+        return  Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="You must be admin user to delete assets!")))));
+    }
+
+    state.postgres_db.delete_asset(asset_id).await
+        .map_err(|_| Redirect::to(uri!(error_msg(msg="Failed to delete asset"))))?;
+
+    Ok(Redirect::to(format!("/{}assets", state.rel_path)))
 }
 
 #[post("/asset", data = "<form>")]

@@ -66,7 +66,7 @@ pub async fn accounts(
     state: &State<ServerState>,
 ) -> Result<Template, Redirect> {
     let user = user_opt.ok_or_else(|| Redirect::to(format!(
-        "{}{}",
+        "/{}{}",
         state.rel_path,
         uri!(login(redirect = Some("accounts")))
     )))?;
@@ -124,26 +124,26 @@ pub async fn add_account(
     if let Some(account_id) = account.id {
         if let Ok(u_accounts) = db.get_user_accounts(user.userid).await {
             if u_accounts.iter().filter(|a| a.id == Some(account_id)).next().is_none() {
-                return Err(Redirect::to(format!("{}{}", state.rel_path,
+                return Err(Redirect::to(format!("/{}{}", state.rel_path,
                     uri!(error_msg(msg = "You can only update your own accounts")))));
             }
         }
         db.update_account(account).await
             .map_err(|e| {
                 Redirect::to(format!(
-                    "{}{}",
+                    "/{}{}",
                     state.rel_path,
                     uri!(error_msg(msg = format!("Updating account failed: {}", e)))
                 ))
             })?;
     } else {
         let account_id = db.insert_account_if_new(account).await
-            .map_err(|e| { Redirect::to(format!("{}{}", state.rel_path,
+            .map_err(|e| { Redirect::to(format!("/{}{}", state.rel_path,
                     uri!(error_msg(msg = format!("Adding account failed: {}", e)))))
             })?;
         if !user.is_admin {
             db.add_account_right(user.userid, account_id).await
-                .map_err(|e| { Redirect::to(format!("{}{}", state.rel_path,
+                .map_err(|e| { Redirect::to(format!("/{}{}", state.rel_path,
                 uri!(error_msg(msg = format!("Adding user rights to access new account failed: {}", e)))))
             })?;
         }
@@ -160,7 +160,7 @@ pub async fn delete_account(
 ) -> Result<Redirect, Redirect> {
     if !user.is_admin {
         return Err(Redirect::to(format!(
-            "{}{}",
+            "/{}{}",
             state.rel_path,
             uri!(error_msg(
                 msg = "You must be admin user to delete accounts!"
@@ -170,7 +170,7 @@ pub async fn delete_account(
 
     state.postgres_db.delete_account(id).await.map_err(|e| {
         Redirect::to(format!(
-            "{}{}",
+            "/{}{}",
             state.rel_path,
             uri!(error_msg(msg = format!("Delete account failed: {}", e)))
         ))
@@ -190,7 +190,7 @@ pub async fn add_user(
     if let Some(user_id) = new_user.id {
         state.postgres_db.update_user(&new_user).await.map_err(|e| {
             Redirect::to(format!(
-                "{}{}",
+                "/{}{}",
                 state.rel_path,
                 uri!(error_msg(msg = format!("Updating user failed: {}", e)))
             ))
@@ -202,7 +202,7 @@ pub async fn add_user(
                 .await
                 .map_err(|e| {
                     Redirect::to(format!(
-                        "{}{}",
+                        "/{}{}",
                         state.rel_path,
                         uri!(error_msg(
                             msg = format!("Updating user password failed: {}", e)
@@ -212,7 +212,7 @@ pub async fn add_user(
         }
     } else {
         if !user.is_admin {
-            return Err(Redirect::to(format!("{}{}", state.rel_path,uri!(error_msg(msg = "You need to be admin to add a new user")))));
+            return Err(Redirect::to(format!("/{}{}", state.rel_path,uri!(error_msg(msg = "You need to be admin to add a new user")))));
         }
         if let Some(password) = &user_form.password {
             state
@@ -221,14 +221,14 @@ pub async fn add_user(
                 .await
                 .map_err(|e| {
                     Redirect::to(format!(
-                        "{}{}",
+                        "/{}{}",
                         state.rel_path,
                         uri!(error_msg(msg = format!("Adding user failed: {}", e)))
                     ))
                 })?;
         } else {
             return Err(Redirect::to(format!(
-                "{}{}",
+                "/{}{}",
                 state.rel_path,
                 uri!(error_msg(msg = "You must set a password for new users!"))
             )));
@@ -246,7 +246,7 @@ pub async fn delete_user(
 ) -> Result<Redirect, Redirect> {
     if !user.is_admin {
         return Err(Redirect::to(format!(
-            "{}{}",
+            "/{}{}",
             state.rel_path,
             uri!(error_msg(msg = "You must be admin user to delete users!"))
         )));
@@ -271,7 +271,7 @@ pub async fn user_accounts(
 ) -> Result<Redirect, Redirect> {
     if !user.is_admin {
         return Err(Redirect::to(format!(
-            "{}{}",
+            "/{}{}",
             state.rel_path,
             uri!(error_msg(
                 msg = "You must be admin user to change other users accounts; to change your own accounts, use the accounts menu!"
@@ -281,16 +281,16 @@ pub async fn user_accounts(
 
     let user_accounts = &form.into_inner();
     let old_accounts: HashSet<usize> = state.postgres_db.get_user_accounts(user_accounts.user_id).await
-        .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg = format!("Updating users accounts user failed: {}", e))))))?
+        .map_err(|e| Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg = format!("Updating users accounts user failed: {}", e))))))?
         .into_iter().map(|a| a.id).flatten().collect();
     let new_accounts: HashSet<usize> = user_accounts.accounts.iter().flatten().map(|id| *id).collect();
     for u in (&old_accounts - &new_accounts).into_iter() {
         state.postgres_db.remove_account_right(user_accounts.user_id, u).await
-        .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg = format!("Updating users accounts user failed: {}", e))))))?;
+        .map_err(|e| Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg = format!("Updating users accounts user failed: {}", e))))))?;
     }
     for u in (&new_accounts - &old_accounts).into_iter() {
         state.postgres_db.add_account_right(user_accounts.user_id, u).await
-        .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg = format!("Updating users accounts user failed: {}", e))))))?;
+        .map_err(|e| Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg = format!("Updating users accounts user failed: {}", e))))))?;
     }
     
     Ok(Redirect::to(format!("/{}accounts", state.rel_path)))

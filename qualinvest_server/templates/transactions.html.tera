@@ -1,6 +1,6 @@
 {% extends "layout" %}
 {% block pagetitle %}{{super()}} - Transactions{% endblock  pagetitle %}
-{% block form_action %}action="{{relpath}}transactions"{% endblock form_action %}
+{% block form_action %}action="/{{relpath}}transactions"{% endblock form_action %}
 {% block jsdata %}
 {{super()}}
 	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
@@ -83,7 +83,7 @@
 			<input class="button" id="delete_button" type="submit" value="Delete" disabled />
 		</form>
 		<form class="table_cell">
-			<a class="button" href="{{relpath}}transactions/upload">Upload PDF(s)</a>	
+			<a class="button" href="/{{relpath}}transactions/upload">Upload PDF(s)</a>	
 		</form>
 		<form class="table_cell">
 			<a class="button" href="transactions/edit">New Transaction</a>	

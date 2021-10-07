@@ -119,16 +119,16 @@ async fn process_login(form: Form<UserForm>, cookies: &CookieJar<'_>,
         state: &State<ServerState>) -> Result<Redirect, Flash<Redirect>> {
     let db = state.postgres_db.clone();
     let login = form.into_inner();
-    login.flash_redirect(login.redirect.clone(), format!("{}login", state.rel_path), cookies, db).await
+    login.flash_redirect(login.redirect.clone(), format!("/{}login", state.rel_path), cookies, db).await
 }
 
 #[get("/logout")]
 async fn logout(user: Option<UserCookie>, cookies: &CookieJar<'_>, state: &State<ServerState>) -> Result<Flash<Redirect>, Redirect> {
     if user.is_some() {
         cookies.remove_private(Cookie::named(UserCookie::cookie_id()));
-        Ok(Flash::success(Redirect::to(format!("{}", state.rel_path)), "Successfully logged out."))
+        Ok(Flash::success(Redirect::to(format!("/{}", state.rel_path)), "Successfully logged out."))
     } else {
-        Err(Redirect::to(format!("{}login", state.rel_path)))
+        Err(Redirect::to(format!("/{}login", state.rel_path)))
     }
 }
 
@@ -216,10 +216,11 @@ async fn rocket() -> _ {
     };
     let templates = filter::set_filter();
 
+    // Normalize rel_path, i.e. either "" or "<some path>/" such that format!("/{}<rest of path>", rel_path) is valid
     let rel_path = match config.server.relative_path {
         Some(path) => {
             let mut rel_path = path.clone();
-            if rel_path.ends_with('/') { rel_path.pop(); }
+            while rel_path.ends_with('/') { rel_path.pop(); }
             if rel_path != "" {
                 rel_path.push('/');
             }
@@ -255,6 +256,7 @@ async fn rocket() -> _ {
             transactions::pdf_upload_form,
             asset::analyze_asset,
             asset::assets,
+            asset::delete_asset,
             asset::edit_asset,
             asset::save_asset,
             quotes::show_quotes,

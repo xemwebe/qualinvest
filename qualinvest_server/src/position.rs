@@ -16,7 +16,7 @@ use super::ServerState;
 pub async fn position(user_opt: Option<UserCookie>, 
     state: &State<ServerState>) -> Result<Template,Redirect> {
     if user_opt.is_none() {
-        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(login(redirect=Some("position"))))));
+        return Err(Redirect::to(format!("/{}{}", state.rel_path, uri!(login(redirect=Some("position"))))));
     }
     let user = user_opt.unwrap();
 
@@ -29,7 +29,7 @@ pub async fn position(user_opt: Option<UserCookie>,
     println!("Calculate position as of {} with PnL since {} for account ids {:?}", period_end, period_start, user_settings.account_ids);
     let (position, totals) = calculate_position_for_period_for_accounts(currency, 
         &user_settings.account_ids, period_start, period_end, db).await
-        .map_err(|e| Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg=format!("Calculation of position failed: {:?}",e))))))?;
+        .map_err(|e| Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg=format!("Calculation of position failed: {:?}",e))))))?;
 
     let mut context = state.default_context();
     context.insert("positions", &position);

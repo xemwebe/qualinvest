@@ -25,7 +25,7 @@ struct QuoteView {
 #[get("/quotes?<asset_id>")]
 pub async fn show_quotes(asset_id: usize, user_opt: Option<UserCookie>, state: &State<ServerState>) -> Result<Template,Redirect> {
     if user_opt.is_none() {
-        return Err(Redirect::to(format!("{}{}", state.rel_path, uri!(login(redirect=Some("asset"))))));
+        return Err(Redirect::to(format!("/{}{}", state.rel_path, uri!(login(redirect=Some("asset"))))));
     }
     let user = user_opt.unwrap();
 
@@ -34,9 +34,9 @@ pub async fn show_quotes(asset_id: usize, user_opt: Option<UserCookie>, state: &
     let f_tickers = db.get_all_ticker_for_asset(asset_id);
     let (asset, tickers) = futures::join!(f_asset, f_tickers);
     let mut f_quotes = Vec::new();
-    let asset = asset.map_err(|_| Redirect::to(format!("{}{}", 
+    let asset = asset.map_err(|_| Redirect::to(format!("/{}{}", 
         state.rel_path, uri!(error_msg(msg="failed to get asset name".to_string())))))?;
-    let tickers = tickers.map_err(|_| Redirect::to(format!("{}{}", 
+    let tickers = tickers.map_err(|_| Redirect::to(format!("/{}{}", 
         state.rel_path, uri!(error_msg(msg="failed to get list of tickers".to_string())))))?;
     for ticker in &tickers {
         if let Some(ticker_id) = ticker.id {
@@ -87,14 +87,15 @@ pub async fn show_quotes(asset_id: usize, user_opt: Option<UserCookie>, state: &
 #[get("/quote/update?<asset_id>&<ticker_id>")]
 pub async fn update_asset_quote(asset_id: usize, ticker_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
     if !user.is_admin {
-        return  Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="You must be admin user to edit assets!")))));
+        return  Err(Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="You must be admin user to edit assets!")))));
     }
 
     let db = state.postgres_db.clone();
 
-    qualinvest_core::update_ticker(ticker_id, db, &state.market_data).await.unwrap();
+    qualinvest_core::update_ticker(ticker_id, db, &state.market_data).await
+        .map_err(|_| Redirect::to(uri!(error_msg(msg="Updating prices for ticker failed"))))?;
 
-    Ok(Redirect::to(format!("{}/quotes?asset_id={}",state.rel_path, asset_id)))
+    Ok(Redirect::to(format!("/{}quotes?asset_id={}",state.rel_path, asset_id)))
 }
 
 #[get("/quote/renew_history?<asset_id>&<ticker_id>&<start>&<end>")]
@@ -102,7 +103,7 @@ pub async fn renew_history(asset_id: usize, ticker_id: usize,
     start: String, end: String, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
 
     if !user.is_admin {
-        return  Err(Redirect::to(format!("{}{}", state.rel_path, uri!(error_msg(msg="You must be admin user to edit assets!")))));
+        return  Err(Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="You must be admin user to edit assets!")))));
     }
 
     let db = state.postgres_db.clone();
@@ -114,7 +115,7 @@ pub async fn renew_history(asset_id: usize, ticker_id: usize,
     qualinvest_core::update_quote_history(ticker_id, start_date, end_date, db, &state.market_data).await
         .map_err(|_| Redirect::to(uri!(error_msg(msg="Updating quote history failedcl."))))?;
 
-    Ok(Redirect::to(format!("{}/quotes?asset_id={}",state.rel_path, asset_id)))
+    Ok(Redirect::to(format!("/{}quotes?asset_id={}",state.rel_path, asset_id)))
 }
 
 
@@ -126,7 +127,7 @@ pub async fn delete_quote(quote_id: usize, asset_id: usize, user: UserCookie, st
     }
     db.delete_quote(quote_id).await
         .map_err(|_| Redirect::to(uri!(error_msg(msg="Deleting of quote failed."))))?;
-    Ok(Redirect::to(format!("{}/quotes?asset_id={}", state.rel_path, asset_id)))
+    Ok(Redirect::to(format!("/{}quotes?asset_id={}", state.rel_path, asset_id)))
 }
 
 #[get("/quote/new?<asset_id>")]
@@ -136,7 +137,7 @@ pub async fn new_quote(asset_id: usize, user: UserCookie, state: &State<ServerSt
     }
     let db = state.postgres_db.clone();
     let asset = db.get_asset_by_id(asset_id).await
-        .map_err(|_| Redirect::to(format!("{}{}", 
+        .map_err(|_| Redirect::to(format!("/{}{}", 
         state.rel_path, uri!(error_msg(msg="failed to get asset name".to_string())))))?;
     
     let mut context = state.default_context();
@@ -166,11 +167,11 @@ pub async fn add_new_quote(form: Form<QuoteForm>, user: UserCookie, state: &Stat
     let db = state.postgres_db.clone();
     // Try to get asset just to make sure it does exist
     let _asset = db.get_asset_by_id(quote_form.asset_id).await
-        .map_err(|_| Redirect::to(format!("{}{}", 
+        .map_err(|_| Redirect::to(format!("/{}{}", 
         state.rel_path, uri!(error_msg(msg="failed to get asset".to_string())))))?;
     
     let currency = finql_data::Currency::from_str(&quote_form.currency)
-        .map_err(|_| Redirect::to(format!("{}{}", 
+        .map_err(|_| Redirect::to(format!("/{}{}", 
         state.rel_path, uri!(error_msg(msg="Invalid currency".to_string())))))?;
     
     let ticker = finql_data::Ticker{
@@ -183,12 +184,12 @@ pub async fn add_new_quote(form: Form<QuoteForm>, user: UserCookie, state: &Stat
         factor: 1.0,
     };
     let ticker_id = db.insert_if_new_ticker(&ticker).await
-        .map_err(|_| Redirect::to(format!("{}{}", 
+        .map_err(|_| Redirect::to(format!("/{}{}", 
         state.rel_path, uri!(error_msg(msg="Failed to store manual ticker".to_string())))))?;
 
     
     let date = date_time_from_str_standard(&quote_form.date, quote_form.hour)
-        .map_err(|_| Redirect::to(format!("{}{}", 
+        .map_err(|_| Redirect::to(format!("/{}{}", 
         state.rel_path, uri!(error_msg(msg="Invalid date".to_string())))))?;
     let quote = Quote{
         id: None,
@@ -198,8 +199,8 @@ pub async fn add_new_quote(form: Form<QuoteForm>, user: UserCookie, state: &Stat
         volume: None,    
     };
     db.insert_quote(&quote).await
-        .map_err(|_| Redirect::to(format!("{}{}", 
+        .map_err(|_| Redirect::to(format!("/{}{}", 
         state.rel_path, uri!(error_msg(msg="Failed to store quote".to_string())))))?;
 
-    Ok(Redirect::to(format!("{}/quotes?asset_id={}", state.rel_path, quote_form.asset_id)))
+    Ok(Redirect::to(format!("/{}quotes?asset_id={}", state.rel_path, quote_form.asset_id)))
 }

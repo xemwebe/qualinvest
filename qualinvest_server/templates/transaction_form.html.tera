@@ -102,7 +102,7 @@ function setFields() {
 			{% else %}
 			<button class="table_cell button" type="submit">Create</button>
 			{% endif %}
-			<a class="table_cell button" href="{{relpath}}transactions">Cancel</a>
+			<a class="table_cell button" href="/{{relpath}}transactions">Cancel</a>
 		</div>
 	</form>
 </div>

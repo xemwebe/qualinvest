@@ -20,9 +20,9 @@
 			<li><a href="/{{relpath}}settings">Settings</a></li>
 			<li><a href="/{{relpath}}accounts">Accounts</a></li>
 			{% if not user.userid %}
-			<li><a href="{{relpath}}login?redir={{relpath}}">Login</a></li>
+			<li><a href="/{{relpath}}login?redir=/{{relpath}}">Login</a></li>
 			{% else %}
-			<li><a href="{{relpath}}logout?redir={{relpath}}">Logout</a></li>
+			<li><a href="/{{relpath}}logout?redir=/{{relpath}}">Logout</a></li>
 			{% endif %}
 		</ul>
 	</nav>
