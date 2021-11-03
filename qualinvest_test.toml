@@ -19,6 +19,6 @@ eod_historical_data_token = ""
 
 [server]
 port = 8000
-relative_path = ""
+relative_path = "ql"
 secret_key = "cUagfL6pfOZmSrn/3WTDef8tLTdaMSfIwjHCd/EaxPg="
 

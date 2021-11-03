@@ -48,9 +48,11 @@ mod user_settings;
 use auth::authorization::*;
 use user::*;
 use layout::*;
+use once_cell::sync::OnceCell;
+
+static BASE_PATH: OnceCell<String> = OnceCell::new();
 
 pub struct ServerState {
-    rel_path: String,
     postgres_db: Arc<PostgresDB>,
     doc_path: String,
     market_data: MarketDataProviders,
@@ -58,9 +60,16 @@ pub struct ServerState {
 
 impl ServerState {
     pub fn default_context(&self) -> tera::Context {
-        let mut context = tera::Context::new();
-        context.insert("relpath", &self.rel_path);
+        let context = tera::Context::new();
         context
+    }
+
+    pub fn set_base(base: String) {
+        let _ = BASE_PATH.set(base);
+    }
+
+    pub fn base() -> Origin<'static> {
+        Origin::parse(&BASE_PATH.get().unwrap()).expect("Invalid base path.")
     }
 }
 
@@ -103,14 +112,14 @@ async fn retry_login_user(user: UserQuery, redirect: Option<String>, flash_msg_o
 
 /// if there is a flash message but no user query string
 /// display why the login failed and display the login screen
-#[get("/login?<redirect>", rank = 3)]
-async fn retry_login_flash(redirect: Option<String>, flash_msg: FlashMessage<'_>, state: &State<ServerState>) -> Template {
+#[get("/login?<redirect>&<err_msg>", rank = 3)]
+async fn retry_login_flash(redirect: Option<String>, err_msg: Option<String>, state: &State<ServerState>) -> Template {
     let mut context = state.default_context();
-    context.insert("alert_type", &flash_msg.kind());
-    context.insert("alert_msg", &flash_msg.message());
+
     if let Some(redirect) = redirect {
         context.insert("redirect", &redirect);
     }
+    context.insert("err_msg", &err_msg);
     layout("login", &context.into_json())
 }
 
@@ -119,22 +128,21 @@ async fn process_login(form: Form<UserForm>, cookies: &CookieJar<'_>,
         state: &State<ServerState>) -> Result<Redirect, Flash<Redirect>> {
     let db = state.postgres_db.clone();
     let login = form.into_inner();
-    login.flash_redirect(login.redirect.clone(), format!("/{}login", state.rel_path), cookies, db).await
+    login.flash_redirect(login.redirect.clone(), format!("/{}login", ServerState::base()), cookies, db).await
 }
 
 #[get("/logout")]
-async fn logout(user: Option<UserCookie>, cookies: &CookieJar<'_>, state: &State<ServerState>) -> Result<Flash<Redirect>, Redirect> {
+async fn logout(user: Option<UserCookie>, cookies: &CookieJar<'_>) -> Result<Flash<Redirect>, Redirect> {
     if user.is_some() {
         cookies.remove_private(Cookie::named(UserCookie::cookie_id()));
-        Ok(Flash::success(Redirect::to(format!("/{}", state.rel_path)), "Successfully logged out."))
+        Ok(Flash::success(Redirect::to(format!("/{}", ServerState::base())), "Successfully logged out."))
     } else {
-        Err(Redirect::to(format!("/{}login", state.rel_path)))
+        Err(Redirect::to(uri!(ServerState::base(), login(Option::<String>::None))))
     }
 }
 
-
-#[get("/")]
-async fn index(user_opt: Option<UserCookie>, flash_msg_opt: Option<FlashMessage<'_>>, state: &State<ServerState>) -> Template {
+#[get("/?<message>")]
+async fn index(message: Option<String>, user_opt: Option<UserCookie>, flash_msg_opt: Option<FlashMessage<'_>>, state: &State<ServerState>) -> Template {
     let mut context = state.default_context();
     if let Some(flash) = flash_msg_opt {
         context.insert("alert_type", &flash.kind());
@@ -142,7 +150,8 @@ async fn index(user_opt: Option<UserCookie>, flash_msg_opt: Option<FlashMessage<
     }
     if let Some(user) = user_opt {
         context.insert("user", &user);
-    } 
+    }
+    context.insert("err_msg", &message);
     layout("index", &context.into_json())
 }
 
@@ -215,6 +224,11 @@ async fn rocket() -> _ {
         .merge(("secret_key",config.server.secret_key.unwrap()))
     };
     let templates = filter::set_filter();
+    let server_state = ServerState {
+        postgres_db: Arc::new(postgres_db),
+        doc_path: config.pdf.doc_path.clone(),
+        market_data: config.market_data
+    };
 
     // Normalize rel_path, i.e. either "" or "<some path>/" such that format!("/{}<rest of path>", rel_path) is valid
     let rel_path = match config.server.relative_path {
@@ -228,18 +242,12 @@ async fn rocket() -> _ {
         },
         None => "".to_string(),
     };
-    let server_state = ServerState {
-        rel_path: rel_path.clone(),
-        postgres_db: Arc::new(postgres_db),
-        doc_path: config.pdf.doc_path.clone(),
-        market_data: config.market_data
-    };
-    let mount_path = format!("/{}", rel_path);
-    let base_path = Origin::parse(&mount_path).expect("Invalid base path.");
+    ServerState::set_base(rel_path.clone());
+
     rocket::custom(rocket_config)
         .attach(templates)
         .manage(server_state)
-        .mount(base_path, routes![
+        .mount(ServerState::base(), routes![
             logged_in,
             login,
             retry_login_user,
@@ -247,13 +255,15 @@ async fn rocket() -> _ {
             process_login,
             logout,
             index,
+            static_files,
+            error_msg,
             position::position,
             transactions::transactions,
             transactions::edit_transaction,
             transactions::delete_transaction,
-            transactions::process_transaction,
             transactions::pdf_upload,
             transactions::pdf_upload_form,
+            transactions::update_transaction,
             asset::analyze_asset,
             asset::assets,
             asset::delete_asset,
@@ -277,7 +287,5 @@ async fn rocket() -> _ {
             accounts::add_user,
             accounts::delete_user,
             accounts::user_accounts,
-            static_files,
-            error_msg
         ])
 }

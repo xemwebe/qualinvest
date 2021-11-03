@@ -6,7 +6,6 @@ use rocket::response::Redirect;
 use rocket_dyn_templates::Template;
 use rocket::form::{Form, FromForm};
 use super::rocket_uri_macro_error_msg;
-use super::rocket_uri_macro_login;
 
 use finql_data::{AssetHandler, Quote, QuoteHandler, date_time_helper::date_time_from_str_standard};
 
@@ -22,22 +21,17 @@ struct QuoteView {
     ticker_source: String,
 }
 
-#[get("/quotes?<asset_id>")]
-pub async fn show_quotes(asset_id: usize, user_opt: Option<UserCookie>, state: &State<ServerState>) -> Result<Template,Redirect> {
-    if user_opt.is_none() {
-        return Err(Redirect::to(format!("/{}{}", state.rel_path, uri!(login(redirect=Some("asset"))))));
-    }
-    let user = user_opt.unwrap();
-
+#[get("/quotes?<asset_id>&<err_msg>")]
+pub async fn show_quotes(asset_id: usize, err_msg: Option<String>, user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
     let db = state.postgres_db.clone();
     let f_asset = db.get_asset_by_id(asset_id);
     let f_tickers = db.get_all_ticker_for_asset(asset_id);
     let (asset, tickers) = futures::join!(f_asset, f_tickers);
     let mut f_quotes = Vec::new();
-    let asset = asset.map_err(|_| Redirect::to(format!("/{}{}", 
-        state.rel_path, uri!(error_msg(msg="failed to get asset name".to_string())))))?;
-    let tickers = tickers.map_err(|_| Redirect::to(format!("/{}{}", 
-        state.rel_path, uri!(error_msg(msg="failed to get list of tickers".to_string())))))?;
+    let asset = asset.map_err(|_| 
+        Redirect::to(uri!(ServerState::base(), crate::asset::assets(Some("Invalid asset.")))))?;
+    let tickers = tickers.map_err(|_| 
+        Redirect::to(uri!(ServerState::base(), crate::asset::assets(Some("Could not get ticker for asset.")))))?;
     for ticker in &tickers {
         if let Some(ticker_id) = ticker.id {
             f_quotes.push(db.get_all_quotes_for_ticker(ticker_id));
@@ -79,7 +73,7 @@ pub async fn show_quotes(asset_id: usize, user_opt: Option<UserCookie>, state: &
     context.insert("asset_name", &asset.name);
     context.insert("tickers", &tickers);
     context.insert("user", &user);
-
+    context.insert("err_msg", &err_msg);
     Ok(layout("quotes", &context.into_json()))
 }
 
@@ -87,15 +81,15 @@ pub async fn show_quotes(asset_id: usize, user_opt: Option<UserCookie>, state: &
 #[get("/quote/update?<asset_id>&<ticker_id>")]
 pub async fn update_asset_quote(asset_id: usize, ticker_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
     if !user.is_admin {
-        return  Err(Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="You must be admin user to edit assets!")))));
+        return  Err(Redirect::to(uri!(ServerState::base(), super::index(Some("You must be admin user to edit quotes!".to_string())))));
     }
 
     let db = state.postgres_db.clone();
 
     qualinvest_core::update_ticker(ticker_id, db, &state.market_data).await
-        .map_err(|_| Redirect::to(uri!(error_msg(msg="Updating prices for ticker failed"))))?;
+        .map_err(|_| Redirect::to(uri!(ServerState::base(), show_quotes(asset_id, Some("Updating prices for ticker failed".to_string())))))?;
 
-    Ok(Redirect::to(format!("/{}quotes?asset_id={}",state.rel_path, asset_id)))
+    Ok(Redirect::to(uri!(ServerState::base(), show_quotes(asset_id, Option::<String>::None))))
 }
 
 #[get("/quote/renew_history?<asset_id>&<ticker_id>&<start>&<end>")]
@@ -103,19 +97,19 @@ pub async fn renew_history(asset_id: usize, ticker_id: usize,
     start: String, end: String, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
 
     if !user.is_admin {
-        return  Err(Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="You must be admin user to edit assets!")))));
+        return  Err(Redirect::to(uri!(ServerState::base(), show_quotes(asset_id, Some("You must be admin user to update quotes!".to_string())))));
     }
 
     let db = state.postgres_db.clone();
     let start_date = date_time_from_str_standard(&start, 0)
-        .map_err(|_| Redirect::to(uri!(error_msg(msg="Invalid start date."))))?;
+        .map_err(|_| Redirect::to(uri!(ServerState::base(), show_quotes(asset_id, Some("Invalid start date.".to_string())))))?;
     let end_date = date_time_from_str_standard(&end, 0)
-        .map_err(|_| Redirect::to(uri!(error_msg(msg="Invalid end date."))))?;
+        .map_err(|_| Redirect::to(uri!(ServerState::base(), show_quotes(asset_id, Some("Invalid end date.".to_string())))))?;
 
     qualinvest_core::update_quote_history(ticker_id, start_date, end_date, db, &state.market_data).await
-        .map_err(|_| Redirect::to(uri!(error_msg(msg="Updating quote history failedcl."))))?;
+        .map_err(|_| Redirect::to(uri!(ServerState::base(), show_quotes(asset_id, Some("Updating quote history failed.".to_string())))))?;
 
-    Ok(Redirect::to(format!("/{}quotes?asset_id={}",state.rel_path, asset_id)))
+    Ok(Redirect::to(uri!(ServerState::base(), show_quotes(asset_id, Option::<String>::None))))
 }
 
 
@@ -123,22 +117,22 @@ pub async fn renew_history(asset_id: usize, ticker_id: usize,
 pub async fn delete_quote(quote_id: usize, asset_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
     let db = state.postgres_db.clone();
     if !user.is_admin {
-        return Err(Redirect::to(uri!(error_msg(msg="Admin rights are required to delete quotes"))));
+        return Err(Redirect::to(uri!(ServerState::base(), show_quotes(asset_id, Some("You must be admin user to update quote history!".to_string())))));
     }
     db.delete_quote(quote_id).await
-        .map_err(|_| Redirect::to(uri!(error_msg(msg="Deleting of quote failed."))))?;
-    Ok(Redirect::to(format!("/{}quotes?asset_id={}", state.rel_path, asset_id)))
+        .map_err(|_| Redirect::to(uri!(ServerState::base(), show_quotes(asset_id, Some("Deleting of quote failed.")))))?;
+    Ok(Redirect::to(uri!(ServerState::base(), show_quotes(asset_id, Option::<String>::None))))
 }
 
 #[get("/quote/new?<asset_id>")]
 pub async fn new_quote(asset_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
     if !user.is_admin {
-        return Err(Redirect::to(uri!(error_msg(msg="Admin rights are required to add quotes"))));
+        return Err(Redirect::to(uri!(ServerState::base(), show_quotes(asset_id, Some("You must be admin user to add new quotes!".to_string())))));
     }
     let db = state.postgres_db.clone();
     let asset = db.get_asset_by_id(asset_id).await
-        .map_err(|_| Redirect::to(format!("/{}{}", 
-        state.rel_path, uri!(error_msg(msg="failed to get asset name".to_string())))))?;
+        .map_err(|_| 
+            Redirect::to(uri!(ServerState::base(), show_quotes(asset_id, Some("Failed to get asset!".to_string())))))?;
     
     let mut context = state.default_context();
     context.insert("asset_id", &asset_id);
@@ -167,12 +161,10 @@ pub async fn add_new_quote(form: Form<QuoteForm>, user: UserCookie, state: &Stat
     let db = state.postgres_db.clone();
     // Try to get asset just to make sure it does exist
     let _asset = db.get_asset_by_id(quote_form.asset_id).await
-        .map_err(|_| Redirect::to(format!("/{}{}", 
-        state.rel_path, uri!(error_msg(msg="failed to get asset".to_string())))))?;
+        .map_err(|_| Redirect::to(uri!(ServerState::base(), show_quotes(quote_form.asset_id, Some("Failed to get asset".to_string())))))?;
     
     let currency = finql_data::Currency::from_str(&quote_form.currency)
-        .map_err(|_| Redirect::to(format!("/{}{}", 
-        state.rel_path, uri!(error_msg(msg="Invalid currency".to_string())))))?;
+        .map_err(|_| Redirect::to(uri!(ServerState::base(), show_quotes(quote_form.asset_id, Some("Invalid currency".to_string())))))?;
     
     let ticker = finql_data::Ticker{
         id: None,
@@ -184,13 +176,14 @@ pub async fn add_new_quote(form: Form<QuoteForm>, user: UserCookie, state: &Stat
         factor: 1.0,
     };
     let ticker_id = db.insert_if_new_ticker(&ticker).await
-        .map_err(|_| Redirect::to(format!("/{}{}", 
-        state.rel_path, uri!(error_msg(msg="Failed to store manual ticker".to_string())))))?;
+        .map_err(|_| 
+            Redirect::to(uri!(ServerState::base(), show_quotes(quote_form.asset_id, Some("Failed to store manual ticker".to_string())))))?;
 
     
     let date = date_time_from_str_standard(&quote_form.date, quote_form.hour)
-        .map_err(|_| Redirect::to(format!("/{}{}", 
-        state.rel_path, uri!(error_msg(msg="Invalid date".to_string())))))?;
+        .map_err(|_| 
+            Redirect::to(uri!(ServerState::base(), show_quotes(quote_form.asset_id, Some("Invalid date".to_string())))))?;
+
     let quote = Quote{
         id: None,
         ticker: ticker_id,
@@ -199,8 +192,7 @@ pub async fn add_new_quote(form: Form<QuoteForm>, user: UserCookie, state: &Stat
         volume: None,    
     };
     db.insert_quote(&quote).await
-        .map_err(|_| Redirect::to(format!("/{}{}", 
-        state.rel_path, uri!(error_msg(msg="Failed to store quote".to_string())))))?;
-
-    Ok(Redirect::to(format!("/{}quotes?asset_id={}", state.rel_path, quote_form.asset_id)))
+        .map_err(|_| Redirect::to(uri!(ServerState::base(), show_quotes(quote_form.asset_id, Some("Failed to store quote".to_string())))))?;
+        
+    Ok(Redirect::to(uri!(ServerState::base(), show_quotes(quote_form.asset_id, Option::<String>::None))))
 }

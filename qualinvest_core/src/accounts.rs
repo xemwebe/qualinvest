@@ -76,6 +76,9 @@ pub trait AccountHandler: TransactionHandler {
         path: &str,
     ) -> Result<(), DataError>;
 
+    /// Get id of account a transaction belongs to
+    async fn get_transactions_account_id(&self, transaction_id: usize) -> Result<usize, DataError>;
+
     /// Get transactions filtered by account id
     async fn get_all_transactions_with_account(
         &self,
@@ -307,6 +310,16 @@ impl AccountHandler for PostgresDB {
                 .map_err(|e| DataError::InsertFailed(e.to_string()))?;
         }
         Ok(())
+    }
+
+    /// Get id of account a transaction belongs to
+    async fn get_transactions_account_id(&self, transaction_id: usize) -> Result<usize, DataError> {
+        let row = sqlx::query!(
+            "SELECT account_id FROM account_transactions WHERE transaction_id = $1",
+            transaction_id as i32
+        ).fetch_one(&self.pool).await
+        .map_err(|e| DataError::NotFound(e.to_string()))?;
+        Ok(row.account_id as usize)
     }
 
     /// Get transactions filtered by account id

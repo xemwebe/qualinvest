@@ -6,7 +6,6 @@ use rocket_dyn_templates::Template;
 use rocket::form::{Form, FromForm};
 use rocket::fs::TempFile;
 
-use chrono::Local;
 use qualinvest_core::accounts::{Account,AccountHandler};
 use qualinvest_core::user::UserHandler;
 use finql_data::{Transaction,TransactionType,TransactionHandler,AssetHandler,CashAmount,CashFlow,Currency};
@@ -16,24 +15,29 @@ use crate::user::UserCookie;
 use crate::layout::layout;
 use crate::form_types::NaiveDateForm;
 use std::str::FromStr;
-use super::rocket_uri_macro_error_msg;
 use super::rocket_uri_macro_login;
 use super::ServerState;
 
-#[get("/transactions")]
-pub async fn transactions(user_opt: Option<UserCookie>, state: &State<ServerState>) -> Result<Template,Redirect> {
+#[get("/transactions?<err_msg>")]
+pub async fn transactions(err_msg: Option<String>, user_opt: Option<UserCookie>, state: &State<ServerState>) -> Result<Template,Redirect> {
     if user_opt.is_none() {
-        return Err(Redirect::to(format!("/{}{}",state.rel_path, uri!(login(redirect=Some("transactions"))))));
+        return Err(Redirect::to(uri!(ServerState::base(), login(Some("transactions")))));
     }
     let user = user_opt.unwrap();
 
     let db = state.postgres_db.clone();
     let user_settings = db.get_user_settings(user.userid).await;
-    let transactions = db.get_transaction_view_for_accounts(&user_settings.account_ids).await
-        .map_err(|e| Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg=format!("Couldn't get transactions for your account, error was {}", e))))))?;
-
     let mut context = state.default_context();
-    context.insert("transactions", &transactions);
+    if let Ok(transactions) = db.get_transaction_view_for_accounts(&user_settings.account_ids).await {
+        context.insert("transactions", &transactions);
+    } else {
+        if err_msg.is_none() {
+            context.insert("err_msg", "Failed to get list of transactions!");
+        } else {
+            context.insert("err_msg", &err_msg);
+        }
+    }
+
     context.insert("user", &user);
     Ok(layout("transactions", &context.into_json()))
 }
@@ -56,32 +60,20 @@ pub struct TransactionForm {
 
 
 impl TransactionForm {
-    fn new(account: &Account) -> Result<TransactionForm,&'static str> {
-        if account.id.is_none() {
-            Err("no_account_given")
-        } else {
-            Ok(TransactionForm{
-                id: None,
-                asset_id: None,
-                position: None,
-                trans_type: "7a".to_string(),
-                cash_amount: 0.0,
-                currency: "EUR".to_string(),
-                date: NaiveDateForm::new(Local::now().naive_local().date()),
-                note: None,
-                trans_ref: None,
-                account_id: account.id.unwrap(),
-            })
-        }
-    }
-
     fn from(t: &Transaction, account: &Account) -> Result<TransactionForm,&'static str> {
-        let mut tf = TransactionForm::new(account)?;
-        tf.id = t.id;
-        tf.note = t.note.as_ref().cloned();
-        tf.cash_amount = t.cash_flow.amount.amount;
-        tf.date = NaiveDateForm::new(t.cash_flow.date);
-        tf.currency = t.cash_flow.amount.currency.to_string();
+        let account_id = account.id.ok_or("Invalid account")?;
+        let mut tf = TransactionForm {
+            id: t.id,
+            note: t.note.as_ref().cloned(),
+            cash_amount: t.cash_flow.amount.amount,
+            date: NaiveDateForm::new(t.cash_flow.date),
+            currency: t.cash_flow.amount.currency.to_string(),
+            asset_id: None,
+            trans_type: "".to_string(),
+            trans_ref: None,
+            account_id : account_id,
+            position: None};
+    
         match t.transaction_type {
             TransactionType::Asset{asset_id, position} => {
                 tf.trans_type = "a".to_string();
@@ -144,57 +136,73 @@ impl TransactionForm {
     } 
 }
 
-#[get("/transactions/edit?<transaction_id>")]
-pub async fn edit_transaction(transaction_id: Option<usize>, user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
+#[get("/transactions/edit?<transaction_id>&<err_msg>")]
+pub async fn edit_transaction(transaction_id: Option<usize>, err_msg: Option<String>, user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
     let db = state.postgres_db.clone();
-    let user_accounts = user.get_accounts(db.clone()).await;
-    if user_accounts.is_none()
-    {
-        return Err(Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="no_user_accounts")))));
-    }
-    let user_accounts = user_accounts.unwrap();
-
-    let transaction = if let Some(trans_id) = transaction_id {
-        let account = db.get_transaction_account_if_valid(trans_id, user.userid).await
-        .map_err(|_| Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="no_valid_account")))))?;
-
-        let transaction = db.get_transaction_by_id(trans_id).await
-            .map_err(|_| Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="invalid_transaction_id")))))?;
-        TransactionForm::from(&transaction, &account)
-            .map_err(|e| Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg=e)))))?
-    } else {
-        TransactionForm::new(&user_accounts[0])
-            .map_err(|e| Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg=e)))))?
-    };    
-
-    let assets = db.get_all_assets().await
-        .map_err(|_| Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="no_assets")))))?;
-    let currencies = db.get_all_currencies().await
-        .map_err(|_| Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="no_assets")))))?;
     let mut context = state.default_context();
-    context.insert("transaction", &transaction);
-    context.insert("assets", &assets);
-    context.insert("currencies", &currencies);
-    context.insert("valid_accounts", &user_accounts);
     context.insert("user", &user);
+
+    if err_msg.is_some() {
+        context.insert("err_msg", &err_msg);
+        return Ok(layout("transaction_form", &context.into_json()));
+    }
+
+    if let Some(user_accounts) = user.get_accounts(db.clone()).await {
+        context.insert("valid_accounts", &user_accounts);
+    } else {
+        context.insert("err_msg", "You need an account before you can add transactions");
+    }
+
+    if let Some(trans_id) = transaction_id {
+        if let Ok(account) = db.get_transaction_account_if_valid(trans_id, user.userid).await {
+            if let Ok(transaction) = db.get_transaction_by_id(trans_id).await {
+                if let Ok(transaction) = TransactionForm::from(&transaction, &account) {
+                    context.insert("transaction", &transaction);
+                } else {
+                    context.insert("err_msg", "Failed to read transaction");
+                }
+            } else {
+                context.insert("err_msg", "Invalid transaction ID");
+            }
+        } else {
+            context.insert("err_msg", "Account is invalid");
+        }
+    }
+    
+    if let Ok(assets) = db.get_all_assets().await {
+        context.insert("assets", &assets);
+    } else {
+        context.insert("err_msg", "Could not find any assets");
+    }
+
+    if let Ok(currencies) = db.get_all_currencies().await {
+        context.insert("currencies", &currencies);
+    } else {
+        context.insert("err_msg", "No currencies have been defined yet");
+    }
+
     Ok(layout("transaction_form", &context.into_json()))
 }
 
-#[get("/transactions/upload")]
-pub async fn pdf_upload_form(user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
+#[get("/transactions/upload?<error_msg>")]
+pub async fn pdf_upload_form(error_msg: Option<String>, user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
     let db = state.postgres_db.clone();
-    let user_accounts = user.get_accounts(db.clone()).await;
-    if user_accounts.is_none()
-    {
-        return Err(Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="no_user_accounts")))));
-    }
-    let user_accounts = user_accounts.unwrap();
-    let default_account_id: Option<usize> = None;
-
     let mut context = state.default_context();   
     context.insert("user", &user);
+
+    if let Some(message) = error_msg {
+        context.insert("err_msg", &message);
+        return Ok(layout("pdf_upload", &context.into_json()));
+    }
+
+    if let Some(user_accounts) = user.get_accounts(db.clone()).await {
+        context.insert("accounts", &user_accounts);
+    } else {
+        context.insert("err_msg", "You have no accounts setup");
+    }
+
+    let default_account_id: Option<usize> = None;
     context.insert("default_account_id", &default_account_id);
-    context.insert("accounts", &user_accounts);
     Ok(layout("pdf_upload", &context.into_json()))
 }
 
@@ -237,16 +245,16 @@ pub async fn pdf_upload(mut data: Form<PDFUploadFormData<'_>>, user: UserCookie,
         default_account: data.default_account,
     };
     if ! user.is_admin {
-        return Err(Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="Only admins may upload pdf files!")))));
+        return Err(Redirect::to(uri!(ServerState::base(), super::index(Some("Only admins may upload pdf files!")))));
     }
     // parse each each pdf found
     let mut errors = Vec::new();
     let tmp_dir = TempDir::new()
-        .map_err(|_| Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="Failed to create tmp directory")))))?;
+        .map_err(|_| Redirect::to(uri!(ServerState::base(), pdf_upload_form(Some("Failed to create tmp directory")))))?;
     for (i,doc) in data.doc_name.iter_mut().enumerate() {
         let tmp_path = tmp_dir.path().join(format!("qltmp_pdf{}",i));
         doc.persist_to(&tmp_path).await
-            .map_err(|_| Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="Persisting uploaded file failed.")))))?;
+            .map_err(|_| Redirect::to(uri!(ServerState::base(), pdf_upload_form(Some("Persisting uploaded file failed.")))))?;
         if let Some(raw_name) = doc.raw_name() {
             let file_name = raw_name.dangerous_unsafe_unsanitized_raw().html_escape().to_string();            
 
@@ -290,69 +298,61 @@ pub async fn delete_transaction(transaction_id: usize, user: UserCookie, state: 
     let db = state.postgres_db.clone();
     // remove transaction and everything related, if the user has the proper rights
 
-    db.remove_transaction(transaction_id, user.userid).await
-        .map_err(|_| Redirect::to(uri!(error_msg(msg="data_access_failure_access_denied"))))?;
-    Ok(Redirect::to(format!("/{}transactions", state.rel_path)))
+    let result = db.remove_transaction(transaction_id, user.userid).await;
+    let message = if result.is_err() {
+        Some("Failed to delete transaction")
+    } else {
+        None
+    };
+    Ok(Redirect::to(uri!(ServerState::base(), transactions(message))))
 }
 
-#[post("/transactions", data = "<form>")]
-pub async fn process_transaction(form: Form<TransactionForm>, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
-    let transaction = form.into_inner();
+#[post("/transactions/update", data="<transaction>")]
+pub async fn update_transaction(user: UserCookie, transaction: Form<TransactionForm>, state: &State<ServerState>) -> Option<String>  {
     let db = state.postgres_db.clone();
-
-    // check that user has access rights to account
-    let user_accounts = user.get_accounts(db.clone()).await;
-    if user_accounts.is_none()
-    {
-        return Err(Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="no_user_accounts")))));
-    }
-    let user_accounts = user_accounts.unwrap();
-    if !user_accounts.iter().any(|acc| acc.id==Some(transaction.account_id)) {
-        return Err(Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="no_access_to_account")))));
-    }
-
     // check if trans_ref belongs to trade where the user has access to
-    if transaction.trans_ref.is_some() {
-        let ref_id = transaction.trans_ref.unwrap();
+    if let Some(ref_id) = transaction.trans_ref {
         if db.get_transaction_account_if_valid(ref_id, user.userid).await.is_err() {
-            return Err(Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="access_violation_trans_ref")))));
-        }
+            return Some("The refenrece id is invalid".to_string());
+        }  
     }
 
     // check whether currency exists
-    let currencies = db.get_all_currencies().await
-        .map_err(|_| Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="currency_check_failed")))))?;
-    if !currencies.iter().any(|&c| c.to_string()==transaction.currency) {
-        return Err(Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="unknown_currency")))));
+    if let Ok(currencies) = db.get_all_currencies().await {
+        if !currencies.iter().any(|&c| c.to_string()==transaction.currency) {
+            return Some("Currency is unknown".to_string());
+        }   
+    } else {
+        return Some("Found no currencies".to_string());
     }
-
-    if let Some(id) = transaction.id {
-        // check for valid id
-        if let Ok(old_account) = db.get_transaction_account_if_valid(id, user.userid).await {
-            let trans = &transaction.to_transaction()
-                .map_err(|e| Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg=e)))))?;
-            db.update_transaction(trans).await
-                .map_err(|_| { Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="update_of_transaction_failed"))))})?;
-            let old_id = old_account.id.unwrap();
-            if old_id != transaction.account_id {
-                db.change_transaction_account(id, old_id, transaction.account_id).await
-                    .map_err(|_| { Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="update_of_transaction_failed"))))})?;
+    
+    if let Ok(trans) = transaction.to_transaction() {
+        if let Some(id) = transaction.id {
+            // check if id is valid
+            if let Ok(old_account) = db.get_transaction_account_if_valid(id, user.userid).await {
+                if db.update_transaction(&trans).await.is_err() {
+                    return Some("Updating transaction failed".to_string());
+                }
+                let old_id = old_account.id.unwrap();
+                if old_id != transaction.account_id {
+                    if db.change_transaction_account(id, old_id, transaction.account_id).await.is_err() {
+                        return Some("Updating transaction's account failed".to_string());
+                    }
+                }
             }
         } else {
-            return Err(Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="access_violation_trans_ref")))));
+            // new transaction, all checks passed, write to db
+            if let Ok(id) = db.insert_transaction(&trans).await {
+                if db.add_transaction_to_account(transaction.account_id, id).await.is_err() {
+                    return Some("Inserting transaction failed".to_string());
+                }
+            } else {
+                return Some("Inserting new transaction failed".to_string());
+            }
         }
     } else {
-        // new transaction, all checks passed, write to db
-        let trans = &transaction.to_transaction()
-            .map_err(|e| Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg=e)))))?;
-        let id = db.insert_transaction(trans).await
-            .map_err(|_| Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="insert_new_transaction_failed")))))?;
-        db.add_transaction_to_account(transaction.account_id, id).await
-            .map_err(|_| Redirect::to(format!("/{}{}", state.rel_path, uri!(error_msg(msg="insert_new_transaction_failed")))))?;
+        return Some("Invalid transaction format".to_string());
     }
 
-    println!("uri!(transactions)={}", uri!(transactions));
-    println!("state.rel_path={}", state.rel_path);
-    println!("total redirect: {}{}", state.rel_path, uri!(transactions));
-    Ok(Redirect::to(format!("/{}transactions", state.rel_path)))
+    None
 }
