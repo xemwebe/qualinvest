@@ -69,7 +69,7 @@ impl ServerState {
     }
 
     pub fn base() -> Origin<'static> {
-        Origin::parse(&BASE_PATH.get().unwrap()).expect("Invalid base path.")
+        Origin::parse(&BASE_PATH.get().unwrap()).expect("Invalid base path")
     }
 }
 
@@ -135,7 +135,7 @@ async fn process_login(form: Form<UserForm>, cookies: &CookieJar<'_>,
 async fn logout(user: Option<UserCookie>, cookies: &CookieJar<'_>) -> Result<Flash<Redirect>, Redirect> {
     if user.is_some() {
         cookies.remove_private(Cookie::named(UserCookie::cookie_id()));
-        Ok(Flash::success(Redirect::to(format!("/{}", ServerState::base())), "Successfully logged out."))
+        Ok(Flash::success(Redirect::to(format!("/{}", ServerState::base())), "Successfully logged out"))
     } else {
         Err(Redirect::to(uri!(ServerState::base(), login(Option::<String>::None))))
     }
