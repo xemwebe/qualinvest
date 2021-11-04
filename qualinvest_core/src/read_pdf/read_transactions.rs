@@ -296,7 +296,7 @@ fn parse_payment_components(
     factor: f64,
 ) -> Result<(), ReadPDFError> {
     for regex in regex_vec {
-        add_or_append(payments, &regex, text, factor)?;
+        add_or_append(payments, regex, text, factor)?;
     }
     Ok(())
 }

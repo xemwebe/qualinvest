@@ -126,7 +126,7 @@ impl<'r> FromRequest<'r> for UserCookie {
         
         match cookies.get_private(cid) {
             Some(cookie) => {
-                if let Some(cookie_deserialized) = UserCookie::retrieve_cookie(&cookie.value()) {
+                if let Some(cookie_deserialized) = UserCookie::retrieve_cookie(cookie.value()) {
                     Outcome::Success(
                         cookie_deserialized
                     )

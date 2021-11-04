@@ -36,7 +36,7 @@ function setFields() {
 {% block content %}
 <h2 align="center">{% if transaction.id %}Edit{% else %}New{% endif %} Transaction</h2>
 <div class="center table">
-	<form action="/{{relpath}}transactions" method="post">
+	<form action="{{relpath}}transactions" method="post">
 		<input name="id" type="number" hidden value={{transaction.id}}>
 		<div class="table_row">
 			<label class="table_cell" for="date">Date:</label>
@@ -102,7 +102,7 @@ function setFields() {
 			{% else %}
 			<button class="table_cell button" type="submit">Create</button>
 			{% endif %}
-			<a class="table_cell button" href="/{{relpath}}transactions">Cancel</a>
+			<a class="table_cell button" href="{{relpath}}transactions">Cancel</a>
 		</div>
 	</form>
 </div>

@@ -214,7 +214,7 @@ async fn main() {
 
     if let Some(matches) = matches.subcommand_matches("hash") {
         let pdf_file = std::path::Path::new(matches.value_of("INPUT").unwrap());
-        match sha256_hash(&pdf_file) {
+        match sha256_hash(pdf_file) {
             Err(err) => {
                 println!(
                     "Failed to calculate hash of file {:?} with error {:?}",
@@ -284,7 +284,7 @@ async fn main() {
             let pdf_file = matches.value_of("parse-pdf").unwrap();
             let path = std::path::Path::new(pdf_file);
             let file_name = path.file_name().unwrap().to_str().unwrap();
-            let transactions = parse_and_store(&path, file_name, db, &config.pdf).await;
+            let transactions = parse_and_store(path, file_name, db, &config.pdf).await;
             match transactions {
                 Err(err) => {
                     println!("Failed to parse file {} with error {:?}", pdf_file, err);
@@ -303,7 +303,7 @@ async fn main() {
         let account_id = matches.value_of("account");
         let transactions = match account_id {
             Some(account_id) => db
-                .get_all_transactions_with_account(usize::from_str(&account_id).unwrap())
+                .get_all_transactions_with_account(usize::from_str(account_id).unwrap())
                 .await.unwrap(),
             None => db.get_all_transactions().await.unwrap(),
         };
@@ -359,11 +359,10 @@ async fn main() {
     if let Some(matches) = matches.subcommand_matches("insert") {
         if let Some(matches) = matches.subcommand_matches("ticker") {
             let ticker = matches.value_of("JSON-OBJECT").unwrap();
-            let ticker: Ticker = serde_json::from_str(&ticker).unwrap();
+            let ticker: Ticker = serde_json::from_str(ticker).unwrap();
             db.insert_ticker(&ticker).await.unwrap();
         } else {
             println!("Nothing inserted, unknown object type, use `help insert` to display all supported types.");
         }
-        return;
     }
 }

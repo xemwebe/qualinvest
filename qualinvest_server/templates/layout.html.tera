@@ -6,30 +6,29 @@
 
 	<title>{% block pagetitle %}QuantInvest{% endblock pagetitle%}</title>
 
-	<link rel="stylesheet" href="/{{relpath}}static/qualinv.css" />
+	<link rel="stylesheet" href="{{relpath}}static/qualinv.css" />
 	{% block jsdata %}{% endblock jsdata %}
 </head>
 <body style="padding-top: 15px;">
 	<nav class="nav">
 		<ul>
-			<li><a href="/{{relpath}}">QuantInvest</a></li>
-			<li><a href="/{{relpath}}transactions">Transactions</a></li>
-			<li><a href="/{{relpath}}position">Position</a></li>
-			<li><a href="/{{relpath}}asset">Analysis</a></li>
-			<li><a href="/{{relpath}}assets">Assets</a></li>
-			<li><a href="/{{relpath}}settings">Settings</a></li>
-			<li><a href="/{{relpath}}accounts">Accounts</a></li>
+			<li><a href="{{relpath}}">QuantInvest</a></li>
+			<li><a href="{{relpath}}transactions">Transactions</a></li>
+			<li><a href="{{relpath}}position">Position</a></li>
+			<li><a href="{{relpath}}asset">Analysis</a></li>
+			<li><a href="{{relpath}}assets">Assets</a></li>
+			<li><a href="{{relpath}}settings">Settings</a></li>
+			<li><a href="{{relpath}}accounts">Accounts</a></li>
 			{% if not user.userid %}
-			<li><a href="/{{relpath}}login?redir=/{{relpath}}">Login</a></li>
+			<li><a href="{{relpath}}login?redir={{relpath}}">Login</a></li>
 			{% else %}
-			<li><a href="/{{relpath}}logout?redir=/{{relpath}}">Logout</a></li>
+			<li><a href="{{relpath}}logout">Logout</a></li>
 			{% endif %}
 		</ul>
 	</nav>
 
 
 
-	{% block alert %}{% if alert_msg %}<div class="center alert alert-{{alert_type}}">{{alert_msg}}</div>{% endif %}{% endblock alert %}
 	{% block content %}{% endblock content %}
 	{% block auth %}{% endblock auth %}
 </body>

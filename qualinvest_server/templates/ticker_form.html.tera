@@ -5,7 +5,7 @@
 {% endblock jsdata %}
 {% block content %}
 <div class="center table">
-	<form action="/{{relpath}}ticker/edit" method="post">
+	<form action="{{relpath}}ticker/edit" method="post">
 		<input type="text" name="asset_id" value="{{asset_id}}" hidden/>
 		<input type="text" name="ticker_id" value="{{ticker.id}}" hidden/>
 		<div class="table_row">
@@ -38,7 +38,7 @@
 			{% else %}
 				<button class="button" type="submit">Create</button>
 			{% endif %}
-			<a class="button" href="/{{relpath}}tickers?asset_id={{asset_id}}">Cancel</a>
+			<a class="button" href="{{relpath}}tickers?asset_id={{asset_id}}">Cancel</a>
 		</div>
 	</form>
 </div>

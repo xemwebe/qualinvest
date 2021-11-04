@@ -25,7 +25,7 @@
 		</div>
 		<button class="button" type="submit">Create</button>
 	</form>
-	<a class="button" href="/{{relpath}}quotes?asset_id={{asset_id}}">Cancel</a>
+	<a class="button" href="{{relpath}}quotes?asset_id={{asset_id}}">Cancel</a>
 </div>
 
 <script>

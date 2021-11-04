@@ -236,7 +236,7 @@ impl<'r, T: AuthorizeCookie> FromRequest<'r> for AuthCont<T> {
         
         match cookies.get_private(cid) {
             Some(cookie) => {
-                if let Some(cookie_deserialized) = T::retrieve_cookie(&cookie.value()) {
+                if let Some(cookie_deserialized) = T::retrieve_cookie(cookie.value()) {
                     Outcome::Success(
                         AuthCont {
                             cookie: cookie_deserialized,

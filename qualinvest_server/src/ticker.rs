@@ -120,12 +120,10 @@ pub async fn save_ticker(form: Form<TickerForm>, user: UserCookie, state: &State
                 } else {
                     Ok(Redirect::to(uri!(ServerState::base(), crate::asset::assets(Option::<String>::None))))
                 }
+            } else if db.update_ticker(&ticker).await.is_err() {
+                Err(Redirect::to(uri!(ServerState::base(), edit_ticker(ticker_form.asset_id, Option::<usize>::None, Some("Failed to store ticker in database.")))))
             } else {
-                if db.update_ticker(&ticker).await.is_err() {
-                    Err(Redirect::to(uri!(ServerState::base(), edit_ticker(ticker_form.asset_id, Option::<usize>::None, Some("Failed to store ticker in database.")))))
-                } else {
-                    Ok(Redirect::to(uri!(ServerState::base(), crate::asset::assets(Option::<String>::None))))
-                }
+                Ok(Redirect::to(uri!(ServerState::base(), crate::asset::assets(Option::<String>::None))))
             }
         } else {
             Err(Redirect::to(uri!(ServerState::base(), edit_ticker(ticker_form.asset_id, Option::<usize>::None, Some("Invalid currency!")))))

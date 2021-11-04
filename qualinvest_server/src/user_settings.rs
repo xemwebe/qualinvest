@@ -46,13 +46,13 @@ pub async fn show_settings(err_msg: Option<String>, user_opt: Option<UserCookie>
 #[post("/save_settings", data="<form>")]
 pub async fn save_settings(form: Form<UserSettingsForm>, user_opt: Option<UserCookie>, 
     state: &State<ServerState>) -> Result<Redirect, Redirect> {
-    let user = user_opt.ok_or(
+    let user = user_opt.ok_or_else(||
         Redirect::to(uri!(ServerState::base(), super::retry_login_flash(redirect=Some("save_settings".to_string()), err_msg=Some("Please log-in first.".to_string()))))
     )?;
 
     let db = state.postgres_db.clone();
     let user_accounts = user.get_accounts(db.clone()).await
-        .ok_or(Redirect::to(uri!(ServerState::base(), show_settings(Some("No user account found".to_string())))))?;
+        .ok_or_else(|| Redirect::to(uri!(ServerState::base(), show_settings(Some("No user account found".to_string())))))?;
 
     let mut all_user_account_ids = HashSet::new();
     for account in user_accounts {

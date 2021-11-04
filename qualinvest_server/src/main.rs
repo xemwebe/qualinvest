@@ -60,7 +60,12 @@ pub struct ServerState {
 
 impl ServerState {
     pub fn default_context(&self) -> tera::Context {
-        let context = tera::Context::new();
+        let mut context = tera::Context::new();
+        let mut rel_path = Self::base().to_string();
+        if !rel_path.ends_with('/') {
+            rel_path.push('/');
+        }
+        context.insert("relpath", &rel_path);
         context
     }
 
@@ -69,7 +74,7 @@ impl ServerState {
     }
 
     pub fn base() -> Origin<'static> {
-        Origin::parse(&BASE_PATH.get().unwrap()).expect("Invalid base path")
+        Origin::parse(BASE_PATH.get().unwrap()).expect("Invalid base path")
     }
 }
 
@@ -132,12 +137,12 @@ async fn process_login(form: Form<UserForm>, cookies: &CookieJar<'_>,
 }
 
 #[get("/logout")]
-async fn logout(user: Option<UserCookie>, cookies: &CookieJar<'_>) -> Result<Flash<Redirect>, Redirect> {
+async fn logout(user: Option<UserCookie>, cookies: &CookieJar<'_>) -> Result<Redirect, Redirect> {
     if user.is_some() {
         cookies.remove_private(Cookie::named(UserCookie::cookie_id()));
-        Ok(Flash::success(Redirect::to(format!("/{}", ServerState::base())), "Successfully logged out"))
+        Ok(Redirect::to(uri!(ServerState::base(), index(Some("Successfully logged out".to_string())))))
     } else {
-        Err(Redirect::to(uri!(ServerState::base(), login(Option::<String>::None))))
+        Err(Redirect::to(uri!(ServerState::base(), index(Option::<String>::None))))
     }
 }
 
@@ -233,16 +238,16 @@ async fn rocket() -> _ {
     // Normalize rel_path, i.e. either "" or "<some path>/" such that format!("/{}<rest of path>", rel_path) is valid
     let rel_path = match config.server.relative_path {
         Some(path) => {
-            let mut rel_path = path.clone();
+            let mut rel_path = path;
             while rel_path.ends_with('/') { rel_path.pop(); }
-            if rel_path != "" {
-                rel_path.push('/');
+            if !rel_path.starts_with('/') {
+                rel_path = format!("/{}", rel_path);
             }
             rel_path
         },
         None => "".to_string(),
     };
-    ServerState::set_base(rel_path.clone());
+    ServerState::set_base(rel_path);
 
     rocket::custom(rocket_config)
         .attach(templates)

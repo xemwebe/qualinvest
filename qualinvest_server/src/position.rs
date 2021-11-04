@@ -23,7 +23,7 @@ pub async fn position(user_opt: Option<UserCookie>,
     let currency = Currency::from_str("EUR").unwrap();
     let db = state.postgres_db.clone();
     let user_settings = db.get_user_settings(user.userid).await;
-    let period_end = user_settings.period_end.unwrap_or(chrono::Utc::now().naive_local().date());
+    let period_end = user_settings.period_end.unwrap_or_else(|| chrono::Utc::now().naive_local().date());
     let period_start = user_settings.period_start.unwrap_or(period_end);
 
     let mut context = state.default_context();

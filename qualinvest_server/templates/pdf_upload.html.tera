@@ -19,7 +19,7 @@
 {% endblock jsdata %}
 {% block content %}
 <div>
-	<form class="table" enctype="multipart/form-data" action="/{{relpath}}pdf_upload" method="post">
+	<form class="table" enctype="multipart/form-data" action="{{relpath}}pdf_upload" method="post">
 		<h2>Upload transaction document(s)</h2>
 		<div class="table_row">
 			<label class="table_cell">Warning for duplicates:</label>

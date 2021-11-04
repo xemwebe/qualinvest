@@ -30,12 +30,10 @@ pub async fn transactions(err_msg: Option<String>, user_opt: Option<UserCookie>,
     let mut context = state.default_context();
     if let Ok(transactions) = db.get_transaction_view_for_accounts(&user_settings.account_ids).await {
         context.insert("transactions", &transactions);
+    } else if err_msg.is_none() {
+        context.insert("err_msg", "Failed to get list of transactions!");
     } else {
-        if err_msg.is_none() {
-            context.insert("err_msg", "Failed to get list of transactions!");
-        } else {
-            context.insert("err_msg", &err_msg);
-        }
+        context.insert("err_msg", &err_msg);
     }
 
     context.insert("user", &user);
@@ -71,7 +69,7 @@ impl TransactionForm {
             asset_id: None,
             trans_type: "".to_string(),
             trans_ref: None,
-            account_id : account_id,
+            account_id,
             position: None};
     
         match t.transaction_type {
@@ -259,7 +257,7 @@ pub async fn pdf_upload(mut data: Form<PDFUploadFormData<'_>>, user: UserCookie,
             let file_name = raw_name.dangerous_unsafe_unsanitized_raw().html_escape().to_string();            
 
             if let Some(path) = doc.path() {
-                let transactions = parse_and_store(&path, &file_name, state.postgres_db.clone(), &pdf_config).await;
+                let transactions = parse_and_store(path, &file_name, state.postgres_db.clone(), &pdf_config).await;
                 match transactions {
                     Err(err) => {
                         errors.push(UploadError{
@@ -334,10 +332,9 @@ pub async fn update_transaction(user: UserCookie, transaction: Form<TransactionF
                     return Some("Updating transaction failed".to_string());
                 }
                 let old_id = old_account.id.unwrap();
-                if old_id != transaction.account_id {
-                    if db.change_transaction_account(id, old_id, transaction.account_id).await.is_err() {
+                if old_id != transaction.account_id 
+                    && db.change_transaction_account(id, old_id, transaction.account_id).await.is_err() {
                         return Some("Updating transaction's account failed".to_string());
-                    }
                 }
             }
         } else {

@@ -3,7 +3,7 @@
 {% block content %}
 {{super()}}
 <div class="center" align="center">
-	<form action="/{{relpath}}asset" method="post">
+	<form action="{{relpath}}asset" method="post">
 		<h2>{% if asset.id %}Edit{% else %}New{% endif %} Asset</h2>
 		<div class="table">
 			<input name="id" type="number" hidden value={{asset.id}}>
@@ -31,7 +31,7 @@
 				{% else %}
 					<button class="button table_cell" type="submit">Create</button>
 				{% endif %}
-				<a class="button table_cell" href="/{{relpath}}assets">Cancel</a>
+				<a class="button table_cell" href="{{relpath}}assets">Cancel</a>
 			</div>
 		</div>
 	</form>

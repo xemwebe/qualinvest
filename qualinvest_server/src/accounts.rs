@@ -104,7 +104,7 @@ pub async fn accounts(
         }];
     }
 
-    let mut context = state.default_context().clone();
+    let mut context = state.default_context();
     context.insert("err_msg", &message);
     context.insert("user", &user);
     context.insert("users", &users);
@@ -123,7 +123,7 @@ pub async fn add_account(
     let account = &form.into_inner().to_account();
     if let Some(account_id) = account.id {
         if let Ok(u_accounts) = db.get_user_accounts(user.userid).await {
-            if u_accounts.iter().filter(|a| a.id == Some(account_id)).next().is_none() {
+            if !u_accounts.iter().any(|a| a.id == Some(account_id)) {
                 return Err(Redirect::to(uri!(ServerState::base(), accounts(Some("You can only update your own accounts")))));
             }
         }
@@ -176,7 +176,7 @@ pub async fn add_user(
         if let Some(password) = &user_form.password {
             state
                 .postgres_db
-                .update_password(user_id, &password)
+                .update_password(user_id, password)
                 .await
                 .map_err(|e| {
                     Redirect::to(uri!(ServerState::base(), accounts(Some(format!("Updating user password failed: {}", e)))))
@@ -189,7 +189,7 @@ pub async fn add_user(
         if let Some(password) = &user_form.password {
             state
                 .postgres_db
-                .insert_user(&new_user, &password)
+                .insert_user(&new_user, password)
                 .await
                 .map_err(|e| {
                     Redirect::to(uri!(ServerState::base(), accounts(Some(format!("Adding user failed: {}", e)))))
@@ -234,7 +234,7 @@ pub async fn user_accounts(
     let old_accounts: HashSet<usize> = state.postgres_db.get_user_accounts(user_accounts.user_id).await
         .map_err(|e| Redirect::to(uri!(ServerState::base(), accounts(Some(format!("Updating users accounts user failed: {}", e))))))?
         .into_iter().map(|a| a.id).flatten().collect();
-    let new_accounts: HashSet<usize> = user_accounts.accounts.iter().flatten().map(|id| *id).collect();
+    let new_accounts: HashSet<usize> = user_accounts.accounts.iter().flatten().copied().collect();
     for u in (&old_accounts - &new_accounts).into_iter() {
         state.postgres_db.remove_account_right(user_accounts.user_id, u).await
         .map_err(|e| Redirect::to(uri!(ServerState::base(), accounts(Some(format!("Updating users accounts user failed: {}", e))))))?;
