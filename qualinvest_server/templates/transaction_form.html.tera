@@ -34,70 +34,70 @@ function setFields() {
 </script>
 {% endblock jsdata %}
 {% block content %}
-<h2 align="center">{% if transaction.id %}Edit{% else %}New{% endif %} Transaction</h2>
+<h2 align="center">{% if transaction %}Edit{% else %}New{% endif %} Transaction</h2>
 <div class="center table">
-	<form action="{{relpath}}transactions" method="post">
-		<input name="id" type="number" hidden value={{transaction.id}}>
+	<form action="{{relpath}}transactions/update" method="post">
+		<input name="id" type="number" hidden value={% if transaction %}{{transaction.id}}{% endif %}>
 		<div class="table_row">
 			<label class="table_cell" for="date">Date:</label>
-			<input class="table_cell fpcalendar flatpickr flatpickr-input" name="date" id="date" type="text" value={{transaction.date.date}}>
+			<input class="table_cell fpcalendar flatpickr flatpickr-input" name="date" id="date" type="text" {% if transaction %}value={{transaction.date.date}}{% endif %}>
 		</div>
 		<div class="table_row">
 			<label class="table_cell" for="cash_amount">Amount:</label>
-			<input class="table_cell" id="cash_amount" name="cash_amount" type="text" value={{transaction.cash_amount}}>
+			<input class="table_cell" id="cash_amount" name="cash_amount" type="text" {% if transaction %}value={{transaction.cash_amount}}{% endif %}>
 		</div>
 		<div class="table_row">
 			<label class="table_cell" for="currency">Currency:</label>
 			<select class="table_cell" id="currency" name="currency"> 
-				{% set currency = transaction.currency %}
+				{% if transaction %}{% set currency = transaction.currency %}{% endif %}
 				{% for curr in currencies %}
-				<option value="{{curr}}" {% if curr == currency %}selected{% endif %}>{{curr}}</option> 
+				<option value="{{curr}}" {% if currency %}{% if curr == currency %}selected{% endif %}{% endif %}>{{curr}}</option> 
 				{% endfor %}
 			</select> 
 		</div>
 		<div class="table_row">
 			<label class="table_cell" for="account_id">Account:</label>
 			<select class="table_cell" id="account_id" name="account_id"> 
-				{% set account_id = transaction.account_id %}
+				{% if transaction %}{% set account_id = transaction.account_id %}{% endif %}
 				{% for acc in valid_accounts %}
-				<option value="{{acc.id}}" {% if acc.id == account_id %}selected{% endif %}>{{acc.broker}}: {{acc.account_name}}</option> 
+				<option value="{{acc.id}}" {% if transaction %}{% if acc.id == account_id %}selected{% endif %}{% endif %}>{{acc.broker}}: {{acc.account_name}}</option> 
 				{% endfor %}
 			</select> 
 		</div>
 		<div class="table_row">
 			<label class="table_cell" for="trans_type">Transaction type:</label>
 			<select class="table_cell" id="trans_type" onchange="setFields()" name="trans_type"> 
-				<option value="c" {% if transaction.trans_type == "c" %}selected{% endif %}>Cash</option> 
-				<option value="a" {% if transaction.trans_type == "a" %}selected{% endif %}>Buy/Sell</option> 
-				<option value="d" {% if transaction.trans_type == "d" %}selected{% endif %}>Dividend</option> 
-				<option value="t" {% if transaction.trans_type == "t" %}selected{% endif %}>Tax</option> 
-				<option value="f" {% if transaction.trans_type == "f" %}selected{% endif %}>Fee</option> 
-				<option value="i" {% if transaction.trans_type == "i" %}selected{% endif %}>Interest</option> 
+				<option value="c" {% if transaction %}{% if transaction.trans_type == "c" %}selected{% endif %}{% endif %}>Cash</option> 
+				<option value="a" {% if transaction %}{% if transaction.trans_type == "a" %}selected{% endif %}{% endif %}>Buy/Sell</option> 
+				<option value="d" {% if transaction %}{% if transaction.trans_type == "d" %}selected{% endif %}{% endif %}>Dividend</option> 
+				<option value="t" {% if transaction %}{% if transaction.trans_type == "t" %}selected{% endif %}{% endif %}>Tax</option> 
+				<option value="f" {% if transaction %}{% if transaction.trans_type == "f" %}selected{% endif %}{% endif %}>Fee</option> 
+				<option value="i" {% if transaction %}{% if transaction.trans_type == "i" %}selected{% endif %}{% endif %}>Interest</option> 
 			</select>
 		</div>
 		<div class="table_row" id="asset_form">
 			<label class="table_cell" for="asset_id">Asset:</label>
 			<select class="table_cell" id="asset_id" name="asset_id"> 
-				{% set asset_id = transaction.asset_id %}
+				{% if transaction %}{% set asset_id = transaction.asset_id %}{% endif %}
 				{% for asset in assets %}
-				<option value="{{asset.id}}" {% if asset.id == transaction.asset_id %}selected{% endif %}>{{asset.name}}</option> 
+				<option value="{{asset.id}}" {% if transaction %}{% if asset.id == transaction.asset_id %}selected{% endif %}{% endif %}>{{asset.name}}</option> 
 				{% endfor %}
 			</select> 
 		</div>
 		<div class="table_row" id="position_form">
 			<label class="table_cell" for="position">Position:</label>
-			<input class="table_cell" id="position" name="position" type="text" value={{transaction.position}}>
+			<input class="table_cell" id="position" name="position" type="text" {% if transaction %}value={{transaction.position}}{% endif %}>
 		</div>
 		<div class="table_row" id="rel_trans_form">
 			<label class="table_cell" for="trans_ref">Reference Transaction:</label>
-			<input class="table_cell" id="trans_ref" name="trans_ref" type="number" value={{transaction.trans_ref}}>
+			<input class="table_cell" id="trans_ref" name="trans_ref" type="number" {% if transaction %}value={{transaction.trans_ref}}{% endif %}>
 		</div>
 		<div class="table_row">
 			<label class="table_cell" for="note">Note:</label><br/>
-			<textarea class="table_cell" id="Note" cols=50 rows=10 name="note" type="text">{{transaction.note}}</textarea>
+			<textarea class="table_cell" id="Note" cols=50 rows=10 name="note" type="text">{% if transaction %}{{transaction.note}}{% endif %}</textarea>
 		</div>
 		<div class="table_row">
-			{% if transaction.id %}
+			{% if transaction %}
 			<button class="table_cell button" type="submit">Change</button>
 			{% else %}
 			<button class="table_cell button" type="submit">Create</button>

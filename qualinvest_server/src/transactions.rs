@@ -292,7 +292,7 @@ pub async fn pdf_upload(mut data: Form<PDFUploadFormData<'_>>, user: UserCookie,
 }
 
 #[get("/transactions/delete?<transaction_id>")]
-pub async fn delete_transaction(transaction_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
+pub async fn delete_transaction(transaction_id: usize, user: UserCookie, state: &State<ServerState>) -> Redirect {
     let db = state.postgres_db.clone();
     // remove transaction and everything related, if the user has the proper rights
 
@@ -302,26 +302,27 @@ pub async fn delete_transaction(transaction_id: usize, user: UserCookie, state: 
     } else {
         None
     };
-    Ok(Redirect::to(uri!(ServerState::base(), transactions(message))))
+    Redirect::to(uri!(ServerState::base(), transactions(message)))
 }
 
 #[post("/transactions/update", data="<transaction>")]
-pub async fn update_transaction(user: UserCookie, transaction: Form<TransactionForm>, state: &State<ServerState>) -> Option<String>  {
+pub async fn update_transaction(user: UserCookie, transaction: Form<TransactionForm>, state: &State<ServerState>) -> Redirect  {
     let db = state.postgres_db.clone();
+    let mut message = None;
     // check if trans_ref belongs to trade where the user has access to
     if let Some(ref_id) = transaction.trans_ref {
         if db.get_transaction_account_if_valid(ref_id, user.userid).await.is_err() {
-            return Some("The refenrece id is invalid".to_string());
+            message = Some("The refenrece id is invalid".to_string());
         }  
     }
 
     // check whether currency exists
     if let Ok(currencies) = db.get_all_currencies().await {
         if !currencies.iter().any(|&c| c.to_string()==transaction.currency) {
-            return Some("Currency is unknown".to_string());
+            message = Some("Currency is unknown".to_string());
         }   
     } else {
-        return Some("Found no currencies".to_string());
+        message = Some("Found no currencies".to_string());
     }
     
     if let Ok(trans) = transaction.to_transaction() {
@@ -329,27 +330,27 @@ pub async fn update_transaction(user: UserCookie, transaction: Form<TransactionF
             // check if id is valid
             if let Ok(old_account) = db.get_transaction_account_if_valid(id, user.userid).await {
                 if db.update_transaction(&trans).await.is_err() {
-                    return Some("Updating transaction failed".to_string());
+                    message = Some("Updating transaction failed".to_string());
                 }
                 let old_id = old_account.id.unwrap();
                 if old_id != transaction.account_id 
                     && db.change_transaction_account(id, old_id, transaction.account_id).await.is_err() {
-                        return Some("Updating transaction's account failed".to_string());
+                        message = Some("Updating transaction's account failed".to_string());
                 }
             }
         } else {
             // new transaction, all checks passed, write to db
             if let Ok(id) = db.insert_transaction(&trans).await {
                 if db.add_transaction_to_account(transaction.account_id, id).await.is_err() {
-                    return Some("Inserting transaction failed".to_string());
+                    message = Some("Inserting transaction failed".to_string());
                 }
             } else {
-                return Some("Inserting new transaction failed".to_string());
+                message = Some("Inserting new transaction failed".to_string());
             }
         }
     } else {
-        return Some("Invalid transaction format".to_string());
+        message = Some("Invalid transaction format".to_string());
     }
 
-    None
+    Redirect::to(uri!(ServerState::base(), transactions(message)))
 }
