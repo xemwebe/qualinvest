@@ -9,11 +9,14 @@ use std::str::FromStr;
 use std::ops::Deref;
 
 use serde::Deserialize;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local, Weekday, Datelike};
 
 use finql_data::QuoteHandler;
-use finql::market::MarketError;
-use finql::market_quotes::{MarketDataSource,MarketQuoteError};
+use finql::{
+    calendar::{Calendar, Holiday},
+    market::MarketError,
+    market_quotes::MarketDataSource
+    };
 
 pub mod accounts;
 pub mod position;
@@ -107,8 +110,8 @@ fn set_market_providers(market: &mut finql::Market, providers: &MarketDataProvid
 
 pub async fn update_quote_history(
     ticker_id: usize,
-    start: DateTime<Utc>,
-    end: DateTime<Utc>,
+    start: DateTime<Local>,
+    end: DateTime<Local>,
     db: Arc<dyn QuoteHandler+Send+Sync>,
     market_data: &MarketDataProviders,
 ) -> Result<(), MarketError> {
@@ -123,8 +126,7 @@ pub async fn update_ticker(
     market_data: &MarketDataProviders,
 ) -> Result<(), MarketError> {
     let ticker = db.get_ticker_by_id(ticker_id).await?;
-    let ticker_source = MarketDataSource::from_str(&ticker.source)
-        .map_err(|_| MarketError::MarketQuoteError(MarketQuoteError::FetchFailed("invalid ticker source".to_string())))?;
+    let ticker_source = MarketDataSource::from_str(&ticker.source)?;
     let token = match ticker_source {
         MarketDataSource::AlphaVantage => market_data.alpha_vantage_token.clone(),
         MarketDataSource::GuruFocus => market_data.gurufocus_token.clone(),
@@ -147,4 +149,49 @@ pub async fn update_quotes(
     let mut market = finql::Market::new(db);
     set_market_providers(&mut market, market_data);
     market.update_quotes().await
+}
+
+pub async fn fill_quote_gaps(
+    db: Arc<dyn QuoteHandler+Send+Sync>,
+    market_data: &MarketDataProviders,
+) -> Result<(), MarketError> {
+    use finql::time_series::{TimeValue, TimeSeries};
+
+    let today = Local::now().naive_local().date();
+
+    let mut market = finql::Market::new(db.clone());
+    set_market_providers(&mut market, market_data);
+    let tickers = db.get_all_ticker().await?;
+
+    let cal = Calendar::calc_calendar(&[Holiday::WeekDay(Weekday::Sat), Holiday::WeekDay(Weekday::Sun)], 2000, today.year());
+    for ticker in tickers {
+        if ticker.name != "BHP.AX" {
+            continue;
+        }
+        if let Some(ticker_id) = ticker.id {
+            let quotes = db.get_all_quotes_for_ticker(ticker_id).await?;
+            let quote_series: Vec<TimeValue> = quotes.into_iter()
+                .map(|q| TimeValue{ time: q.time, value: q.price } )
+                .collect();
+
+            let ts = TimeSeries{
+                series: quote_series,
+                title: ticker.name.clone()
+            };
+            let gaps = ts.find_gaps(&cal).unwrap_or(Vec::new());
+            for gap in gaps {
+                print!("ticker: {}, gap: {:?}", ticker.name, gap);
+                // let res = market.update_quote_history(ticker_id, naive_date_to_date_time(&gap.0,0), naive_date_to_date_time(&gap.1, 23)).await;
+                // if res.is_err() {
+                //     println!(" failed :-(");
+                // } else {
+                //     println!(" succeeded!");
+                // }
+            }
+        }
+    }
+
+
+
+    Ok(())
 }

@@ -112,6 +112,8 @@ pub async fn save_ticker(form: Form<TickerForm>, user: UserCookie, state: &State
                 source: ticker_form.source,
                 priority: ticker_form.priority,
                 factor: ticker_form.factor,
+                tz: None,
+                cal: None,
             };
             if ticker.id.is_none()  {
                 let ticker_id = db.insert_if_new_ticker(&ticker).await;

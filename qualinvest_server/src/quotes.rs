@@ -101,9 +101,9 @@ pub async fn renew_history(asset_id: usize, ticker_id: usize,
     }
 
     let db = state.postgres_db.clone();
-    let start_date = date_time_from_str_standard(&start, 0)
+    let start_date = date_time_from_str_standard(&start, 0, None)
         .map_err(|_| Redirect::to(uri!(ServerState::base(), show_quotes(asset_id, Some("Invalid start date.".to_string())))))?;
-    let end_date = date_time_from_str_standard(&end, 0)
+    let end_date = date_time_from_str_standard(&end, 0, None)
         .map_err(|_| Redirect::to(uri!(ServerState::base(), show_quotes(asset_id, Some("Invalid end date.".to_string())))))?;
 
     qualinvest_core::update_quote_history(ticker_id, start_date, end_date, db, &state.market_data).await
@@ -174,13 +174,15 @@ pub async fn add_new_quote(form: Form<QuoteForm>, user: UserCookie, state: &Stat
         source: "manual".to_string(),
         priority: 1,
         factor: 1.0,
+        tz: None,
+        cal: None,
     };
     let ticker_id = db.insert_if_new_ticker(&ticker).await
         .map_err(|_| 
             Redirect::to(uri!(ServerState::base(), show_quotes(quote_form.asset_id, Some("Failed to store manual ticker".to_string())))))?;
 
     
-    let date = date_time_from_str_standard(&quote_form.date, quote_form.hour)
+    let date = date_time_from_str_standard(&quote_form.date, quote_form.hour, None)
         .map_err(|_| 
             Redirect::to(uri!(ServerState::base(), show_quotes(quote_form.asset_id, Some("Invalid date".to_string())))))?;
 

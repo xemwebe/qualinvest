@@ -2,18 +2,20 @@
 ///! This requires the extern tool `pdftotext`
 ///! which is part of [XpdfReader](https://www.xpdfreader.com/pdftotext-man.html).
 
-use std::error::Error;
 use std::process::Command;
 use std::sync::Arc;
-use std::{fmt, io, num, string};
+use std::{io, num, string};
 use std::path::Path;
 
-use chrono::{NaiveDate, Utc, Datelike, TimeZone};
+use thiserror::Error;
+
+use chrono::{NaiveDate, Local, Datelike, TimeZone};
 use sanitize_filename::sanitize;
 
 use finql::fx_rates::SimpleCurrencyConverter;
 use finql_data::{
-    Asset, CashAmount, CashFlow, CurrencyError, DataError, Transaction, TransactionType,
+    Asset, CashAmount, CashFlow, CurrencyError, DataError, Transaction, TransactionType, 
+    date_time_helper::make_time
 };
 
 use super::accounts::{Account, AccountHandler};
@@ -26,77 +28,33 @@ pub use pdf_store::{sha256_hash, store_pdf_as_name};
 use read_account_info::parse_account_info;
 use read_transactions::parse_transactions;
 
-#[derive(Debug)]
+/// Error related to market data object
+#[derive(Error, Debug)]
 pub enum ReadPDFError {
-    IoError(io::Error),
-    ParseError(string::FromUtf8Error),
-    ParseFloat(num::ParseFloatError),
-    ParseCurrency(CurrencyError),
-    DBError(DataError),
+    #[error("Reading file failed")]
+    IoError(#[from] io::Error),
+    #[error("UTF8 parse error")]
+    ParseError(#[from] string::FromUtf8Error),
+    #[error("Error while parsing float")]
+    ParseFloat(#[from] num::ParseFloatError),
+    #[error("Failed to parse currency")]
+    ParseCurrency(#[from] CurrencyError),
+    #[error("Database error")]
+    DBError(#[from] DataError),
+    #[error("Currency mismatch")]
     CurrencyMismatch,
+    #[error("Date parsing error")]
     ParseDate,
+    #[error("Consistency check failed: {0}")]
     ConsistencyCheckFailed(String),
+    #[error("File has already been parsed successfully")]
     AlreadyParsed,
+    #[error("Critical keyword '{0}' could not be found")]
     NotFound(&'static str),
+    #[error("Unknown document type")]
     UnknownDocumentType,
+    #[error("No proper file name has been delivered")]
     MissingFileName,
-}
-
-impl fmt::Display for ReadPDFError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let msg = match self {
-            ReadPDFError::IoError(err) => format!("Reading file failed: {}", err),
-            ReadPDFError::ParseError(err) => format!("Parse error: {}", err),
-            ReadPDFError::ParseFloat(err) => format!("Error while parsing float: {}", err),
-            ReadPDFError::ParseCurrency(err) => format!("Failed to parse currency: {}", err),
-            ReadPDFError::DBError(err) => format!("Database error: {}", err),
-            ReadPDFError::CurrencyMismatch => "Currency mismatch".to_string(),
-            ReadPDFError::ParseDate => "Date parsing error".to_string(),
-            ReadPDFError::ConsistencyCheckFailed(msg) => format!("Consistency check failed: {}", msg),
-            ReadPDFError::AlreadyParsed => "File has already been parsed successfully".to_string(),
-            ReadPDFError::NotFound(str) => format!("Critical keyword could not be found: {}", str),
-            ReadPDFError::UnknownDocumentType => "Unknown document type".to_string(),
-            ReadPDFError::MissingFileName => "No proper file name has been delivered".to_string(),
-        };
-        write!(f,"{}", msg)
-    }
-}
-
-impl Error for ReadPDFError {
-    fn cause(&self) -> Option<&dyn Error> {
-        match self {
-            Self::IoError(err) => Some(err),
-            Self::ParseError(err) => Some(err),
-            Self::ParseFloat(err) => Some(err),
-            Self::ParseCurrency(err) => Some(err),
-            Self::DBError(err) => Some(err),
-            _ => None,
-        }
-    }
-}
-
-impl From<std::string::FromUtf8Error> for ReadPDFError {
-    fn from(error: string::FromUtf8Error) -> Self {
-        Self::ParseError(error)
-    }
-}
-
-impl From<io::Error> for ReadPDFError {
-    fn from(error: io::Error) -> Self {
-        Self::IoError(error)
-    }
-}
-
-impl From<DataError> for ReadPDFError {
-    fn from(error: DataError) -> Self {
-        Self::DBError(error)
-    }
-}
-
-impl From<CurrencyError> for ReadPDFError {
-    fn from(error: CurrencyError) -> Self {
-        Self::ParseCurrency(error)
-    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -269,11 +227,9 @@ pub async fn parse_and_store<'a>(
 }
 
 // Check if main payment plus all fees and taxes add up to total payment
-// Add up all payments separate by currencies, convert into total currency, and check if the add up to zero.
+// Add up all payments separate by currencies, convert into total currency, and check if they add up to zero.
 pub async fn check_consistency(tri: &ParsedTransactionInfo) -> Result<(), ReadPDFError> {
-    let time = Utc
-        .ymd(tri.valuta.year(), tri.valuta.month(), tri.valuta.day())
-        .and_hms_milli(18, 0, 0, 0);
+    let time = make_time(tri.valuta.year(), tri.valuta.month(), tri.valuta.day(), 18, 0, 0).ok_or(ReadPDFError::ParseDate)?;
 
     // temporary storage for fx rates
     // total payment is always in base currency, but main_amount (and maybe fees or taxes) could be in foreign currency.
@@ -319,7 +275,7 @@ pub async fn make_transactions(
     tri: &ParsedTransactionInfo,
 ) -> Result<(Vec<Transaction>, Asset), ReadPDFError> {
     let mut transactions = Vec::new();
-    let time = Utc
+    let time = Local
         .ymd(tri.valuta.year(), tri.valuta.month(), tri.valuta.day())
         .and_hms_milli(18, 0, 0, 0);
 

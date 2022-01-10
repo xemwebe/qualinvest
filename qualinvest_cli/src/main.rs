@@ -9,7 +9,7 @@ use std::io::{stdout, BufReader};
 use std::str::FromStr;
 use std::sync::Arc;
 
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Local};
 use glob::glob;
 use clap::{App, AppSettings, Arg, SubCommand};
 
@@ -174,6 +174,11 @@ async fn main() {
                         )
                     )
             )
+        .subcommand(
+            SubCommand::with_name("fill-gaps")
+                .about("Find gaps in quotes time serieses and try to fill them")
+                .setting(AppSettings::ColoredHelp)
+        )
         .get_matches();
 
     let config = matches.value_of("config").unwrap_or("qualinvest.toml");
@@ -333,14 +338,14 @@ async fn main() {
         if matches.is_present("history") {
             let ticker_id = usize::from_str(matches.value_of("ticker-id").unwrap()).unwrap();
             let end = if matches.is_present("end") {
-                date_time_from_str_standard(matches.value_of("end").unwrap(), 18).unwrap()
+                date_time_from_str_standard(matches.value_of("end").unwrap(), 18, None).unwrap()
             } else {
-                Utc::now()
+                Local::now()
             };
             let start = if matches.is_present("start") {
-                date_time_from_str_standard(matches.value_of("start").unwrap(), 9).unwrap()
+                date_time_from_str_standard(matches.value_of("start").unwrap(), 9, None).unwrap()
             } else {
-                date_time_from_str_standard("2014-01-01", 9).unwrap()
+                date_time_from_str_standard("2014-01-01", 9, None).unwrap()
             };
             qualinvest_core::update_quote_history(ticker_id, start, end, db, &config.market_data)
                 .await.unwrap();
@@ -364,5 +369,9 @@ async fn main() {
         } else {
             println!("Nothing inserted, unknown object type, use `help insert` to display all supported types.");
         }
+    }
+
+    if matches.subcommand_matches("fill-gaps").is_some() {
+        qualinvest_core::fill_quote_gaps(db, &config.market_data).await.unwrap();
     }
 }

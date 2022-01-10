@@ -212,9 +212,10 @@ async fn rocket() -> _ {
 
     // Set up database
     let postgres_url = format!(
-        "postgresql:///{db_name}?user={user}&password={password}&sslmode=disable",
+        "postgresql://{db_name}?user={user}&password={password}&sslmode=disable",
         db_name=config.db.name, user=config.db.user, password=config.db.password
     );
+    println!("postgreSQL url: '{}'", postgres_url);
     let postgres_db = PostgresDB::new(&postgres_url).await.unwrap();
 
     // Set up all filters for tera
