@@ -65,7 +65,7 @@ async fn main() {
             )
         .subcommand(
             SubCommand::with_name("parse")
-                .about("Parse one or more pdf files with transaction informations and insert assets/transactions into database")
+                .about("Parse one or more pdf files with transaction information and insert assets/transactions into database")
                 .setting(AppSettings::ColoredHelp)
                 .arg(
                 Arg::with_name("PATH")
@@ -176,7 +176,7 @@ async fn main() {
             )
         .subcommand(
             SubCommand::with_name("fill-gaps")
-                .about("Find gaps in quotes time serieses and try to fill them")
+                .about("Find gaps in quotes time series' and try to fill them")
                 .setting(AppSettings::ColoredHelp)
         )
         .get_matches();
