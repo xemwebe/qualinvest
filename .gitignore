@@ -11,3 +11,6 @@ qualinvest.tar.gz
 
 /static
 /templates
+
+# local development and testing
+/local
