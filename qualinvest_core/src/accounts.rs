@@ -76,6 +76,12 @@ pub trait AccountHandler: TransactionHandler {
         path: &str,
     ) -> Result<(), DataError>;
 
+    /// Get document path for given transaction
+    async fn get_doc_path(
+        &self,
+        transaction_id: usize
+    ) -> Result<String, DataError>;
+    
     /// Get id of account a transaction belongs to
     async fn get_transactions_account_id(&self, transaction_id: usize) -> Result<usize, DataError>;
 
@@ -310,6 +316,19 @@ impl AccountHandler for PostgresDB {
                 .map_err(|e| DataError::InsertFailed(e.to_string()))?;
         }
         Ok(())
+    }
+
+    /// Get document path for given transaction
+    async fn get_doc_path(
+        &self,
+        transaction_id: usize
+    ) -> Result<String, DataError> {
+        let row = sqlx::query!(
+                "SELECT path FROM documents WHERE transaction_id=$1",
+                transaction_id as i32
+            ).fetch_one(&self.pool).await
+            .map_err(|e| DataError::NotFound(e.to_string()))?;
+        Ok(row.path.to_string())
     }
 
     /// Get id of account a transaction belongs to

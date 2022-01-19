@@ -195,11 +195,7 @@ async fn main() {
         }
     };
 
-    let postgres_url = format!(
-        "postgresql:///{db_name}?user={user}&password={password}&sslmode=disable",
-        db_name=config.db.name, user=config.db.user, password=config.db.password
-    );
-    let db = PostgresDB::new(&postgres_url).await.unwrap();
+    let db = PostgresDB::new(&config.db.url).await.unwrap();
 
     if matches.is_present("debug") {
         config.debug = true;

@@ -38,10 +38,7 @@ pub struct Config {
 /// Database parameters
 #[derive(Debug, Deserialize)]
 pub struct DbParams {
-    pub host: String,
-    pub name: String,
-    pub user: String,
-    pub password: String,
+    pub url: String,
 }
 
 /// Parameters for PDF file parsing

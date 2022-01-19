@@ -4,7 +4,7 @@ use rocket::State;
 use rocket::response::Redirect;
 use rocket_dyn_templates::Template;
 use rocket::form::{Form, FromForm};
-use rocket::fs::TempFile;
+use rocket::fs::{TempFile,NamedFile};
 
 use qualinvest_core::accounts::{Account,AccountHandler};
 use qualinvest_core::user::UserHandler;
@@ -15,6 +15,7 @@ use crate::user::UserCookie;
 use crate::layout::layout;
 use crate::form_types::NaiveDateForm;
 use std::str::FromStr;
+use std::path::Path;
 use super::rocket_uri_macro_login;
 use super::ServerState;
 
@@ -291,11 +292,33 @@ pub async fn pdf_upload(mut data: Form<PDFUploadFormData<'_>>, user: UserCookie,
     Ok(layout("pdf_upload_report", &context.into_json()))
 }
 
+#[get("/transactions/view_pdf?<transaction_id>")]
+pub async fn view_transaction_pdf(transaction_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<NamedFile, Redirect> {
+    let db = state.postgres_db.clone();
+    let mut message = None;
+
+    if let Ok(_) = db.get_transaction_account_if_valid(transaction_id, user.userid).await {
+        if let Ok(file_name) = db.get_doc_path(transaction_id).await {
+            let file = NamedFile::open(Path::new(&state.doc_path).join(file_name)).await;
+            if let Ok(file) = file {
+                return Ok(file);
+            }
+                message = Some("PDF file not found".to_string());
+        } else {
+            message = Some("Invalid transaction ID".to_string());
+        }
+    } else {
+        message = Some("Account is invalid".to_string());
+    }
+    
+    Err(Redirect::to(uri!(ServerState::base(), transactions(message))))
+}
+
 #[get("/transactions/delete?<transaction_id>")]
 pub async fn delete_transaction(transaction_id: usize, user: UserCookie, state: &State<ServerState>) -> Redirect {
     let db = state.postgres_db.clone();
-    // remove transaction and everything related, if the user has the proper rights
 
+    // remove transaction and everything related, if the user has the proper rights
     let result = db.remove_transaction(transaction_id, user.userid).await;
     let message = if result.is_err() {
         Some("Failed to delete transaction")

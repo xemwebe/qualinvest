@@ -211,12 +211,7 @@ async fn rocket() -> _ {
     }
 
     // Set up database
-    let postgres_url = format!(
-        "postgresql://{db_name}?user={user}&password={password}&sslmode=disable",
-        db_name=config.db.name, user=config.db.user, password=config.db.password
-    );
-    println!("postgreSQL url: '{}'", postgres_url);
-    let postgres_db = PostgresDB::new(&postgres_url).await.unwrap();
+    let postgres_db = PostgresDB::new(&config.db.url).await.unwrap();
 
     // Set up all filters for tera
     filter::set_filter();
@@ -270,6 +265,7 @@ async fn rocket() -> _ {
             transactions::pdf_upload,
             transactions::pdf_upload_form,
             transactions::update_transaction,
+            transactions::view_transaction_pdf,
             asset::analyze_asset,
             asset::assets,
             asset::delete_asset,

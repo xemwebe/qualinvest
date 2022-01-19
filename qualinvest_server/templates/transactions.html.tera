@@ -53,10 +53,12 @@
 	function selectHandler() {
 		var edit = document.getElementById('edit_button');
 		var destroy = document.getElementById('delete_button');
+		var view_pdf = document.getElementById('view_pdf_button');
   		var selection = table.getSelection();
 		if (selection.length<1) {
 			edit.setAttribute('disabled','true');
 			destroy.setAttribute('disabled','true');
+			view_pdf.setAttribute('disabled','true');
 		} else {
 			var id = data.getValue(selection[0].row,0);
 			var edit_id = document.getElementById('edit_id');
@@ -65,6 +67,9 @@
 			var delete_id = document.getElementById('delete_id');
 			delete_id.value = id;
 			destroy.removeAttribute('disabled');
+			var view_pdf_id = document.getElementById('view_pdf_id');
+			view_pdf_id.value = id;
+			view_pdf.removeAttribute('disabled');
 		}
 	}
       }
@@ -77,6 +82,10 @@
 		<form class="table_cell" action="transactions/edit">
 			<input id="edit_id" type="text" name="transaction_id" value="" hidden/>
 			<input class="button" id="edit_button" type="submit" value="Edit" disabled />
+		</form>
+		<form class="table_cell" action="transactions/view_pdf">
+			<input id="view_pdf_id" type="text" name="transaction_id" value="" hidden/>
+			<input class="button" id="view_pdf_button" type="submit" value="View PDF" disabled />
 		</form>
 		<form class="table_cell" action="transactions/delete">
 			<input id="delete_id" type="text" name="transaction_id" value="" hidden/>

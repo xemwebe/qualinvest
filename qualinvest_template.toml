@@ -1,10 +1,10 @@
 debug = false
 
 [db] 
-host = '/var/run/postgresql'
-name = 'qlinvestdb'
-user = 'qualinvest'
-password = '<password>' 
+# via http to localhost or remote server
+#url = 'postgresql://localhost/qlinvestdb?user=qualinvest&password=<password>&sslmode=disable' 
+# via web socket on localhost
+url = 'postgresql:///qlinvestdb?user=qualinvest&password=<password>&sslmode=disable' 
 
 [pdf]
 doc_path = '<directory path to store documents in>'
