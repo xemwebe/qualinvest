@@ -26,17 +26,18 @@ pub async fn transactions(err_msg: Option<String>, user_opt: Option<UserCookie>,
     }
     let user = user_opt.unwrap();
 
+    let mut err_msg = err_msg;
     let db = state.postgres_db.clone();
     let user_settings = db.get_user_settings(user.userid).await;
     let mut context = state.default_context();
     if let Ok(transactions) = db.get_transaction_view_for_accounts(&user_settings.account_ids).await {
         context.insert("transactions", &transactions);
+        err_msg = None;
     } else if err_msg.is_none() {
-        context.insert("err_msg", "Failed to get list of transactions!");
-    } else {
-        context.insert("err_msg", &err_msg);
+        err_msg = Some("Failed to get list of transactions!".to_string());
     }
 
+    context.insert("err_msg", &err_msg);
     context.insert("user", &user);
     Ok(layout("transactions", &context.into_json()))
 }
@@ -295,7 +296,7 @@ pub async fn pdf_upload(mut data: Form<PDFUploadFormData<'_>>, user: UserCookie,
 #[get("/transactions/view_pdf?<transaction_id>")]
 pub async fn view_transaction_pdf(transaction_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<NamedFile, Redirect> {
     let db = state.postgres_db.clone();
-    let mut message = None;
+    let message;
 
     if let Ok(_) = db.get_transaction_account_if_valid(transaction_id, user.userid).await {
         if let Ok(file_name) = db.get_doc_path(transaction_id).await {

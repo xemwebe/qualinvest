@@ -16,10 +16,14 @@ use clap::{App, AppSettings, Arg, SubCommand};
 use finql_data::{Ticker, Currency, QuoteHandler, TransactionHandler, date_time_helper::date_time_from_str_standard};
 use finql_postgres::PostgresDB;
 use finql::{Market, portfolio::calc_position};
+use finql::time_series::TimeSeries;
 
 use qualinvest_core::accounts::AccountHandler;
 use qualinvest_core::read_pdf::{parse_and_store, sha256_hash};
 use qualinvest_core::Config;
+use qualinvest_core::performance::calc_performance;
+
+pub mod plot;
 
 #[tokio::main]
 async fn main() {
@@ -179,6 +183,54 @@ async fn main() {
                 .about("Find gaps in quotes time series' and try to fill them")
                 .setting(AppSettings::ColoredHelp)
         )
+        .subcommand(
+            SubCommand::with_name("performance")
+                .about("Calculate total performance of set of transactions")
+                .setting(AppSettings::ColoredHelp)
+                .arg(
+                    Arg::with_name("account")
+                        .long("account")
+                        .short("a")
+                        .help("Account id for performance graph")
+                        .required(true)
+                        .takes_value(true)
+                )   
+                .arg(
+                    Arg::with_name("start")
+                        .long("start")
+                        .short("s")
+                        .help("Start date for performance calculation (default 2000-01-01)")
+                        .takes_value(true)
+                )
+                .arg(
+                    Arg::with_name("end")
+                        .long("end")
+                        .short("e")
+                        .help("End date for performance calculation (default today)")
+                        .takes_value(true)
+                )       
+                .arg(
+                    Arg::with_name("currency")
+                        .long("currency")
+                        .short("c")
+                        .help("Base currency for performance calculation")
+                        .takes_value(true)
+                )
+                .arg(
+                    Arg::with_name("output")
+                        .long("output-dir")
+                        .short("o")
+                        .help("Output directory")
+                        .takes_value(true)
+                )        
+                .arg(
+                    Arg::with_name("title")
+                        .long("title")
+                        .short("t")
+                        .help("Title of performance graph")
+                        .takes_value(true)
+                )        
+            )
         .get_matches();
 
     let config = matches.value_of("config").unwrap_or("qualinvest.toml");
@@ -367,7 +419,58 @@ async fn main() {
         }
     }
 
-    if matches.subcommand_matches("fill-gaps").is_some() {
-        qualinvest_core::fill_quote_gaps(db, &config.market_data).await.unwrap();
+    if let Some(_matches) = matches.subcommand_matches("fill-gaps") {
+        qualinvest_core::fill_quote_gaps(db.clone(), &config.market_data).await.unwrap();
+    }
+
+
+    if let Some(matches) = matches.subcommand_matches("performance") {
+        let account_id = usize::from_str(matches.value_of("account").unwrap()).unwrap();
+
+        let start_date = if matches.is_present("start") {
+            date_time_from_str_standard(matches.value_of("start").unwrap(), 9, None).unwrap().naive_local().date()
+        } else {
+            date_time_from_str_standard("2000-01-01", 9, None).unwrap().naive_local().date()
+        };
+        let end_date = if matches.is_present("end") {
+            date_time_from_str_standard(matches.value_of("end").unwrap(), 9, None).unwrap().naive_local().date()
+        } else {
+            Local::now().naive_local().date()
+        };
+        let currency = if matches.is_present("currency") {
+            Currency::from_str(matches.value_of("currency").unwrap()).unwrap()
+        } else {
+            Currency::from_str("EUR").unwrap()
+        };
+        let file = if matches.is_present("output") {
+            matches.value_of("output").unwrap().to_string()
+        } else {
+            "total_performance.svg".to_string()
+        };
+        let title = if matches.is_present("title") {
+            matches.value_of("output").unwrap().to_string()
+        } else {
+            "Total Performance".to_string()
+        };
+
+        let transactions = db.get_all_transactions_with_account_before(account_id, end_date).await.unwrap();
+        let market = Market::new(db);
+
+        let total_performance = calc_performance(
+            currency,
+            &transactions,
+            start_date,
+            end_date,
+            &market,
+            "TARGET",
+        )
+        .await.unwrap();
+        let performance_series = vec![TimeSeries {
+            series: total_performance,
+            title: title.clone(),
+        }];
+    
+        // plot the graph
+        plot::make_plot(&file, &title, &performance_series).unwrap();
     }
 }
