@@ -1,30 +1,29 @@
+use std::ops::Deref;
+use std::str::FromStr;
 ///! # qualinvest_core
-///! 
+///!
 ///! This library is part of a set of tools for quantitative investments.
 ///! For mor information, see [qualinvest on github](https://github.com/xemwebe/qualinvest)
 ///!
-
 use std::sync::Arc;
-use std::str::FromStr;
-use std::ops::Deref;
 
+use chrono::{DateTime, Datelike, Local, Weekday};
 use serde::Deserialize;
-use chrono::{DateTime, Local, Weekday, Datelike};
 
-use finql_data::QuoteHandler;
 use finql::{
     calendar::{Calendar, Holiday},
-    market::MarketError,
-    market_quotes::MarketDataSource
-    };
+    market::{Market,MarketError},
+    market_quotes::MarketDataSource,
+};
+use finql_data::QuoteHandler;
 
 pub mod accounts;
-pub mod position;
-pub mod read_pdf;
-pub mod user;
-pub mod postgres_user;
-pub mod sanitization;
 pub mod performance;
+pub mod position;
+pub mod postgres_user;
+pub mod read_pdf;
+pub mod sanitization;
+pub mod user;
 
 /// Configuration parameters
 #[derive(Debug, Deserialize)]
@@ -68,11 +67,7 @@ pub struct ServerSettings {
     pub secret_key: Option<String>,
 }
 
-fn add_provider(
-    market: &mut finql::Market,
-    token: &Option<String>,
-    source: MarketDataSource,
-) {
+fn add_provider(market: &mut finql::Market, token: &Option<String>, source: MarketDataSource) {
     if let Some(token) = token {
         if let Some(provider) = source.get_provider(token.clone()) {
             market.add_provider(source.to_string(), provider)
@@ -110,7 +105,7 @@ pub async fn update_quote_history(
     ticker_id: usize,
     start: DateTime<Local>,
     end: DateTime<Local>,
-    db: Arc<dyn QuoteHandler+Send+Sync>,
+    db: Arc<dyn QuoteHandler + Send + Sync>,
     market_data: &MarketDataProviders,
 ) -> Result<(), MarketError> {
     let mut market = finql::Market::new(db);
@@ -120,7 +115,7 @@ pub async fn update_quote_history(
 
 pub async fn update_ticker(
     ticker_id: usize,
-    db: Arc<dyn QuoteHandler+Send+Sync>,
+    db: Arc<dyn QuoteHandler + Send + Sync>,
     market_data: &MarketDataProviders,
 ) -> Result<(), MarketError> {
     let ticker = db.get_ticker_by_id(ticker_id).await?;
@@ -140,56 +135,65 @@ pub async fn update_ticker(
     Ok(())
 }
 
-pub async fn update_quotes(
-    db: Arc<dyn QuoteHandler+Send+Sync>,
-    market_data: &MarketDataProviders,
-) -> Result<Vec<usize>, MarketError> {
+pub fn setup_market(
+    db: Arc<dyn QuoteHandler + Send + Sync>,
+    market_data: &MarketDataProviders) -> Market {
     let mut market = finql::Market::new(db);
     set_market_providers(&mut market, market_data);
-    market.update_quotes().await
+    market
 }
 
 pub async fn fill_quote_gaps(
-    db: Arc<dyn QuoteHandler+Send+Sync>,
-    market_data: &MarketDataProviders,
+    market: &mut Market,
+    min_size: usize,
 ) -> Result<(), MarketError> {
-    use finql::time_series::{TimeValue, TimeSeries};
+    use finql::time_series::{TimeSeries, TimeValue};
+    use finql_data::date_time_helper::naive_date_to_date_time;
 
     let today = Local::now().naive_local().date();
 
-    let mut market = finql::Market::new(db.clone());
-    set_market_providers(&mut market, market_data);
-    let tickers = db.get_all_ticker().await?;
+    let tickers = market.db().get_all_ticker().await?;
 
-    let cal = Calendar::calc_calendar(&[Holiday::WeekDay(Weekday::Sat), Holiday::WeekDay(Weekday::Sun)], 2000, today.year());
+    let weekends_cal = Calendar::calc_calendar(
+        &[
+            Holiday::WeekDay(Weekday::Sat),
+            Holiday::WeekDay(Weekday::Sun),
+        ],
+        2000,
+        today.year(),
+    );
     for ticker in tickers {
-        if ticker.name != "BHP.AX" {
-            continue;
-        }
         if let Some(ticker_id) = ticker.id {
-            let quotes = db.get_all_quotes_for_ticker(ticker_id).await?;
-            let quote_series: Vec<TimeValue> = quotes.into_iter()
-                .map(|q| TimeValue{ time: q.time, value: q.price } )
+            let quotes = market.db().get_all_quotes_for_ticker(ticker_id).await?;
+            let quote_series: Vec<TimeValue> = quotes
+                .into_iter()
+                .map(|q| TimeValue {
+                    time: q.time,
+                    value: q.price,
+                })
                 .collect();
 
-            let ts = TimeSeries{
+            let ts = TimeSeries {
                 series: quote_series,
-                title: ticker.name.clone()
+                title: ticker.name.clone(),
             };
-            let gaps = ts.find_gaps(&cal).unwrap_or(Vec::new());
+            let cal = if let Some(cal) = ticker.cal {
+                market.get_calendar(&cal)?
+            } else {
+                &weekends_cal
+            };
+            let gaps = ts.find_gaps(cal, min_size).unwrap_or(Vec::new());
             for gap in gaps {
-                print!("ticker: {}, gap: {:?}", ticker.name, gap);
-                // let res = market.update_quote_history(ticker_id, naive_date_to_date_time(&gap.0,0), naive_date_to_date_time(&gap.1, 23)).await;
-                // if res.is_err() {
-                //     println!(" failed :-(");
-                // } else {
-                //     println!(" succeeded!");
-                // }
+                let _ = market
+                    .update_quote_history(
+                        ticker_id,
+                        naive_date_to_date_time(&gap.0, 0, ticker.tz.clone())?,
+                        naive_date_to_date_time(&gap.1, 23, ticker.tz.clone())?,
+                    )
+                    .await;
             }
         }
     }
-
-
 
     Ok(())
 }

@@ -18,10 +18,13 @@ use finql_postgres::PostgresDB;
 use finql::{Market, portfolio::calc_position};
 use finql::time_series::TimeSeries;
 
-use qualinvest_core::accounts::AccountHandler;
-use qualinvest_core::read_pdf::{parse_and_store, sha256_hash};
-use qualinvest_core::Config;
-use qualinvest_core::performance::calc_performance;
+use qualinvest_core::{
+    accounts::AccountHandler,
+    read_pdf::{parse_and_store, sha256_hash},
+    Config,
+    performance::calc_performance,
+    setup_market,
+};
 
 pub mod plot;
 
@@ -182,6 +185,14 @@ async fn main() {
             SubCommand::with_name("fill-gaps")
                 .about("Find gaps in quotes time series' and try to fill them")
                 .setting(AppSettings::ColoredHelp)
+                .arg(
+                    Arg::with_name("min_size")
+                        .long("min-size")
+                        .short("s")
+                        .help("Ignore gaps with lass than 'min_size' days.")
+                        .required(false)
+                        .takes_value(true)
+                )
         )
         .subcommand(
             SubCommand::with_name("performance")
@@ -401,7 +412,8 @@ async fn main() {
             let ticker_id = usize::from_str(matches.value_of("ticker-id").unwrap()).unwrap();
             qualinvest_core::update_ticker(ticker_id, db.clone(), &config.market_data).await.unwrap();
         } else {
-            let failed_ticker = qualinvest_core::update_quotes(db, &config.market_data).await.unwrap();
+            let market = setup_market(db.clone(), &config.market_data);
+            let failed_ticker = market.update_quotes().await.unwrap();
             if !failed_ticker.is_empty() {
                 println!("Some ticker could not be updated: {:?}", failed_ticker);
             }
@@ -419,8 +431,14 @@ async fn main() {
         }
     }
 
-    if let Some(_matches) = matches.subcommand_matches("fill-gaps") {
-        qualinvest_core::fill_quote_gaps(db.clone(), &config.market_data).await.unwrap();
+    if let Some(matches) = matches.subcommand_matches("fill-gaps") {
+        let min_size = if let Some(size) = matches.value_of("min_size") {
+            usize::from_str(size).unwrap()
+        } else {
+            1
+        };
+        let mut market = setup_market(db.clone(), &config.market_data);
+        qualinvest_core::fill_quote_gaps(&mut market, min_size).await.unwrap();
     }
 
 
