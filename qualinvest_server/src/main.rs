@@ -146,6 +146,17 @@ async fn logout(user: Option<UserCookie>, cookies: &CookieJar<'_>) -> Result<Red
     }
 }
 
+#[get("/graph")]
+async fn graph(user_opt: Option<UserCookie>, state: &State<ServerState>) -> Result<Template,Redirect> {
+    if user_opt.is_none() {
+        return Err(Redirect::to(uri!(ServerState::base(), login(Some("transactions")))));
+    }
+
+    let mut context = state.default_context();
+
+    Ok(layout("graph", &context.into_json()))
+}
+
 #[get("/?<message>")]
 async fn index(message: Option<String>, user_opt: Option<UserCookie>, flash_msg_opt: Option<FlashMessage<'_>>, state: &State<ServerState>) -> Template {
     let mut context = state.default_context();
@@ -258,6 +269,7 @@ async fn rocket() -> _ {
             index,
             static_files,
             error_msg,
+            graph,
             position::position,
             transactions::transactions,
             transactions::edit_transaction,
