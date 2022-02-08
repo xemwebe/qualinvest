@@ -7,7 +7,6 @@ const coord = document.getElementById("coord");
 const plotType = document.getElementById("plot-type");
 const pitch = document.getElementById("pitch");
 const yaw = document.getElementById("yaw");
-const control = document.getElementById("3d-control");
 const status = document.getElementById("status");
 
 let chart = null;
@@ -71,13 +70,6 @@ function onMouseMove(event) {
     }
 }
 
-function updatePlot3d() {
-	let yaw_value = Number(yaw.value) / 100.0;
-	let pitch_value = Number(pitch.value) / 100.0;
-	Chart.plot3d(canvas, pitch_value, yaw_value);
-	coord.innerText = `Pitch:${pitch_value}, Yaw:${yaw_value}`
-}
-
 /** Redraw currently selected plot. */
 function updatePlot() {
     const selected = plotType.selectedOptions[0];
@@ -85,17 +77,11 @@ function updatePlot() {
     chart = null;
     const start = performance.now();
 	switch(selected.value) {
-		case "mandelbrot":
-			control.classList.add("hide");
-			chart = Chart.mandelbrot(canvas);
-			break;
-		case "3d-plot": 
-			control.classList.remove("hide");
-			updatePlot3d();
+		case "performance":
+			chart = Chart.performance_graph("canvas", Number(3))
 			break;
 		default:
-			control.classList.add("hide");
-			chart = Chart.power("canvas", Number(selected.value))
+			chart = Chart.power("canvas", Number(2))
 	}
 	
     const end = performance.now();
