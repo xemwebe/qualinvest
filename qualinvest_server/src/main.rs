@@ -152,7 +152,7 @@ async fn graph(user_opt: Option<UserCookie>, state: &State<ServerState>) -> Resu
         return Err(Redirect::to(uri!(ServerState::base(), login(Some("transactions")))));
     }
 
-    let mut context = state.default_context();
+    let context = state.default_context();
 
     Ok(layout("graph", &context.into_json()))
 }

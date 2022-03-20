@@ -16,12 +16,15 @@ use crate::form_types::NaiveDateForm;
 use qualinvest_core::user::{UserHandler, UserSettings};
 use super::ServerState;
 use crate::user::UserCookie;
+use finql::period_date::PeriodDate;
 
 #[derive(Debug,Serialize,Deserialize,FromForm)]
 pub struct UserSettingsForm {
     pub account_ids: Vec<String>,
-    pub start_date: NaiveDateForm,
-    pub end_date: NaiveDateForm,
+    pub start_date_type: String,
+    pub start_date: Option<NaiveDateForm>,
+    pub end_date_type: String,
+    pub end_date: Option<NaiveDateForm>,
 }
 
 #[get("/settings?<err_msg>")]
@@ -33,11 +36,20 @@ pub async fn show_settings(err_msg: Option<String>, user_opt: Option<UserCookie>
 
     let db = state.postgres_db.clone();
     let user_accounts = user.get_accounts(db.clone()).await;
-    let settings = db.get_user_settings(user.userid).await;
-
     let mut context = state.default_context();
+
+    let settings = db.get_user_settings(user.userid).await;
+    context.insert("selected_accounts", &settings.account_ids);
+    context.insert("start_date_type", &settings.period_start.to_string());
+    context.insert("end_date_type", &settings.period_end.to_string());
+    if let Ok(start_date) = settings.period_start.date(None) {
+        context.insert("start_date", &start_date.format("%Y-%m-%d").to_string());
+    }
+    if let Ok(end_date) = settings.period_end.date(None) {
+        context.insert("end_date", &end_date.format("%Y-%m-%d").to_string());
+    }
+
     context.insert("valid_accounts", &user_accounts);
-    context.insert("settings", &settings);
     context.insert("user", &user);
     context.insert("err_msg", &err_msg);
     Ok(layout("user_settings", &context.into_json()))
@@ -69,17 +81,29 @@ pub async fn save_settings(form: Form<UserSettingsForm>, user_opt: Option<UserCo
         }
     }
     let account_ids: Vec<_> = all_user_account_ids.intersection(&selected_accounts).cloned().collect();
-
+    if account_ids.is_empty() {
+        return Err(Redirect::to(uri!(ServerState::base(), show_settings(Some("List of account ids is empty".to_string())))));
+    }
+    let period_start = if let Ok(date) = PeriodDate::new(&filter_form.start_date_type, filter_form.start_date.map(|d| d.date)) {
+        date
+    } else {
+        return Err(Redirect::to(uri!(ServerState::base(), show_settings(Some("Invalid start date".to_string())))));
+    };
+    let period_end = if let Ok(date) = PeriodDate::new(&filter_form.end_date_type, filter_form.end_date.map(|d| d.date)) {
+        date
+    } else {
+        return Err(Redirect::to(uri!(ServerState::base(), show_settings(Some("Invalid end date".to_string())))));
+    };
     let user_settings = UserSettings{
-        period_start: Some(filter_form.start_date.date),
-        period_end: Some(filter_form.end_date.date),
+        period_start,
+        period_end,
         account_ids,
     };
-    let result = db.set_user_settings(user.userid, &user_settings).await;
 
+    let result = db.set_user_settings(user.userid, &user_settings).await;
     match result {
         Ok(()) => Ok(Redirect::to(uri!(ServerState::base(), crate::position::position()))),
-        Err(_) => Err(Redirect::to(uri!(ServerState::base(), show_settings(Some("Failed ot save user settings".to_string()))))),
+        Err(_) => Err(Redirect::to(uri!(ServerState::base(), show_settings(Some("Failed to save user settings".to_string()))))),
     }
 }
 

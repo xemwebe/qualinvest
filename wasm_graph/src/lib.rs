@@ -1,5 +1,5 @@
 use wasm_bindgen::prelude::*;
-use web_sys::HtmlCanvasElement;
+//use web_sys::HtmlCanvasElement;
 
 mod func_plot;
 
@@ -13,30 +13,21 @@ pub type DrawResult<T> = Result<T, Box<dyn std::error::Error>>;
 /// coordinates.
 #[wasm_bindgen]
 pub struct Chart {
-    convert: Box<dyn Fn((i32, i32)) -> Option<(f64, f64)>>,
+    convert: Box<dyn Fn((i32, i32)) -> Option<(i64, f64)>>,
 }
 
 /// Result of screen to chart coordinates conversion.
 #[wasm_bindgen]
 pub struct Point {
-    pub x: f64,
+    pub x: i64,
     pub y: f64,
 }
 
 #[wasm_bindgen]
 impl Chart {
-    /// Draw provided power function on the canvas element using it's id.
-    /// Return `Chart` struct suitable for coordinate conversion.
-    pub fn power(canvas_id: &str, power: i32) -> Result<Chart, JsValue> {
-        let map_coord = func_plot::draw(canvas_id, power).map_err(|err| err.to_string())?;
-        Ok(Chart {
-            convert: Box::new(move |coord| map_coord(coord).map(|(x, y)| (x.into(), y.into()))),
-        })
-    }
-
     /// Draw performance graph
-    pub fn performance_graph(canvas_id: &str, power: i32) -> Result<Chart, JsValue> {
-        let map_coord = func_plot::draw(canvas_id, power).map_err(|err| err.to_string())?;
+    pub fn performance_graph(canvas_id: &str, title: &str, x_axis: &[i64], y_axis: &[f32]) -> Result<Chart, JsValue> {
+        let map_coord = func_plot::draw(canvas_id, title, x_axis, y_axis).map_err(|err| err.to_string())?;
         Ok(Chart {
             convert: Box::new(move |coord| map_coord(coord).map(|(x, y)| (x.into(), y.into()))),
         })

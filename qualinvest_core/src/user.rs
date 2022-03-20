@@ -3,7 +3,16 @@ use std::default::Default;
 use serde::{Serialize,Deserialize};
 use crate::accounts::{Account,AccountHandler};
 use finql_data::DataError;
-use chrono::NaiveDate;
+use finql::period_date::PeriodDate;
+
+/// User settings stored in database
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct UserSettings {
+    pub period_start: PeriodDate,
+    pub period_end: PeriodDate,
+    // User accounts selected to be used for portfolio analysis
+    pub account_ids: Vec<usize>,
+}
 
 /// User information as stored in database
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -12,15 +21,6 @@ pub struct User {
     pub name: String,
     pub display: Option<String>,
     pub is_admin: bool,
-}
-
-/// User settings stored in database
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct UserSettings {
-    pub period_start: Option<NaiveDate>,
-    pub period_end: Option<NaiveDate>,
-    // User accounts selected to be used for portfolio analysis
-    pub account_ids: Vec<usize>,
 }
 
 #[async_trait]

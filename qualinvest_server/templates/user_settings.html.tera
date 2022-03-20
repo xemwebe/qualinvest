@@ -5,66 +5,64 @@
 <link rel="stylesheet" href="https://unpkg.com/flatpickr/dist/flatpickr.min.css">
 <script src="https://unpkg.com/flatpickr"></script>
 <script>
-function togglesettings() {
-  var x = document.getElementById("settings");
-  var y = document.getElementById("settings_button");
-  var z = document.getElementById("period_info");
-  if (x.style.display === "none") {
-    x.style.display = "block";
-	z.style.display = "none";
-    y.textContent = "Hide settings";
-  } else {
-    x.style.display = "none";
-	z.style.display = "inline";
-    y.textContent = "Show settings";
-  }
-}
 
 function formChange() {
 	document.getElementById('apply_settings_button').disabled = false;
-	document.getElementById('info_start').textContent = document.getElementById('start_date').value;
-	document.getElementById('info_end').textContent = document.getElementById('end_date').value;
-	if(!presetRange) {
-		document.getElementById('range_select').value = 'custom'
-	}
-	presetRange = false;
 }
 
-function fmtDate(d) {
-	var day = String(d.getDate()).padStart(2, '0');
-    var month = String(d.getMonth() + 1).padStart(2, '0');
-    var year = d.getFullYear();
-
-	return year+'-'+month+'-'+day;
-}
-
-function setRange() {
-	var sel_range = document.getElementById('range_select').value;
+function setStart() {
+	var start_date_type = document.getElementById('start_date_type').value;
 	var start = document.getElementById('start_date');
-	var end = document.getElementById('end_date');
 
-	presetRange = true;
 	var today = new Date();
-	calendars[1].setDate(today);
-	end.value = fmtDate(today);
-	switch(sel_range) {
-		case 'daily':
-			calendars[0].setDate(today);
-			start.value = fmtDate(today);
+	switch(start_date_type) {
+		case 'Inception':
+			calendars[0].setDate('2021-01-01');
+			start.disabled = true;
 			break;
-		case 'mtd':
+		case 'Today':
+			calendars[0].setDate(today);
+			start.disabled = true;
+			break;
+		case 'FirstOfMonth':
 			start_date = new Date(today.getFullYear(), today.getMonth(), 1);
 			calendars[0].setDate(start_date);
-			start.value = fmtDate(start_date);
+			start.disabled = true;
 			break;
-		case 'ytd':
+		case 'FirstOfYear':
 			start_date = new Date(today.getFullYear(), 0, 1);
 			calendars[0].setDate(start_date);
-			start.value = fmtDate(start_date);
+			start.disabled = true;
 			break;
+		case 'FixedDate':
+			start.disabled = false;
+	}
+	if(calendars[1].selectedDates[0] < calendars[0].selectedDates[0]) {
+		calendars[1].setDate(calendars[0].selectedDates[0]);
 	}
 	formChange();
 }
+
+function setEnd() {
+	var end_date_type = document.getElementById('end_date_type').value;
+	var end = document.getElementById('end_date');
+
+	var today = new Date();
+	switch(end_date_type) {
+		case 'Today':
+			calendars[1].setDate(today);
+			end.disabled = true;
+			break;
+		case 'FixedDate':
+			end.disabled = false;
+			break;
+	}
+	if(calendars[1].selectedDates[0] < calendars[0].selectedDates[0]) {
+		calendars[0].setDate(calendars[1].selectedDates[0]);
+	}
+	formChange();
+}
+
 </script>
 {% endblock jsdata %}
 {% block content %}
@@ -76,20 +74,38 @@ function setRange() {
 			<input type="submit" class="button table_cell" id="apply_settings_button" value="Save settings">
 		</div>
 		<div class="table_row">
-			<select class="table_cell" id="range_select" onchange="setRange()"> 
-				<option value="custom" selected>Custom</option> 
-				<option value="daily" >Daily</option> 
-				<option value="mtd" >Month-to-Date</option> 
-				<option value="ytd" >Year-to-Date</option> 
-			</select> 
+			<div class="table_cell"><label>Period Start:</label></div>
+			<div class="table_cell">
+				<select id="start_date_type" name="start_date_type" onchange="setStart()">
+					<option value="Inception" {% if start_date_type=="Inception"%}selected{% endif %}>Inception</option> 
+					<option value="Today" {% if start_date_type=="Today"%}selected{% endif %}>Today</option> 
+					<option value="FirstOfMonth" {% if start_date_type=="FirstOfMonth"%}selected{% endif %}>First of month</option> 
+					<option value="FirstOfYear" {% if start_date_type=="FirstOfYear"%}selected{% endif %}>First of year</option> 
+					<option value="FixedDate" {% if start_date_type=="FixedDate"%}selected{% endif %}>Fixed date</option> 
+				</select>
+			</div>
+			<div class="table_cell">
+				<input class="fpcalendar flatpickr flatpickr-input" onchange="formChange()" name="start_date" id="start_date" type="text" 
+					{% if start_date %}value={{start_date}}{% endif %}
+					{% if start_date_type!="FixedDate"%}disabled=true{% endif %}
+				>
+			</div>
 		</div>
 		<div class="table_row">
-			<label class="table_cell" for="start_date">Period Start:</label>
-			<input class="fpcalendar flatpickr flatpickr-input" onchange="formChange()" name="start_date" id="start_date" type="text" value={{settings.period_start}}>
-		</div>
-		<div class="table_row">
-			<label class="table_cell" for="end_date">Period End:</label>
-			<input class="fpcalendar flatpickr flatpickr-input" onchange="formChange()" name="end_date" id="end_date" type="text" value={{settings.period_end}}>
+			<div class="table_cell"><label>Period End:</label></div>
+			<div class="table_cell">
+				<select id="end_date_type" name="end_date_type" onchange="setEnd()"> 
+					<option value="Today" {% if end_date_type=="Today"%}selected{% endif %}>Today</option> 
+					<option value="FixedDate" {% if end_date_type=="FixedDate"%}selected{% endif %}>Fixed date</option> 
+				</select>
+			</div>
+			<div class="table_cell">
+				<input class="fpcalendar flatpickr flatpickr-input" onchange="formChange()" name="end_date" id="end_date" type="text" 
+					{% if end_date %}value={{end_date}}{% endif %}
+					{% if end_date_type!="FixedDate"%}disabled=true{% endif %}
+				>
+			</div>
+			
 		</div>
 		<div class="table_row">
 		<label class="table_cell">Select account(s):</label>
@@ -97,7 +113,7 @@ function setRange() {
 				<select class="selectpicker" name="account_ids" id="account_ids" multiple onclick="formChange()">
 					{% for acc in valid_accounts %}
 						<option value={{acc.id}}
-						{% if acc.id in settings.account_ids %}selected{% endif %}>{{acc.broker}}: {{acc.account_name}}</option>
+						{% if acc.id in selected_accounts %}selected{% endif %}>{{acc.broker}}: {{acc.account_name}}</option>
 					{% endfor %}
 				</select>
 			</div>
@@ -105,6 +121,5 @@ function setRange() {
 </div>
 <script>
 const calendars = flatpickr(".fpcalendar", {});
-var presetRange = false;
 </script>
 {% endblock content %}

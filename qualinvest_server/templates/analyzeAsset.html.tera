@@ -2,49 +2,13 @@
 {% block pagetitle %}{{super()}} - Asset analyzer{% endblock %}
 {% block jsdata %}
 	{{super()}}
+
 	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 	<script type="text/javascript">
 		google.charts.load('current', 
 			{'packages':['line', 'table'], 'language':'de'});
-		google.charts.setOnLoadCallback(drawChart);
 		google.charts.setOnLoadCallback(drawTable);
 
-	function drawChart() {
-		var data = new google.visualization.DataTable();
-		data.addColumn('date', 'Date');
-		data.addColumn('number', 'comdirect');
-
-		data.addRows([
-		{% if quotes %}
-			{% for quote in quotes %}[
-			new Date('{{quote.time}}'), 
-			{{quote.price}}
-			],
-			{% endfor %}
-		{% endif %}
-			]);
-		var options = {
-		height: 500,
-		chart: {
-		title: 'Asset performance',
-		},
-		vAxis: {
-				title: 'Price',
-			format: '#,###.##'
-		},
-		legend: {
-				position: 'none'
-		}
-		};
-		{% if quotes %}
-		function resize() {
-			var chart = new google.charts.Line(document.getElementById('chart_div'));
-			chart.draw(data, google.charts.Line.convertOptions(options));
-		} 
-		window.onload = resize();
-		window.addEventListener('resize', resize, false);
-		{% endif %}
-	}
 
 	function drawTable() {
 		var data = new google.visualization.DataTable();
@@ -113,9 +77,9 @@
 	<div class="table" style="margin-bottom: 20px;">
 		<div class="table_row">
 			<div class="table_cell">
-				<p>
-					<div id="chart_div"></div>
-				</p>
+				<h3>Quote history</h3>	
+				<div id="coord"></div>
+				<canvas id="canvas" width="1000" height="800"></canvas>
 			</div>
 			<div class="table_cell horizontalgap" style="width:30px"></div>
 			<div class="table_cell">
@@ -124,4 +88,27 @@
 		</div>
 	</div>
 </div>
+{% if quotes %}
+<script>
+init();
+
+async function init() {
+    const [{Chart, default: init}, {main, setup}] = await Promise.all([
+        import("/static/wasm_graph.js"),
+        import("/static/index.js"),
+    ]);
+    await init();
+    setup(Chart);
+	var dates = new BigInt64Array([{% for quote in quotes %}BigInt(Date.parse('{{quote.time}}')),{% endfor %}]);
+	var values = new Float32Array([{% for quote in quotes %}{{quote.price}},{% endfor %}]);
+	title = "Asset quote history";
+	{% if assets %}
+		{% for asset in assets %}
+			{% if asset_id and asset.id == asset_id %}title = "{{asset.name}} quote history";{% endif %}
+		{% endfor %}
+	{% endif %}
+    main(title, dates, values);
+}
+</script>
+{% endif %}
 {% endblock %}
