@@ -10,12 +10,11 @@ use std::sync::Arc;
 use chrono::{DateTime, Datelike, Local, Weekday};
 use serde::Deserialize;
 
-use finql::{
+use finql::{datatypes::QuoteHandler,
     calendar::{Calendar, Holiday},
     market::{Market,MarketError},
     market_quotes::MarketDataSource,
 };
-use finql_data::QuoteHandler;
 
 pub mod accounts;
 pub mod performance;
@@ -48,7 +47,7 @@ pub struct PdfParseParams {
     pub warn_old: bool,
     pub consistency_check: bool,
     pub rename_asset: bool,
-    pub default_account: Option<usize>,
+    pub default_account: Option<i32>,
 }
 
 /// Market data provider settings
@@ -102,7 +101,7 @@ fn set_market_providers(market: &mut finql::Market, providers: &MarketDataProvid
 }
 
 pub async fn update_quote_history(
-    ticker_id: usize,
+    ticker_id: i32,
     start: DateTime<Local>,
     end: DateTime<Local>,
     db: Arc<dyn QuoteHandler + Send + Sync>,
@@ -114,7 +113,7 @@ pub async fn update_quote_history(
 }
 
 pub async fn update_ticker(
-    ticker_id: usize,
+    ticker_id: i32,
     db: Arc<dyn QuoteHandler + Send + Sync>,
     market_data: &MarketDataProviders,
 ) -> Result<(), MarketError> {
@@ -148,7 +147,7 @@ pub async fn fill_quote_gaps(
     min_size: usize,
 ) -> Result<(), MarketError> {
     use finql::time_series::{TimeSeries, TimeValue};
-    use finql_data::date_time_helper::naive_date_to_date_time;
+    use finql::datatypes::date_time_helper::naive_date_to_date_time;
 
     let today = Local::now().naive_local().date();
 

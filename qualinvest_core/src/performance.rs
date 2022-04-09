@@ -6,11 +6,8 @@ use finql::{
     portfolio::{PortfolioPosition, calc_delta_position},
     time_series::TimeValue,
     Market,
-};
-
-use finql_data::{
-    date_time_helper::{naive_date_to_date_time},
-    Currency, Transaction, 
+    datatypes::{date_time_helper::{naive_date_to_date_time},
+    Currency, Transaction}, 
 };
 use thiserror::Error;
 
@@ -19,7 +16,7 @@ pub enum PerformanceError {
     #[error("Failed to calculate position")]
     PositionError(#[from] finql::portfolio::PositionError),
     #[error("Date calculation error")]
-    DateError(#[from] finql_data::date_time_helper::DateTimeError),
+    DateError(#[from] finql::datatypes::date_time_helper::DateTimeError),
     #[error("Market error")]
     MarketError(#[from] finql::market::MarketError),
 }

@@ -13,8 +13,8 @@ use chrono::{DateTime, Local};
 use glob::glob;
 use clap::{App, AppSettings, Arg, SubCommand};
 
-use finql_data::{Ticker, Currency, QuoteHandler, TransactionHandler, date_time_helper::date_time_from_str_standard};
-use finql_postgres::PostgresDB;
+use finql::datatypes::{Ticker, Currency, QuoteHandler, TransactionHandler, date_time_helper::date_time_from_str_standard};
+use finql::postgres::PostgresDB;
 use finql::{Market, portfolio::calc_position};
 use finql::time_series::TimeSeries;
 
@@ -299,7 +299,7 @@ async fn main() {
         }
         config.pdf.default_account = match matches.value_of("default-account") {
             Some(s) => {
-                let num = s.parse::<usize>();
+                let num = s.parse::<i32>();
                 if num.is_err() {
                     println!("Default account id could not be read");
                 }
@@ -367,7 +367,7 @@ async fn main() {
         let account_id = matches.value_of("account");
         let transactions = match account_id {
             Some(account_id) => db
-                .get_all_transactions_with_account(usize::from_str(account_id).unwrap())
+                .get_all_transactions_with_account(i32::from_str(account_id).unwrap())
                 .await.unwrap(),
             None => db.get_all_transactions().await.unwrap(),
         };
@@ -395,7 +395,7 @@ async fn main() {
 
     if let Some(matches) = matches.subcommand_matches("update") {
         if matches.is_present("history") {
-            let ticker_id = usize::from_str(matches.value_of("ticker-id").unwrap()).unwrap();
+            let ticker_id = i32::from_str(matches.value_of("ticker-id").unwrap()).unwrap();
             let end = if matches.is_present("end") {
                 date_time_from_str_standard(matches.value_of("end").unwrap(), 18, None).unwrap()
             } else {
@@ -409,7 +409,7 @@ async fn main() {
             qualinvest_core::update_quote_history(ticker_id, start, end, db, &config.market_data)
                 .await.unwrap();
         } else if matches.is_present("ticker-id") {
-            let ticker_id = usize::from_str(matches.value_of("ticker-id").unwrap()).unwrap();
+            let ticker_id = i32::from_str(matches.value_of("ticker-id").unwrap()).unwrap();
             qualinvest_core::update_ticker(ticker_id, db.clone(), &config.market_data).await.unwrap();
         } else {
             let market = setup_market(db.clone(), &config.market_data);
@@ -443,7 +443,7 @@ async fn main() {
 
 
     if let Some(matches) = matches.subcommand_matches("performance") {
-        let account_id = usize::from_str(matches.value_of("account").unwrap()).unwrap();
+        let account_id = i32::from_str(matches.value_of("account").unwrap()).unwrap();
 
         let start_date = if matches.is_present("start") {
             date_time_from_str_standard(matches.value_of("start").unwrap(), 9, None).unwrap().naive_local().date()

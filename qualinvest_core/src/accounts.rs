@@ -2,24 +2,22 @@
 use async_trait::async_trait;
 use serde::{Serialize,Deserialize};
 use chrono::{NaiveDate};
-use sqlx::Row;
 
-use finql_data::{DataError, TransactionHandler, Transaction};
-use finql_postgres::{PostgresDB, transaction_handler::RawTransaction};
+use finql::{datatypes::{DataError, Currency, CurrencyISOCode, TransactionHandler, Transaction},
+    postgres::PostgresDB, postgres::transaction_handler::RawTransaction};
 
 #[derive(Debug,Clone,Serialize,Deserialize)]
 pub struct Account {
-    pub id: Option<usize>,
+    pub id: Option<i32>,
     pub broker: String,
     pub account_name: String,
 }
 
 #[derive(Debug,Serialize,Deserialize)]
 pub struct TransactionView {
-    pub id: usize,
-    pub group_id: usize,
-    pub asset_name: Option<String>,
-    pub asset_id: Option<usize>,
+    pub id: i32,
+    pub group_id: Option<i32>,
+    pub asset_id: Option<i32>,
     pub position: Option<f64>,
     pub trans_type: String,
     pub cash_amount: f64,
@@ -27,7 +25,7 @@ pub struct TransactionView {
     pub cash_date: String,
     pub note: Option<String>,
     pub doc_path: Option<String>, 
-    pub account_id: usize,
+    pub account_id: i32,
 }
 
 /// Handler for asset depot accounts
@@ -40,20 +38,20 @@ pub trait AccountHandler: TransactionHandler {
     async fn init_accounts(&self) -> Result<(), sqlx::Error>;
 
     /// Insert new account info in database, if it not yet exist
-    async fn insert_account_if_new(&self, account: &Account) -> Result<usize, DataError>;
+    async fn insert_account_if_new(&self, account: &Account) -> Result<i32, DataError>;
 
     /// Update an existing accounts name and/or broker
     async fn update_account(&self, account: &Account) -> Result<(), DataError>;
 
     /// Remove account from database 
     /// Fails if it does not exist or is referenced by other tables.
-    async fn delete_account(&self, account_id: usize) -> Result<(), DataError>;
+    async fn delete_account(&self, account_id: i32) -> Result<(), DataError>;
 
     /// Get account id for given account
-    async fn get_account_id(&self, account: &Account) -> Result<usize, DataError>;
+    async fn get_account_id(&self, account: &Account) -> Result<i32, DataError>;
 
     /// Get all accounts form db
-    async fn get_all_account_ids(&self) -> Result<Vec<usize>, DataError>;
+    async fn get_all_account_ids(&self) -> Result<Vec<i32>, DataError>;
 
     /// Get list of all accounts
     async fn get_all_accounts(&self) -> Vec<Account>;
@@ -61,17 +59,17 @@ pub trait AccountHandler: TransactionHandler {
     /// Add a transaction to the account
     async fn add_transaction_to_account(
         &self,
-        account: usize,
-        transaction: usize,
+        account: i32,
+        transaction: i32,
     ) -> Result<(), DataError>;
 
     /// Check if we have already parsed a given document by look-up its hash
     /// If successful, return the transaction ids and the path of the document
-    async fn lookup_hash(&self, hash: &str) -> Result<(Vec<usize>, String), DataError>;
+    async fn lookup_hash(&self, hash: &str) -> Result<(Vec<i32>, String), DataError>;
     /// Insert document information for successfully parsed documents
     async fn insert_doc(
         &self,
-        transaction_ids: &[usize],
+        transaction_ids: &[i32],
         hash: &str,
         path: &str,
     ) -> Result<(), DataError>;
@@ -79,29 +77,29 @@ pub trait AccountHandler: TransactionHandler {
     /// Get document path for given transaction
     async fn get_doc_path(
         &self,
-        transaction_id: usize
+        transaction_id: i32
     ) -> Result<String, DataError>;
     
     /// Get id of account a transaction belongs to
-    async fn get_transactions_account_id(&self, transaction_id: usize) -> Result<usize, DataError>;
+    async fn get_transactions_account_id(&self, transaction_id: i32) -> Result<i32, DataError>;
 
     /// Get transactions filtered by account id
     async fn get_all_transactions_with_account(
         &self,
-        account_id: usize,
+        account_id: i32,
     ) -> Result<Vec<Transaction>, DataError>;
 
     /// Get transactions filtered by account id before time
     async fn get_all_transactions_with_account_before(
         &self,
-        account_id: usize,
+        account_id: i32,
         time: NaiveDate,
     ) -> Result<Vec<Transaction>, DataError>;
 
     /// Get transactions filtered by account id in time range
     async fn get_all_transactions_with_account_in_range (
         &self,
-        account_id: usize,
+        account_id: i32,
         start: NaiveDate,
         end: NaiveDate,
     ) -> Result<Vec<Transaction>, DataError>;
@@ -109,36 +107,36 @@ pub trait AccountHandler: TransactionHandler {
     /// Get transactions filtered by a list of account ids
     async fn get_all_transactions_with_accounts(
         &self,
-        accounts: &[usize],
+        accounts: &[i32],
     ) -> Result<Vec<Transaction>, DataError>;
 
     /// Get transactions filtered by a list of account ids and cash dates before time
     async fn get_transactions_before_time(
         &self,
-        accounts: &[usize],
+        accounts: &[i32],
         time: NaiveDate,
     ) -> Result<Vec<Transaction>, DataError>;
 
     /// Get transactions filtered by a list of account ids and cash dates in time range
     async fn get_transactions_in_range(
         &self,
-        accounts: &[usize],
+        accounts: &[i32],
         start: NaiveDate,
         end: NaiveDate,
     ) -> Result<Vec<Transaction>, DataError>;
 
     /// Get transactions view for list of account ids that a related to a given asset
-    async fn get_transaction_view_for_accounts_and_asset(&self, accounts: &[usize], asset_id: usize) -> Result<Vec<TransactionView>, DataError>;
+    async fn get_transaction_view_for_accounts_and_asset(&self, accounts: &[i32], asset_id: i32) -> Result<Vec<TransactionView>, DataError>;
 
     /// Get transactions view by accounts
     async fn get_transaction_view_for_accounts(
         &self,
-        accounts: &[usize],
+        accounts: &[i32],
     ) -> Result<Vec<TransactionView>, DataError>;
 
     /// Change the account a transaction identified by id belongs to
-    async fn change_transaction_account(&self, transaction_id: usize, 
-        old_account_id: usize, new_account_id: usize) -> Result<(), DataError>;
+    async fn change_transaction_account(&self, transaction_id: i32, 
+        old_account_id: i32, new_account_id: i32) -> Result<(), DataError>;
 }
 
 #[async_trait]
@@ -191,17 +189,15 @@ impl AccountHandler for PostgresDB {
     }
 
     /// Insert new account info in database
-    async fn insert_account_if_new(&self, account: &Account) -> Result<usize, DataError> {
+    async fn insert_account_if_new(&self, account: &Account) -> Result<i32, DataError> {
         let id = self.get_account_id(account).await;
         match id {
             Ok(id) => Ok(id),
             _ => {
                 let row = sqlx::query!(
                         "INSERT INTO accounts (broker, account_name) VALUES ($1, $2) RETURNING id",
-                        account.broker, account.account_name).fetch_one(&self.pool).await
-                    .map_err(|e| DataError::InsertFailed(e.to_string()))?;
-                let id: i32 = row.id;
-                Ok(id as usize)
+                        account.broker, account.account_name).fetch_one(&self.pool).await?;
+                Ok(row.id)
             }
         }
     }
@@ -214,41 +210,34 @@ impl AccountHandler for PostgresDB {
                     account_name=$1, 
                     broker=$2
                 WHERE id=($3)",
-                account.account_name, account.broker, id as i32).execute(&self.pool).await
-            .map_err(|e| DataError::UpdateFailed(e.to_string()))?;
-        }
+                account.account_name, account.broker, id).execute(&self.pool).await?;        }
         Ok(())
     }
 
     /// Remove account from database 
     /// Fails if account is referenced by other tables.
-    async fn delete_account(&self, account_id: usize) -> Result<(), DataError>{
+    async fn delete_account(&self, account_id: i32) -> Result<(), DataError>{
         sqlx::query!(
             "DELETE FROM accounts WHERE id=($1)",
-            account_id as i32).execute(&self.pool).await
-            .map_err(|e| DataError::UpdateFailed(e.to_string()))?;
+            account_id).execute(&self.pool).await?;
         Ok(())
     }
 
     /// Get ID of given account
-    async fn get_account_id(&self, account: &Account) -> Result<usize, DataError> {
+    async fn get_account_id(&self, account: &Account) -> Result<i32, DataError> {
         let row = sqlx::query!(
                 "SELECT id FROM accounts where broker=$1 AND account_name=$2",
                 &account.broker, &account.account_name,
-            ).fetch_one(&self.pool).await
-            .map_err(|e| DataError::NotFound(e.to_string()))?;
-        let id: i32 = row.id;
-        Ok(id as usize)
+            ).fetch_one(&self.pool).await?;
+        Ok(row.id)
     }
 
-    async fn get_all_account_ids(&self) -> Result<Vec<usize>, DataError> {
+    async fn get_all_account_ids(&self) -> Result<Vec<i32>, DataError> {
         let rows = sqlx::query!(
-                "SELECT id FROM accounts").fetch_all(&self.pool).await
-            .map_err(|e| DataError::NotFound(e.to_string()))?;
+                "SELECT id FROM accounts").fetch_all(&self.pool).await?;
         let mut ids = Vec::new();
         for row in rows {
-            let id: i32 = row.id;
-            ids.push(id as usize);
+            ids.push(row.id);
         }
         Ok(ids)
     }
@@ -262,7 +251,7 @@ impl AccountHandler for PostgresDB {
             for row in rows {
                 let id: i32 = row.id;
                 accounts.push(Account{
-                    id: Some(id as usize),
+                    id: Some(id),
                     broker: row.broker,
                     account_name: row.account_name,
                 });
@@ -274,28 +263,25 @@ impl AccountHandler for PostgresDB {
     /// Insert transaction to account relation
     async fn add_transaction_to_account(
         &self,
-        account: usize,
-        transaction: usize,
+        account: i32,
+        transaction: i32,
     ) -> Result<(), DataError> {
         sqlx::query!(
                 "INSERT INTO account_transactions (account_id, transaction_id) VALUES ($1, $2)",
-                (account as i32), &(transaction as i32),
-            ).execute(&self.pool).await
-            .map_err(|e| DataError::InsertFailed(e.to_string()))?;
+                account, transaction,
+            ).execute(&self.pool).await?;
         Ok(())
     }
 
     /// Insert document information for successfully parsed documents
-    async fn lookup_hash(&self, hash: &str) -> Result<(Vec<usize>, String), DataError> {
+    async fn lookup_hash(&self, hash: &str) -> Result<(Vec<i32>, String), DataError> {
         let mut trans_ids = Vec::new();
         let mut path = "".to_string();
         for row in sqlx::query!(
                 "SELECT transaction_id, path FROM documents WHERE hash=$1",
-                hash).fetch_all(&self.pool).await
-            .map_err(|e| DataError::NotFound(e.to_string()))?
+                hash).fetch_all(&self.pool).await?
         {
-            let trans: i32 = row.transaction_id;
-            trans_ids.push(trans as usize);
+            trans_ids.push(row.transaction_id);
             path = row.path;
         }
         Ok((trans_ids, path))
@@ -304,16 +290,15 @@ impl AccountHandler for PostgresDB {
     /// Insert document information for successfully parsed documents
     async fn insert_doc(
         &self,
-        transaction_ids: &[usize],
+        transaction_ids: &[i32],
         hash: &str,
         path: &str,
     ) -> Result<(), DataError> {
         for trans_id in transaction_ids {
             sqlx::query!(
                     "INSERT INTO documents (transaction_id, hash, path) VALUES ($1, $2, $3)",
-                    (*trans_id as i32), hash, path
-                ).execute(&self.pool).await
-                .map_err(|e| DataError::InsertFailed(e.to_string()))?;
+                    *trans_id, hash, path
+                ).execute(&self.pool).await?;
         }
         Ok(())
     }
@@ -321,46 +306,61 @@ impl AccountHandler for PostgresDB {
     /// Get document path for given transaction
     async fn get_doc_path(
         &self,
-        transaction_id: usize
+        transaction_id: i32
     ) -> Result<String, DataError> {
         let row = sqlx::query!(
                 "SELECT path FROM documents WHERE transaction_id=$1",
-                transaction_id as i32
-            ).fetch_one(&self.pool).await
-            .map_err(|e| DataError::NotFound(e.to_string()))?;
+                transaction_id
+            ).fetch_one(&self.pool).await?;
         Ok(row.path.to_string())
     }
 
     /// Get id of account a transaction belongs to
-    async fn get_transactions_account_id(&self, transaction_id: usize) -> Result<usize, DataError> {
+    async fn get_transactions_account_id(&self, transaction_id: i32) -> Result<i32, DataError> {
         let row = sqlx::query!(
             "SELECT account_id FROM account_transactions WHERE transaction_id = $1",
-            transaction_id as i32
-        ).fetch_one(&self.pool).await
-        .map_err(|e| DataError::NotFound(e.to_string()))?;
-        Ok(row.account_id as usize)
+            transaction_id
+        ).fetch_one(&self.pool).await?;
+        Ok(row.account_id)
     }
 
     /// Get transactions filtered by account id
     async fn get_all_transactions_with_account(
         &self,
-        account_id: usize,
+        account_id: i32,
     ) -> Result<Vec<Transaction>, DataError> {
         let mut transactions = Vec::new();
         for row in sqlx::query!(
-                "SELECT t.id, t.trans_type, t.asset_id, 
-        t.cash_amount, t.cash_currency, t.cash_date, t.related_trans, t.position, t.note 
-        FROM transactions t, account_transactions a WHERE a.account_id = $1 and a.transaction_id = t.id",
-                (account_id as i32),        
-            ).fetch_all(&self.pool).await
-            .map_err(|e| DataError::NotFound(e.to_string()))?
+                "SELECT 
+                    t.id, 
+                    t.trans_type, 
+                    t.asset_id, 
+                    t.cash_amount, 
+                    t.cash_currency_id, 
+                    t.cash_date, 
+                    t.related_trans, 
+                    t.position, 
+                    t.note,
+                    c.iso_code,
+                    c.rounding_digits
+                FROM 
+                    transactions t, 
+                    account_transactions a,
+                    currencies c
+                WHERE 
+                    a.account_id = $1 
+                    AND a.transaction_id = t.id
+                    AND c.id = t.cash_currency_id",
+                account_id,        
+            ).fetch_all(&self.pool).await?
         {
+            let currency_isocode = CurrencyISOCode::new(&row.iso_code)?;
             let transaction = RawTransaction {
                 id: Some(row.id),
                 trans_type: row.trans_type,
                 asset: row.asset_id,
                 cash_amount: row.cash_amount,
-                cash_currency: row.cash_currency,
+                cash_currency: Currency::new(Some(row.cash_currency_id), currency_isocode, Some(row.rounding_digits)),
                 cash_date: row.cash_date,
                 related_trans: row.related_trans,
                 position: row.position,
@@ -374,26 +374,44 @@ impl AccountHandler for PostgresDB {
     /// Get transactions filtered by account id before time
     async fn get_all_transactions_with_account_before(
         &self,
-        account_id: usize,
+        account_id: i32,
         time: NaiveDate,
     ) -> Result<Vec<Transaction>, DataError> {
         println!("Get all transactions for account id {} before time {}", account_id, time);
 
         let mut transactions = Vec::new();
         for row in sqlx::query!(
-                "SELECT t.id, t.trans_type, t.asset_id, 
-        t.cash_amount, t.cash_currency, t.cash_date, t.related_trans, t.position, t.note 
-        FROM transactions t, account_transactions a WHERE a.account_id = $1 AND a.transaction_id = t.id AND t.cash_date < $2",
-                (account_id as i32), time,
-            ).fetch_all(&self.pool).await
-            .map_err(|e| DataError::NotFound(e.to_string()))?
+                "SELECT 
+                    t.id, 
+                    t.trans_type, 
+                    t.asset_id, 
+                    t.cash_amount, 
+                    t.cash_currency_id, 
+                    t.cash_date, 
+                    t.related_trans, 
+                    t.position, 
+                    t.note,
+                    c.iso_code,
+                    c.rounding_digits
+                FROM 
+                    transactions t, 
+                    account_transactions a,
+                    currencies c
+                WHERE 
+                    a.account_id = $1 
+                    AND a.transaction_id = t.id 
+                    AND t.cash_date < $2
+                    AND c.id = t.cash_currency_id",
+                account_id, time,
+            ).fetch_all(&self.pool).await?
         {
+            let currency_isocode = CurrencyISOCode::new(&row.iso_code)?;
             let transaction = RawTransaction {
                 id: Some(row.id),
                 trans_type: row.trans_type,
                 asset: row.asset_id,
                 cash_amount: row.cash_amount,
-                cash_currency: row.cash_currency,
+                cash_currency: Currency::new(Some(row.cash_currency_id), currency_isocode, Some(row.rounding_digits)),
                 cash_date: row.cash_date,
                 related_trans: row.related_trans,
                 position: row.position,
@@ -407,25 +425,43 @@ impl AccountHandler for PostgresDB {
     /// Get transactions filtered by account id in time range
     async fn get_all_transactions_with_account_in_range(
         &self,
-        account_id: usize,
+        account_id: i32,
         start: NaiveDate,
         end: NaiveDate,
     ) -> Result<Vec<Transaction>, DataError> {
         let mut transactions = Vec::new();
         for row in sqlx::query!(
-                "SELECT t.id, t.trans_type, t.asset_id, 
-        t.cash_amount, t.cash_currency, t.cash_date, t.related_trans, t.position, t.note 
-        FROM transactions t, account_transactions a WHERE a.account_id = $1 AND a.transaction_id = t.id AND t.cash_date BETWEEN $2 AND $3",
-                (account_id as i32), start, end,
-            ).fetch_all(&self.pool).await
-            .map_err(|e| DataError::NotFound(e.to_string()))?
+                "SELECT 
+                    t.id, 
+                    t.trans_type, 
+                    t.asset_id, 
+                    t.cash_amount, 
+                    t.cash_currency_id, 
+                    t.cash_date, 
+                    t.related_trans, 
+                    t.position, 
+                    t.note,
+                    c.iso_code,
+                    c.rounding_digits 
+                FROM 
+                    transactions t, 
+                    account_transactions a,
+                    currencies c
+                WHERE 
+                    a.account_id = $1 
+                    AND a.transaction_id = t.id 
+                    AND t.cash_date BETWEEN $2 AND $3
+                    AND c.id = t.cash_currency_id",
+                account_id, start, end,
+            ).fetch_all(&self.pool).await?
         {
+            let currency_isocode = CurrencyISOCode::new(&row.iso_code)?;
             let transaction = RawTransaction {
                 id: Some(row.id),
                 trans_type: row.trans_type,
                 asset: row.asset_id,
                 cash_amount: row.cash_amount,
-                cash_currency: row.cash_currency,
+                cash_currency: Currency::new(Some(row.cash_currency_id), currency_isocode, Some(row.rounding_digits)),
                 cash_date: row.cash_date,
                 related_trans: row.related_trans,
                 position: row.position,
@@ -439,7 +475,7 @@ impl AccountHandler for PostgresDB {
     /// Get transactions filtered by a list of account ids
     async fn get_all_transactions_with_accounts(
         &self,
-        accounts: &[usize],
+        accounts: &[i32],
     ) -> Result<Vec<Transaction>, DataError> {
         let mut transactions = Vec::new();
         for i in accounts {
@@ -451,7 +487,7 @@ impl AccountHandler for PostgresDB {
     /// Get transactions filtered by a list of account ids and cash dates before time
     async fn get_transactions_before_time(
         &self,
-        accounts: &[usize],
+        accounts: &[i32],
         time: NaiveDate,
     ) -> Result<Vec<Transaction>, DataError> {
         let mut transactions = Vec::new();
@@ -464,7 +500,7 @@ impl AccountHandler for PostgresDB {
     /// Get transactions filtered by a list of account ids and cash dates in time range
     async fn get_transactions_in_range(
         &self,
-        accounts: &[usize],
+        accounts: &[i32],
         start: NaiveDate,
         end: NaiveDate,
     ) -> Result<Vec<Transaction>, DataError> {
@@ -479,65 +515,58 @@ impl AccountHandler for PostgresDB {
     /// Get transactions view by accounts
     async fn get_transaction_view_for_accounts(
         &self,
-        accounts: &[usize],
+        accounts: &[i32],
     ) -> Result<Vec<TransactionView>, DataError> {
         if accounts.is_empty(){
             return Err(DataError::DataAccessFailure("transaction view requires account list".to_string()));
         }
-        let mut query_string = r#"SELECT
-        t.id
-        ,(CASE WHEN t.related_trans IS null THEN t.id 
-         ELSE t.related_trans
-         END) AS group_id
-        , a.name
-        , a.id AS asset_id
-        , t.position
-        , t.trans_type
-        , t.cash_amount
-        , t.cash_currency
-        , t.cash_date
-        , t.note
-        , d.path
-        , at.account_id
-    FROM transactions t
-    LEFT JOIN assets a ON a.id = t.asset_id
-    LEFT JOIN documents d ON d.transaction_id = t.id
-    JOIN account_transactions at ON at.transaction_id = t.id
-    WHERE at.account_id IN ("#.to_string();
-        query_string = format!("{}{}",query_string, accounts[0]);
-        for id in &accounts[1..] {
-            query_string = format!("{},{}",query_string, *id);
-        }
-        query_string = format!("{}{}", query_string,
-        r#")
-    ORDER BY t.cash_date desc, group_id, t.id;
-        "#);
         let mut transactions = Vec::new();
-        for row in sqlx::query(&query_string)
-            .fetch_all(&self.pool).await
-            .map_err(|e| DataError::NotFound(e.to_string()))?
+        for row in sqlx::query!(
+        "SELECT
+            t.id
+            ,(CASE WHEN t.related_trans IS null THEN t.id 
+                ELSE t.related_trans
+                END) AS group_id
+            , a.id AS asset_id
+            , t.position
+            , t.trans_type
+            , t.cash_amount
+            , t.cash_currency_id
+            , t.cash_date
+            , t.note
+            , d.path
+            , at.account_id
+            , c.iso_code
+            , c.rounding_digits
+        FROM
+            currencies c,
+            transactions t
+            LEFT JOIN assets a ON a.id = t.asset_id
+            LEFT JOIN documents d ON d.transaction_id = t.id
+            JOIN account_transactions at ON at.transaction_id = t.id
+        WHERE 
+            c.id = t.cash_currency_id
+            AND at.account_id = ANY($1)
+            ORDER BY t.cash_date DESC, group_id, t.id;"
+            , accounts)
+            .fetch_all(&self.pool).await?
         {
             {
-            let id: i32 = row.try_get("id").map_err(|e| DataError::NotFound(e.to_string()))?;
-            let group_id: i32 = row.try_get("group_id").map_err(|e| DataError::NotFound(e.to_string()))?;
-            let asset_id: Option<i32> = row.try_get("asset_id").map_err(|e| DataError::NotFound(e.to_string()))?;
-            let asset_id = asset_id.map(|id| id as usize);
-            let account_id: i32 = row.try_get("account_id").map_err(|e| DataError::NotFound(e.to_string()))?;
-            let date: chrono::NaiveDate = row.try_get("cash_date").map_err(|e| DataError::NotFound(e.to_string()))?;
+            let date: chrono::NaiveDate = row.cash_date;
             let cash_date = date.format("%Y-%m-%d").to_string();          
+            let currency_isocode = CurrencyISOCode::new(&row.iso_code)?;   
             transactions.push( TransactionView {
-                id: id as usize,
-                group_id: group_id as usize,
-                asset_name: row.try_get("name").map_err(|e| DataError::NotFound(e.to_string()))?,
-                asset_id,
-                position: row.try_get("position").map_err(|e| DataError::NotFound(e.to_string()))?,
-                trans_type: row.try_get("trans_type").map_err(|e| DataError::NotFound(e.to_string()))?,
-                cash_amount: row.try_get("cash_amount").map_err(|e| DataError::NotFound(e.to_string()))?,
-                cash_currency: row.try_get("cash_currency").map_err(|e| DataError::NotFound(e.to_string()))?,
+                id: row.id,
+                group_id: row.group_id,
+                asset_id: Some(row.asset_id),
+                position: row.position,
+                trans_type: row.trans_type,
+                cash_amount: row.cash_amount,
+                cash_currency: currency_isocode.to_string(),
                 cash_date, 
-                note: row.try_get("note").map_err(|e| DataError::NotFound(e.to_string()))?,
-                doc_path: row.try_get("path").map_err(|e| DataError::NotFound(e.to_string()))?, 
-                account_id: account_id as usize,
+                note: row.note,
+                doc_path: Some(row.path), 
+                account_id: row.account_id,
             });
         }
         }
@@ -546,75 +575,67 @@ impl AccountHandler for PostgresDB {
 
 
     /// Get transactions view for list of account ids that are related to a given asset
-    async fn get_transaction_view_for_accounts_and_asset(&self, accounts: &[usize], asset_id: usize) -> Result<Vec<TransactionView>, DataError> {
+    async fn get_transaction_view_for_accounts_and_asset(&self, accounts: &[i32], asset_id: i32) -> Result<Vec<TransactionView>, DataError> {
         if accounts.is_empty() {
             return Err(DataError::DataAccessFailure("transaction view requires account list".to_string()));
         }
-        let mut query_string = r#"SELECT
-        t.id
-        ,(CASE WHEN t.related_trans IS null THEN t.id 
-         ELSE t.related_trans
-         END) AS group_id
-        , a.name
-        , a.id AS asset_id
-        , t.position
-        , t.trans_type
-        , t.cash_amount
-        , t.cash_currency
-        , t.cash_date
-        , t.note
-        , d.path
-        , at.account_id
-    FROM transactions t
-    LEFT JOIN assets a ON a.id = t.asset_id
-    LEFT JOIN documents d ON d.transaction_id = t.id
-    JOIN account_transactions at ON at.transaction_id = t.id
-    WHERE "#.to_string();
-        query_string = format!("{} a.id = {} AND at.account_id IN ({}",query_string, asset_id, accounts[0]);
-        for id in &accounts[1..] {
-            query_string = format!("{},{}",query_string, *id);
-        }
-        query_string = format!("{}{}", query_string,
-        r#")
-    ORDER BY t.cash_date desc, group_id, t.id;
-        "#);
         let mut transactions = Vec::new();
-        for row in sqlx::query(query_string.as_str())
-            .fetch_all(&self.pool).await
-            .map_err(|e| DataError::NotFound(e.to_string()))?
+        for row in sqlx::query!(
+        "SELECT
+            t.id
+            ,(CASE WHEN t.related_trans IS null THEN t.id 
+                ELSE t.related_trans
+                END) AS group_id
+            , a.id AS asset_id
+            , t.position
+            , t.trans_type
+            , t.cash_amount
+            , t.cash_currency_id
+            , t.cash_date
+            , t.note
+            , d.path
+            , at.account_id
+            , c.iso_code
+            , c.rounding_digits
+        FROM
+            currencies c,
+            transactions t
+            LEFT JOIN assets a ON a.id = t.asset_id
+            LEFT JOIN documents d ON d.transaction_id = t.id
+            JOIN account_transactions at ON at.transaction_id = t.id
+        WHERE 
+            a.id = $1
+            AND c.id = t.cash_currency_id
+            AND at.account_id = ANY($2)
+        ORDER BY t.cash_date desc, group_id, t.id", asset_id, accounts)
+            .fetch_all(&self.pool).await?
         {
-            let id: i32 = row.try_get("id").map_err(|e| DataError::NotFound(e.to_string()))?;
-            let group_id: i32 = row.try_get("group_id").map_err(|e| DataError::NotFound(e.to_string()))?;
-            let asset_id: Option<i32> = row.try_get("asset_id").map_err(|e| DataError::NotFound(e.to_string()))?;
-            let asset_id = asset_id.map(|id| id as usize);
-            let account_id: i32 = row.try_get("account_id").map_err(|e| DataError::NotFound(e.to_string()))?;
-            let date: chrono::NaiveDate = row.try_get("cash_date").map_err(|e| DataError::NotFound(e.to_string()))?;
-            let cash_date = date.format("%Y-%m-%d").to_string();          
+            let date: chrono::NaiveDate = row.cash_date;
+            let cash_date = date.format("%Y-%m-%d").to_string();
+            let currency_isocode = CurrencyISOCode::new(&row.iso_code)?;    
             transactions.push( TransactionView {
-                id: id as usize,
-                group_id: group_id as usize,
-                asset_name: row.try_get("name").map_err(|e| DataError::NotFound(e.to_string()))?,
-                asset_id,
-                position: row.try_get("position").map_err(|e| DataError::NotFound(e.to_string()))?,
-                trans_type: row.try_get("trans_type").map_err(|e| DataError::NotFound(e.to_string()))?,
-                cash_amount: row.try_get("cash_amount").map_err(|e| DataError::NotFound(e.to_string()))?,
-                cash_currency: row.try_get("cash_currency").map_err(|e| DataError::NotFound(e.to_string()))?,
-                cash_date, 
-                note: row.try_get("note").map_err(|e| DataError::NotFound(e.to_string()))?,
-                doc_path: row.try_get("path").map_err(|e| DataError::NotFound(e.to_string()))?, 
-                account_id: account_id as usize,
+                id: row.id,
+                group_id: row.group_id,
+                asset_id: Some(row.asset_id),
+                position: row.position,
+                trans_type: row.trans_type,
+                cash_amount: row.cash_amount,
+                cash_currency: currency_isocode.to_string(),
+                cash_date: cash_date, 
+                note: row.note,
+                doc_path: Some(row.path), 
+                account_id: row.account_id
             });
         }
         Ok(transactions)
     }
 
     /// Change the account a transaction identified by id belongs to
-    async fn change_transaction_account(&self, transaction_id: usize, old_account_id: usize, new_account_id: usize) -> Result<(), DataError> {
+    async fn change_transaction_account(&self, transaction_id: i32, old_account_id: i32, new_account_id: i32) -> Result<(), DataError> {
         sqlx::query!(
             "UPDATE account_transactions SET account_id=$3 WHERE transaction_id=$1 AND account_id=$2",
-            (transaction_id as i32), (old_account_id as i32), (new_account_id as i32))
-            .execute(&self.pool).await
-            .map_err(|e| DataError::UpdateFailed(e.to_string()))?;
+            transaction_id, old_account_id , new_account_id)
+            .execute(&self.pool).await?;
     Ok(())
     }
 

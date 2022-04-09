@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use std::default::Default;
 use serde::{Serialize,Deserialize};
 use crate::accounts::{Account,AccountHandler};
-use finql_data::DataError;
+use finql::datatypes::DataError;
 use finql::period_date::PeriodDate;
 
 /// User settings stored in database
@@ -11,13 +11,13 @@ pub struct UserSettings {
     pub period_start: PeriodDate,
     pub period_end: PeriodDate,
     // User accounts selected to be used for portfolio analysis
-    pub account_ids: Vec<usize>,
+    pub account_ids: Vec<i32>,
 }
 
 /// User information as stored in database
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct User {
-    pub id: Option<usize>,
+    pub id: Option<i32>,
     pub name: String,
     pub display: Option<String>,
     pub is_admin: bool,
@@ -32,18 +32,18 @@ pub trait UserHandler: AccountHandler {
     async fn init_users(&self) -> Result<(), DataError>;
 
     /// Insert new account info in database, if it not yet exist
-    async fn insert_user(&self, user: &User, password: &str) -> Result<usize, DataError>;
+    async fn insert_user(&self, user: &User, password: &str) -> Result<i32, DataError>;
 
     /// Get full user information if user name and password are valid
     async fn get_user_by_credentials(& self, name: &str, password: &str) -> Option<User>;
     /// Get full user information for given user id
-    async fn get_user_by_id(&self, user_id: usize) -> Option<User>;
+    async fn get_user_by_id(&self, user_id: i32) -> Option<User>;
     /// Get user id for given name if it exists
-    async fn get_user_id(&self, name: &str) -> Option<usize>;
+    async fn get_user_id(&self, name: &str) -> Option<i32>;
     /// Get user id for given name if user exists and is admin
-    async fn get_admin_id(&self, name: &str) -> Option<usize>;
+    async fn get_admin_id(&self, name: &str) -> Option<i32>;
     /// Get user id if user name and password are valid
-    async fn get_user_id_by_credentials(&self, name: &str, password: &str) -> Option<usize>; 
+    async fn get_user_id_by_credentials(&self, name: &str, password: &str) -> Option<i32>; 
     /// Get list of all users
     async fn get_all_users(&self) -> Vec<User>; 
 
@@ -51,36 +51,36 @@ pub trait UserHandler: AccountHandler {
     async fn update_user(&self, user: &User) -> Result<(), DataError>;
 
     /// Update user password 
-    async fn update_password(&self, user_id: usize, password: &str) -> Result<(), DataError>;
+    async fn update_password(&self, user_id: i32, password: &str) -> Result<(), DataError>;
 
     /// Remove all user information form data base
-    async fn delete_user(&self, user_id: usize) -> Result<(), DataError>;
+    async fn delete_user(&self, user_id: i32) -> Result<(), DataError>;
 
     /// Give user identified by user_id the right to access account given by account_id
-    async fn add_account_right(&self, user_id: usize, account_id: usize) -> Result<usize, DataError>;
+    async fn add_account_right(&self, user_id: i32, account_id: i32) -> Result<i32, DataError>;
 
     /// Remove right to access account given by account_id from user with id user_id
-    async fn remove_account_right(&self, user_id: usize, account_id: usize) -> Result<(), DataError>;
+    async fn remove_account_right(&self, user_id: i32, account_id: i32) -> Result<(), DataError>;
     
     /// Get list of account ids a user given by user_id has access to
-    async fn get_user_accounts(&self, user_id: usize) -> Result<Vec<Account>, DataError>;
+    async fn get_user_accounts(&self, user_id: i32) -> Result<Vec<Account>, DataError>;
 
     /// Remove all account ids form ids the user has no access to
-    async fn valid_accounts(&self, user_id: usize, ids: &[usize]) -> Result<Vec<usize>, DataError>;
+    async fn valid_accounts(&self, user_id: i32, ids: &[i32]) -> Result<Vec<i32>, DataError>;
    
     /// Get the account the transaction given by id belongs to, 
     /// if the user given by user_id as the right to access this account
-    async fn get_transaction_account_if_valid(&self, trans_id: usize, user_id: usize) -> Result<Account, DataError>;
+    async fn get_transaction_account_if_valid(&self, trans_id: i32, user_id: i32) -> Result<Account, DataError>;
 
 
     /// Remove this transaction and all its dependencies, if it belongs to an account the user has
     /// access rights for.
-    async fn remove_transaction(&self, trans_id: usize, user_id: usize)-> Result<(), DataError>;
+    async fn remove_transaction(&self, trans_id: i32, user_id: i32)-> Result<(), DataError>;
 
     /// Get user settings
-    async fn get_user_settings(&self, user_id: usize) -> UserSettings;
+    async fn get_user_settings(&self, user_id: i32) -> UserSettings;
 
     /// Set user settings
-    async fn set_user_settings(&self, user_id: usize, settings: &UserSettings) -> Result<(), DataError>;
+    async fn set_user_settings(&self, user_id: i32, settings: &UserSettings) -> Result<(), DataError>;
 }
 

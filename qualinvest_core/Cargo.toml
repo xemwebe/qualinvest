@@ -9,9 +9,7 @@ repository = "https://github.com/xemwebe/qualinvest"
 keywords = ["finance", "investment", "quantitative", "analysis"]
 
 [dependencies]
-finql = {version="0.10", path="../finql/finql" }
-finql-postgres = { version="0.3", path="../finql/finql-postgres" }
-finql-data = { version="0.2", path="../finql/finql-data" }
+finql = {version="0.11", path="../finql" }
 serde = { version = "1.0.*", features = ["derive"] }
 serde_json = "1.0"
 lazy_static = "1.4"

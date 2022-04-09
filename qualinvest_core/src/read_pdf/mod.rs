@@ -13,8 +13,8 @@ use chrono::{NaiveDate, Local, Datelike, TimeZone};
 use sanitize_filename::sanitize;
 
 use finql::fx_rates::SimpleCurrencyConverter;
-use finql_data::{
-    Asset, CashAmount, CashFlow, CurrencyError, DataError, Transaction, TransactionType, 
+use finql::datatypes::{
+    Asset, CashAmount, CashFlow, CurrencyError, DataError, DataItem, Transaction, TransactionType, 
     date_time_helper::make_time
 };
 
@@ -193,15 +193,7 @@ pub async fn parse_and_store<'a>(
             let transactions_info = make_transactions(&tri).await;
             match transactions_info {
                 Ok((transactions, asset)) => {
-                    let asset_id = if asset.name.is_empty() {
-                        db.get_asset_by_isin(&asset.isin.unwrap()).await
-                            .map_err(|_| ReadPDFError::NotFound("could not find ISIN in db"))?
-                            .id
-                            .unwrap()
-                    } else {
-                        db.insert_asset_if_new(&asset, config.rename_asset).await
-                            .map_err(ReadPDFError::DBError)?
-                    };
+                    let asset_id = asset.get_id()?;
                     let mut trans_ids = Vec::new();
                     for trans in transactions {
                         let mut trans = trans.clone();
@@ -209,11 +201,9 @@ pub async fn parse_and_store<'a>(
                         if !trans_ids.is_empty() {
                             trans.set_transaction_ref(trans_ids[0]);
                         }
-                        let trans_id = db.insert_transaction(&trans).await
-                            .map_err(ReadPDFError::DBError)?;
+                        let trans_id = db.insert_transaction(&trans).await?;
                         trans_ids.push(trans_id);
-                        let _ = db.add_transaction_to_account(acc_id, trans_id).await
-                            .map_err(ReadPDFError::DBError)?;
+                        let _ = db.add_transaction_to_account(acc_id, trans_id).await?;
                     }
                     store_pdf_as_name(path, &file_name, &hash, config).await?;
                     db.insert_doc(&trans_ids, &hash, &file_name).await?;

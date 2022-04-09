@@ -3,7 +3,7 @@ use plotters::prelude::*;
 use chrono::Datelike;
 
 use finql::time_series::TimeSeries;
-use finql_data::date_time_helper::make_time;
+use finql::datatypes::date_time_helper::make_time;
 use finql::calendar::last_day_of_month;
 
 /// Error related to plotting graphs

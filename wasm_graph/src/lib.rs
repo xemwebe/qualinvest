@@ -1,7 +1,18 @@
 use wasm_bindgen::prelude::*;
-//use web_sys::HtmlCanvasElement;
 
-mod func_plot;
+pub mod func_plot;
+pub mod utils;
+
+pub fn set_panic_hook() {
+    // When the `console_error_panic_hook` feature is enabled, we can call the
+    // `set_panic_hook` function at least once during initialization, and then
+    // we will get better error messages if our code ever panics.
+    //
+    // For more details see
+    // https://github.com/rustwasm/console_error_panic_hook#readme
+    #[cfg(feature = "console_error_panic_hook")]
+    console_error_panic_hook::set_once();
+}
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -27,6 +38,7 @@ pub struct Point {
 impl Chart {
     /// Draw performance graph
     pub fn performance_graph(canvas_id: &str, title: &str, x_axis: &[i64], y_axis: &[f32]) -> Result<Chart, JsValue> {
+        set_panic_hook();
         let map_coord = func_plot::draw(canvas_id, title, x_axis, y_axis).map_err(|err| err.to_string())?;
         Ok(Chart {
             convert: Box::new(move |coord| map_coord(coord).map(|(x, y)| (x.into(), y.into()))),

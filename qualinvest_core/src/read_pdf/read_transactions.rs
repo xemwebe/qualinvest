@@ -4,7 +4,7 @@ use super::german_string_to_date;
 use super::german_string_to_float;
 use super::{DocumentType, ParsedTransactionInfo, ReadPDFError};
 use chrono::NaiveDate;
-use finql_data::{Asset, CashAmount, Currency};
+use finql::datatypes::{Asset, Stock, Currency, CashAmount};
 use lazy_static::lazy_static;
 use regex::{Regex, RegexSet};
 use std::str::FromStr;
@@ -50,13 +50,7 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
                     let position = Some(german_string_to_float(&cap[5])?);
                     let interest_rate = Some(german_string_to_float(&cap[2])?);
                     Ok(AssetInfo {
-                        asset: Asset {
-                            id: None,
-                            name,
-                            wkn,
-                            isin,
-                            note: None,
-                        },
+                        asset: Asset::Stock(Stock::new(None, name, isin, wkn, None)),
                         _ex_div_day: ex_div_day,
                         _interest_rate: interest_rate,
                         position,
@@ -72,13 +66,7 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
                     let wkn = Some(cap[1].to_string());
                     let isin = Some(cap[2].to_string());
                     Ok(AssetInfo {
-                        asset: Asset {
-                            id: None,
-                            name: String::new(),
-                            wkn,
-                            isin,
-                            note: None,
-                        },
+                        asset: Asset::Stock(Stock::new(None, String::new(), isin, wkn, None)),
                         _ex_div_day: None,
                         _interest_rate: None,
                         position: None,
@@ -95,13 +83,7 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
                 let ex_div_day = Some(german_string_to_date(&cap[1])?);
                 let position = Some(german_string_to_float(&cap[4])?);
                 Ok(AssetInfo {
-                    asset: Asset {
-                        id: None,
-                        name,
-                        wkn,
-                        isin,
-                        note: None,
-                    },
+                    asset: Asset::Stock(Stock::new(None, name, isin, wkn, None)),
                     _ex_div_day: ex_div_day,
                     _interest_rate: None,
                     position,
@@ -115,13 +97,7 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
                 let isin = Some(cap[4].to_string());
                 let name = format!("{} {}", cap[1].trim(), cap[3].trim());
                 Ok(AssetInfo {
-                    asset: Asset {
-                        id: None,
-                        name,
-                        wkn,
-                        isin,
-                        note: None,
-                    },
+                    asset: Asset::Stock(Stock::new(None, name, isin, wkn, None)),
                     _ex_div_day: None,
                     _interest_rate: None,
                     position: None,

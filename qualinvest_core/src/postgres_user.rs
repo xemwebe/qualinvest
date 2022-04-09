@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use finql_postgres::PostgresDB;
-use finql_data::DataError;
+use finql::postgres::PostgresDB;
+use finql::datatypes::DataError;
 
 use crate::user::{User, UserHandler, UserSettings};
 use crate::accounts::Account;
@@ -9,11 +9,9 @@ use crate::accounts::Account;
 impl UserHandler for PostgresDB {
     /// Clean database by dropping all tables related to user management and run init_users
     async fn clean_users(&self) -> Result<(), DataError> {
-        sqlx::query!("DROP TABLE IF EXISTS account_rights").execute(&self.pool).await
-        .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
+        sqlx::query!("DROP TABLE IF EXISTS account_rights").execute(&self.pool).await?;
         self.init_users().await?;
-        sqlx::query!("DROP TABLE IF EXISTS users").execute(&self.pool).await
-           .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
+        sqlx::query!("DROP TABLE IF EXISTS users").execute(&self.pool).await?;
         self.init_users().await?;
         Ok(())
     }
@@ -28,8 +26,7 @@ impl UserHandler for PostgresDB {
             salt_hash TEXT NOT NULL,
             is_admin BOOLEAN NOT NULL DEFAULT False,
             UNIQUE (name))"
-        ).execute(&self.pool).await
-        .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
+        ).execute(&self.pool).await?;
         sqlx::query!(
         "CREATE TABLE IF NOT EXISTS account_rights (
             id SERIAL PRIMARY KEY,
@@ -37,31 +34,27 @@ impl UserHandler for PostgresDB {
             account_id INTEGER NOT NULL,
             FOREIGN KEY(user_id) REFERENCES users(id),
             FOREIGN KEY(account_id) REFERENCES accounts(id))"
-        ).execute(&self.pool).await
-         .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
+        ).execute(&self.pool).await?;
         sqlx::query!(
             "CREATE TABLE IF NOT EXISTS user_settings (
                 id SERIAL PRIMARY KEY,
                 user_id INTEGER UNIQUE,
                 settings JSON,
                 FOREIGN KEY(user_id) REFERENCES users(id))"
-            ).execute(&self.pool).await
-             .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
-        sqlx::query!("CREATE EXTENSION pgcrypto").execute(&self.pool).await
-            .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
+            ).execute(&self.pool).await?;
+        sqlx::query!("CREATE EXTENSION pgcrypto").execute(&self.pool).await?;
         Ok(())
     }
 
     /// Insert new user into database, fails if user with same name already exists
-    async fn insert_user(&self, user: &User, password: &str) -> Result<usize, DataError> {
+    async fn insert_user(&self, user: &User, password: &str) -> Result<i32, DataError> {
         let row = sqlx::query!(
                 "INSERT INTO users (name, display, salt_hash, is_admin) 
                 VALUES ($1, $2, crypt($3,gen_salt('bf',8)), $4) RETURNING id",
                 user.name, user.display, password, user.is_admin,
-            ).fetch_one(&self.pool).await
-            .map_err(|e| DataError::InsertFailed(e.to_string()))?;
+            ).fetch_one(&self.pool).await?;
         let id: i32 = row.id;
-        Ok(id as usize)
+        Ok(id)
     }
     
     /// Get full user information if user name and password are valid
@@ -75,7 +68,7 @@ impl UserHandler for PostgresDB {
                 Ok(row) => {
                     let id: i32 = row.id;
                     Some(User{
-                        id: Some(id as usize),
+                        id: Some(id),
                         name: row.name,
                         display: if row.display.is_empty() { None } else { Some(row.display) },
                         is_admin: row.is_admin,
@@ -86,16 +79,16 @@ impl UserHandler for PostgresDB {
     }
 
     /// Get full user information for given user id
-    async fn get_user_by_id(&self, user_id: usize) -> Option<User> {
+    async fn get_user_by_id(&self, user_id: i32) -> Option<User> {
         match sqlx::query!(
                 "SELECT id, name, display, is_admin FROM users WHERE id = $1",
-                (user_id as i32),
+                user_id,
             ).fetch_one(&self.pool).await {
                 Err(_) => None,
                 Ok(row) => {
                     let id: i32 = row.id;
                     Some(User{
-                        id: Some(id as usize),
+                        id: Some(id),
                         name: row.name,
                         display: if row.display.is_empty() { None } else { Some(row.display) },
                         is_admin: row.is_admin,
@@ -106,7 +99,7 @@ impl UserHandler for PostgresDB {
     }
 
     /// Get user id for given name if it exists
-    async fn get_user_id(&self, name: &str) -> Option<usize> {
+    async fn get_user_id(&self, name: &str) -> Option<i32> {
         match sqlx::query!(
             "SELECT id FROM users WHERE name = $1",
             name,
@@ -114,13 +107,13 @@ impl UserHandler for PostgresDB {
             Err(_) => None,
             Ok(row) => {
                 let id: i32 = row.id;
-                Some(id as usize)
+                Some(id)
             },
         }
     }
 
     /// Get user id for given name if user exists and is admin
-    async fn get_admin_id(&self, name: &str) -> Option<usize> {
+    async fn get_admin_id(&self, name: &str) -> Option<i32> {
         match sqlx::query!(
             "SELECT id FROM users WHERE name = $1 AND is_admin",
                 name,
@@ -128,14 +121,14 @@ impl UserHandler for PostgresDB {
                 Err(_) => None,
                 Ok(row) => {
                     let id: i32 = row.id;
-                    Some(id as usize)
+                    Some(id)
                 }
 
             }
     }
 
     /// Get user id if user name and password are valid
-    async fn get_user_id_by_credentials(&self, name: &str, password: &str) -> Option<usize> {
+    async fn get_user_id_by_credentials(&self, name: &str, password: &str) -> Option<i32> {
         match sqlx::query!(
             "SELECT id FROM users WHERE name = $1 AND 
                 salt_hash = crypt($2, salt_hash)",
@@ -144,7 +137,7 @@ impl UserHandler for PostgresDB {
                 Err(_) => None,
                 Ok(row) => {
                     let id: i32 = row.id;
-                    Some(id as usize)
+                    Some(id)
                 }
 
             }
@@ -160,7 +153,7 @@ impl UserHandler for PostgresDB {
             for row in rows {
                 let id: i32 = row.id;
                 users.push(User {
-                    id: Some(id as usize),
+                    id: Some(id),
                     name: row.name,
                     display: if row.display.is_empty() { None } else { Some(row.display) },
                     is_admin: row.is_admin,
@@ -180,72 +173,65 @@ impl UserHandler for PostgresDB {
         let id = user.id.unwrap();
         sqlx::query!(
                 "UPDATE users SET name=$2, display=$3, is_admin=$4 WHERE id=$1",
-                (id as i32), user.name, user.display, user.is_admin
-            ).execute(&self.pool).await
-            .map_err(|e| DataError::InsertFailed(e.to_string()))?;
+                id, user.name, user.display, user.is_admin
+            ).execute(&self.pool).await?;
         Ok(())
     }
 
     /// Update user password
-    async fn update_password(&self, user_id: usize, new_password: &str) -> Result<(), DataError> {
+    async fn update_password(&self, user_id: i32, new_password: &str) -> Result<(), DataError> {
         sqlx::query!(
                 "UPDATE users SET salt_hash=crypt($2, gen_salt('bf',8)) WHERE id=$1",
-                (user_id as i32),
+                user_id,
                 new_password,
-            ).execute(&self.pool).await
-            .map_err(|e| DataError::InsertFailed(e.to_string()))?;
+            ).execute(&self.pool).await?;
         Ok(())
     }
 
     /// Remove all user information form data base
-    async fn delete_user(&self, user_id: usize) -> Result<(), DataError> {
-        sqlx::query!("DELETE FROM users WHERE id=$1;", (user_id as i32))
-            .execute(&self.pool).await
-            .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
+    async fn delete_user(&self, user_id: i32) -> Result<(), DataError> {
+        sqlx::query!("DELETE FROM users WHERE id=$1;", user_id)
+            .execute(&self.pool).await?;
         Ok(())
     }
 
     /// Give user identified by user_id the right to access account given by account_id
-    async fn add_account_right(&self, user_id: usize, account_id: usize) -> Result<usize, DataError> {
+    async fn add_account_right(&self, user_id: i32, account_id: i32) -> Result<i32, DataError> {
         let rows = sqlx::query!("SELECT id FROM account_rights WHERE user_id=$1 AND account_id=$2"
-                , (user_id as i32), (account_id as i32))
-                .fetch_all(&self.pool).await
-                .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
+                , user_id, account_id)
+                .fetch_all(&self.pool).await?;
         if !rows.is_empty() {
             let id: i32 = rows[0].id;
-            Ok(id as usize)
+            Ok(id)
         } else {
             let row = sqlx::query!(
                 "INSERT INTO account_rights (user_id, account_id) VALUES ($1, $2) RETURNING id",
-                (user_id as i32), (account_id as i32))
-                .fetch_one(&self.pool).await
-                .map_err(|e| DataError::InsertFailed(e.to_string()))?;
+                user_id, account_id)
+                .fetch_one(&self.pool).await?;
             let id: i32 = row.id;
-            Ok(id as usize)
+            Ok(id)
         }
         
     }
 
     /// Remove right to access account given by account_id from user with id user_id
-    async fn remove_account_right(&self, user_id: usize, account_id: usize) -> Result<(), DataError> {
+    async fn remove_account_right(&self, user_id: i32, account_id: i32) -> Result<(), DataError> {
         sqlx::query!("DELETE FROM account_rights WHERE user_id=$1 AND account_id=$2", 
-                (user_id as i32), (account_id as i32))
-                .execute(&self.pool).await
-                .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
+                user_id, account_id)
+                .execute(&self.pool).await?;
         Ok(())
     }
 
 
     /// Get list of account ids a user as access to
-    async fn get_user_accounts(&self, user_id: usize) -> Result<Vec<Account>, DataError> {
+    async fn get_user_accounts(&self, user_id: i32) -> Result<Vec<Account>, DataError> {
         let rows = sqlx::query!("SELECT a.id, a.broker, a.account_name FROM accounts a, account_rights r WHERE r.account_id = a.id AND r.user_id=$1", 
-                (user_id as i32)).fetch_all(&self.pool).await
-                .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
+                user_id).fetch_all(&self.pool).await?;
         let mut accounts = Vec::new();
         for row in rows {
             let id: i32 = row.id;
             accounts.push(Account{
-                id: Some(id as usize),
+                id: Some(id),
                 broker: row.broker,
                 account_name: row.account_name,
             });
@@ -254,7 +240,7 @@ impl UserHandler for PostgresDB {
     }
 
     /// Remove all ids form ids the user has no access to
-    async fn valid_accounts(&self, user_id: usize, ids: &[usize]) -> Result<Vec<usize>, DataError> {
+    async fn valid_accounts(&self, user_id: i32, ids: &[i32]) -> Result<Vec<i32>, DataError> {
         let user_accounts = self.get_user_accounts(user_id).await?;
         let mut valid_ids = Vec::new();
         for id in ids {
@@ -270,7 +256,7 @@ impl UserHandler for PostgresDB {
        
     /// Get the account the transaction given by id belongs to, 
     /// if the user given by user_id as the right to access this account
-    async fn get_transaction_account_if_valid(&self, trans_id: usize, user_id: usize) -> Result<Account, DataError> {
+    async fn get_transaction_account_if_valid(&self, trans_id: i32, user_id: i32) -> Result<Account, DataError> {
         let row = sqlx::query!(r#"SELECT DISTINCT a.id, a.broker, a.account_name
             FROM
                 accounts a,
@@ -285,11 +271,10 @@ impl UserHandler for PostgresDB {
                 AND (ar.user_id = u.id
                     OR u.is_admin
                     );
-            "#, (trans_id as i32), (user_id as i32)).fetch_one(&self.pool).await
-            .map_err(|_| DataError::DataAccessFailure("user has no right to access this transaction".to_string()))?;
+            "#, trans_id, user_id).fetch_one(&self.pool).await?;
         let id: i32 = row.id;
         Ok(Account{
-          id: Some(id as usize),
+          id: Some(id),
           broker: row.broker,
           account_name: row.account_name,  
         })
@@ -298,7 +283,7 @@ impl UserHandler for PostgresDB {
 
     /// Remove this transaction and all its dependencies, if it belongs to an account the user has
     /// access rights for
-    async fn remove_transaction(&self, trans_id: usize, user_id: usize)-> Result<(), DataError> {
+    async fn remove_transaction(&self, trans_id: i32, user_id: i32)-> Result<(), DataError> {
         // Get list of related trades
         let rows = sqlx::query!(r#"SELECT DISTINCT t.id FROM transactions t, users u, account_rights ar, accounts a, account_transactions at
         WHERE (t.id=$1 OR t.related_trans=$1)
@@ -312,9 +297,8 @@ impl UserHandler for PostgresDB {
                 AND at.transaction_id = t.id
             )
         );"#, 
-        (trans_id as i32), (user_id as i32))
-        .fetch_all(&self.pool).await
-        .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
+        trans_id, user_id)
+        .fetch_all(&self.pool).await?;
         let mut ids = Vec::new();
         for row in rows {
             let id: i32 = row.id;
@@ -322,21 +306,18 @@ impl UserHandler for PostgresDB {
         }
         for id in ids {
             sqlx::query!("DELETE FROM documents WHERE transaction_id=$1", id)
-                .execute(&self.pool).await
-                .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
+                .execute(&self.pool).await?;
             sqlx::query!("DELETE FROM account_transactions WHERE transaction_id=$1", id)
-                .execute(&self.pool).await
-                .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
+                .execute(&self.pool).await?;
             sqlx::query!("DELETE FROM transactions WHERE id=$1", id)
-                .execute(&self.pool).await
-                .map_err(|e| DataError::DataAccessFailure(e.to_string()))?;
+                .execute(&self.pool).await?;
         }
         Ok(())
     }
 
     /// Get user settings
-    async fn get_user_settings(&self, user_id: usize) -> UserSettings {
-        let row = sqlx::query!("SELECT settings FROM user_settings WHERE user_id=$1", user_id as i32)
+    async fn get_user_settings(&self, user_id: i32) -> UserSettings {
+        let row = sqlx::query!("SELECT settings FROM user_settings WHERE user_id=$1", user_id)
             .fetch_one(&self.pool).await;
         if let Ok(row) = row {
             if let Some(settings_value) = row.settings {
@@ -348,16 +329,14 @@ impl UserHandler for PostgresDB {
     }
 
     /// Set user settings
-    async fn set_user_settings(&self, user_id: usize, settings: &UserSettings) -> Result<(), DataError> {
-        if let Ok(settings_json) = serde_json::to_value(settings) {
-            sqlx::query!(r"INSERT INTO user_settings (user_id, settings)
-            VALUES($1,$2) 
-            ON CONFLICT (user_id) 
-            DO 
-            UPDATE SET settings = $2", user_id as i32, settings_json)
-                .execute(&self.pool).await.map_err(|e| DataError::InsertFailed(e.to_string()))?;
-            return Ok(());
-        }
-        Err(DataError::InsertFailed("Serializing user settings failed.".to_string()))
+    async fn set_user_settings(&self, user_id: i32, settings: &UserSettings) -> Result<(), DataError> {
+        let settings_json = serde_json::to_value(settings)?;
+        sqlx::query!(r"INSERT INTO user_settings (user_id, settings)
+        VALUES($1,$2) 
+        ON CONFLICT (user_id) 
+        DO 
+        UPDATE SET settings = $2", user_id, settings_json)
+        .execute(&self.pool).await?;
+        Ok(())
     }
 }
