@@ -15,7 +15,7 @@ serde = { version = "1.0.*", features = ["derive"] }
 serde_json = "1.0"
 finql = {version="0.11", path="../finql" }
 chrono = "0.4"
-qualinvest_core = { version="0.1.2", path="../qualinvest_core" }
+qualinvest_core = { version="0.1", path="../qualinvest_core" }
 tera = "1.2"
 clap = "2.33"
 toml = "0.5"
