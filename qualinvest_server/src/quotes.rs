@@ -7,7 +7,7 @@ use rocket_dyn_templates::Template;
 use rocket::form::{Form, FromForm};
 use super::rocket_uri_macro_error_msg;
 
-use finql_data::{AssetHandler, Quote, QuoteHandler, date_time_helper::date_time_from_str_standard};
+use finql::datatypes::{AssetHandler, Quote, QuoteHandler, date_time_helper::date_time_from_str_standard};
 
 use crate::user::UserCookie;
 use crate::layout::layout;
@@ -22,7 +22,7 @@ struct QuoteView {
 }
 
 #[get("/quotes?<asset_id>&<err_msg>")]
-pub async fn show_quotes(asset_id: usize, err_msg: Option<String>, user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
+pub async fn show_quotes(asset_id: i32, err_msg: Option<String>, user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
     let db = state.postgres_db.clone();
     let f_asset = db.get_asset_by_id(asset_id);
     let f_tickers = db.get_all_ticker_for_asset(asset_id);
@@ -70,7 +70,7 @@ pub async fn show_quotes(asset_id: usize, err_msg: Option<String>, user: UserCoo
     let mut context = state.default_context();
     context.insert("quotes", &quotes_view);
     context.insert("asset_id", &asset_id);
-    context.insert("asset_name", &asset.name);
+    context.insert("asset_name", &asset.name());
     context.insert("tickers", &tickers);
     context.insert("user", &user);
     context.insert("err_msg", &err_msg);
@@ -79,7 +79,7 @@ pub async fn show_quotes(asset_id: usize, err_msg: Option<String>, user: UserCoo
 
 
 #[get("/quote/update?<asset_id>&<ticker_id>")]
-pub async fn update_asset_quote(asset_id: usize, ticker_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
+pub async fn update_asset_quote(asset_id: i32, ticker_id: i32, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
     if !user.is_admin {
         return  Err(Redirect::to(uri!(ServerState::base(), super::index(Some("You must be admin user to edit quotes!".to_string())))));
     }
@@ -93,7 +93,7 @@ pub async fn update_asset_quote(asset_id: usize, ticker_id: usize, user: UserCoo
 }
 
 #[get("/quote/renew_history?<asset_id>&<ticker_id>&<start>&<end>")]
-pub async fn renew_history(asset_id: usize, ticker_id: usize, 
+pub async fn renew_history(asset_id: i32, ticker_id: i32, 
     start: String, end: String, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
 
     if !user.is_admin {
@@ -114,7 +114,7 @@ pub async fn renew_history(asset_id: usize, ticker_id: usize,
 
 
 #[get("/quote/delete?<quote_id>&<asset_id>")]
-pub async fn delete_quote(quote_id: usize, asset_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
+pub async fn delete_quote(quote_id: i32, asset_id: i32, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
     let db = state.postgres_db.clone();
     if !user.is_admin {
         return Err(Redirect::to(uri!(ServerState::base(), show_quotes(asset_id, Some("You must be admin user to update quote history!".to_string())))));
@@ -125,7 +125,7 @@ pub async fn delete_quote(quote_id: usize, asset_id: usize, user: UserCookie, st
 }
 
 #[get("/quote/new?<asset_id>")]
-pub async fn new_quote(asset_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
+pub async fn new_quote(asset_id: i32, user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
     if !user.is_admin {
         return Err(Redirect::to(uri!(ServerState::base(), show_quotes(asset_id, Some("You must be admin user to add new quotes!".to_string())))));
     }
@@ -136,7 +136,7 @@ pub async fn new_quote(asset_id: usize, user: UserCookie, state: &State<ServerSt
     
     let mut context = state.default_context();
     context.insert("asset_id", &asset_id);
-    context.insert("asset_name", &asset.name);
+    context.insert("asset_name", &asset.name());
 
     Ok(layout("quote_form", &context.into_json()))
 }
@@ -144,7 +144,7 @@ pub async fn new_quote(asset_id: usize, user: UserCookie, state: &State<ServerSt
 /// Structure for storing information in quote formular
 #[derive(Debug,Serialize,Deserialize,FromForm)]
 pub struct QuoteForm {
-    pub asset_id: usize,
+    pub asset_id: i32,
     pub date: String,
     pub hour: u32,
     pub quote: f64,
@@ -163,10 +163,10 @@ pub async fn add_new_quote(form: Form<QuoteForm>, user: UserCookie, state: &Stat
     let _asset = db.get_asset_by_id(quote_form.asset_id).await
         .map_err(|_| Redirect::to(uri!(ServerState::base(), show_quotes(quote_form.asset_id, Some("Failed to get asset".to_string())))))?;
     
-    let currency = finql_data::Currency::from_str(&quote_form.currency)
+    let currency = finql::datatypes::Currency::from_str(&quote_form.currency)
         .map_err(|_| Redirect::to(uri!(ServerState::base(), show_quotes(quote_form.asset_id, Some("Invalid currency".to_string())))))?;
     
-    let ticker = finql_data::Ticker{
+    let ticker = finql::datatypes::Ticker{
         id: None,
         asset: quote_form.asset_id,
         name: format!("asset_{}", quote_form.asset_id),

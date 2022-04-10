@@ -28,7 +28,7 @@ use rocket::form::Form;
 use rocket_dyn_templates::Template;
 use rocket::figment::Figment;
 
-use finql_postgres::PostgresDB;
+use finql::postgres::PostgresDB;
 use qualinvest_core::{Config, MarketDataProviders};
 
 mod accounts;

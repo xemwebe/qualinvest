@@ -12,7 +12,7 @@ use qualinvest_core::accounts::Account;
 /// The UserCookie type is used to indicate a user has logged in as an user
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserCookie {
-    pub userid: usize,
+    pub userid: i32,
     pub username: String,
     pub display: Option<String>,
     pub is_admin: bool,

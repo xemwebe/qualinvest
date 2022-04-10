@@ -6,7 +6,7 @@ use rocket_dyn_templates::Template;
 use rocket::form::{Form, FromForm};
 use super::rocket_uri_macro_login;
 
-use finql_data::{Asset, AssetHandler, QuoteHandler};
+use finql::datatypes::{Asset, Stock, AssetHandler, DataItem, QuoteHandler};
 use qualinvest_core::accounts::AccountHandler;
 
 use crate::user::UserCookie;
@@ -16,7 +16,7 @@ use super::ServerState;
 /// Structure for storing information in asset formular
 #[derive(Debug,Serialize,Deserialize,FromForm)]
 pub struct AssetForm {
-    pub id: Option<usize>,
+    pub id: Option<i32>,
     pub name: String,
     pub isin: Option<String>,
     pub wkn: Option<String>, 
@@ -25,18 +25,12 @@ pub struct AssetForm {
 
 impl AssetForm {
     pub fn to_asset(&self) -> Asset {
-        Asset{
-            id: self.id,
-            name: self.name.clone(),
-            isin: self.isin.clone(),
-            wkn: self.wkn.clone(),
-            note: self.note.clone(),
-        }
+        Asset::Stock(Stock::new(self.id, self.name.clone(), self.isin.clone(), self.wkn.clone(), self.note.clone()))
     }
 }
 
 #[get("/asset?<asset_id>")]
-pub async fn analyze_asset(asset_id: Option<usize>, user_opt: Option<UserCookie>, state: &State<ServerState>) -> Result<Template,Redirect> {
+pub async fn analyze_asset(asset_id: Option<i32>, user_opt: Option<UserCookie>, state: &State<ServerState>) -> Result<Template,Redirect> {
     if user_opt.is_none() {
         return Err(Redirect::to(uri!(ServerState::base(), login(Some("asset")))));
     }
@@ -98,7 +92,7 @@ pub async fn assets(message: Option<String>, user_opt: Option<UserCookie>, state
 
 
 #[get("/asset/edit?<asset_id>&<message>")]
-pub async fn edit_asset(asset_id: Option<usize>, message: Option<String>, user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
+pub async fn edit_asset(asset_id: Option<i32>, message: Option<String>, user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
     if !user.is_admin {
         return  Err(Redirect::to(uri!(ServerState::base(), assets(Some("You must be admin user to edit assets!")))));
     }
@@ -109,7 +103,7 @@ pub async fn edit_asset(asset_id: Option<usize>, message: Option<String>, user: 
         db.get_asset_by_id(asset_id).await
             .map_err(|e| Redirect::to(uri!(ServerState::base(), assets(Some(format!("Couldn't get asset, error was {}", e))))))?
     } else {
-        Asset::default()
+        Asset::Stock(Stock::new(None, String::new(), None, None, None))
     };
 
     let mut context = state.default_context();   
@@ -120,7 +114,7 @@ pub async fn edit_asset(asset_id: Option<usize>, message: Option<String>, user: 
 }
 
 #[get("/asset/delete?<asset_id>")]
-pub async fn delete_asset(asset_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<Redirect, Redirect> {
+pub async fn delete_asset(asset_id: i32, user: UserCookie, state: &State<ServerState>) -> Result<Redirect, Redirect> {
     if !user.is_admin {
         return  Err(Redirect::to(uri!(ServerState::base(), super::index(Some("You must be admin user to delete assets!")))));
     }
@@ -142,11 +136,12 @@ pub async fn save_asset(form: Form<AssetForm>, user: UserCookie, state: &State<S
 
     let asset_id = db.get_asset_id(&asset).await;
     if let Some(id) = asset_id {
-        asset.id = Some(id);
+        asset.set_id(id)
+            .map_err(|e| Redirect::to(uri!(ServerState::base(), edit_asset(asset_id, Some(format!("Updating asset failed, error was {}", e))))))?;
         db.update_asset(&asset).await
             .map_err(|e| Redirect::to(uri!(ServerState::base(), edit_asset(asset_id, Some(format!("Updating asset failed, error was {}", e))))))?;
     } else {
-        let _asset_id = db.insert_asset_if_new(&asset, true).await
+        let _asset_id = db.insert_asset(&asset).await
             .map_err(|e| Redirect::to(uri!(ServerState::base(), edit_asset(asset_id, Some(format!("Couldn't insert assert, error was {}", e))))))?;
     }
 

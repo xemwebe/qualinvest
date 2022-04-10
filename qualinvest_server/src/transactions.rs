@@ -8,7 +8,7 @@ use rocket::fs::{TempFile,NamedFile};
 
 use qualinvest_core::accounts::{Account,AccountHandler};
 use qualinvest_core::user::UserHandler;
-use finql_data::{Transaction,TransactionType,TransactionHandler,AssetHandler,CashAmount,CashFlow,Currency};
+use finql::datatypes::{Transaction,TransactionType,TransactionHandler,AssetHandler,CashAmount,CashFlow,Currency};
 use qualinvest_core::PdfParseParams;
 use qualinvest_core::read_pdf::{parse_and_store};
 use crate::user::UserCookie;
@@ -46,16 +46,16 @@ pub async fn transactions(err_msg: Option<String>, user_opt: Option<UserCookie>,
 /// Structure for storing information in transaction formular
 #[derive(Debug,Serialize,Deserialize,FromForm)]
 pub struct TransactionForm {
-    pub id: Option<usize>,
-    pub asset_id: Option<usize>,
+    pub id: Option<i32>,
+    pub asset_id: Option<i32>,
     pub position: Option<f64>,
     pub trans_type: String,
     pub cash_amount: f64,
     pub currency: String,
     pub date: NaiveDateForm,
     pub note: Option<String>,
-    pub trans_ref: Option<usize>,
-    pub account_id: usize,
+    pub trans_ref: Option<i32>,
+    pub account_id: i32,
 }
 
 
@@ -137,7 +137,7 @@ impl TransactionForm {
 }
 
 #[get("/transactions/edit?<transaction_id>&<err_msg>")]
-pub async fn edit_transaction(transaction_id: Option<usize>, err_msg: Option<String>, user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
+pub async fn edit_transaction(transaction_id: Option<i32>, err_msg: Option<String>, user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
     let db = state.postgres_db.clone();
     let mut context = state.default_context();
     context.insert("user", &user);
@@ -201,7 +201,7 @@ pub async fn pdf_upload_form(error_msg: Option<String>, user: UserCookie, state:
         context.insert("err_msg", "You have no accounts setup");
     }
 
-    let default_account_id: Option<usize> = None;
+    let default_account_id: Option<i32> = None;
     context.insert("default_account_id", &default_account_id);
     Ok(layout("pdf_upload", &context.into_json()))
 }
@@ -212,7 +212,7 @@ pub struct UploadForm {
     pub doc_path: String,
     pub is_directory: bool,
     pub warn_old: bool,
-    pub default_account: Option<usize>,
+    pub default_account: Option<i32>,
     pub consistency_check: bool,
     pub rename_asset: bool,
 }
@@ -222,7 +222,7 @@ pub struct PDFUploadFormData<'v> {
     pub warn_old: bool,
     pub consistency_check: bool,
     pub rename_asset: bool,
-    pub default_account: Option<usize>,
+    pub default_account: Option<i32>,
     pub doc_name: Vec<TempFile<'v>>, 
 }
 
@@ -294,7 +294,7 @@ pub async fn pdf_upload(mut data: Form<PDFUploadFormData<'_>>, user: UserCookie,
 }
 
 #[get("/transactions/view_pdf?<transaction_id>")]
-pub async fn view_transaction_pdf(transaction_id: usize, user: UserCookie, state: &State<ServerState>) -> Result<NamedFile, Redirect> {
+pub async fn view_transaction_pdf(transaction_id: i32, user: UserCookie, state: &State<ServerState>) -> Result<NamedFile, Redirect> {
     let db = state.postgres_db.clone();
     let message;
 
@@ -316,7 +316,7 @@ pub async fn view_transaction_pdf(transaction_id: usize, user: UserCookie, state
 }
 
 #[get("/transactions/delete?<transaction_id>")]
-pub async fn delete_transaction(transaction_id: usize, user: UserCookie, state: &State<ServerState>) -> Redirect {
+pub async fn delete_transaction(transaction_id: i32, user: UserCookie, state: &State<ServerState>) -> Redirect {
     let db = state.postgres_db.clone();
 
     // remove transaction and everything related, if the user has the proper rights

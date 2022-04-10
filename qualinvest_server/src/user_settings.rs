@@ -76,7 +76,7 @@ pub async fn save_settings(form: Form<UserSettingsForm>, user_opt: Option<UserCo
     let filter_form = form.into_inner();
     let mut selected_accounts = HashSet::new();
     for account in filter_form.account_ids {
-        if let Ok(id) = usize::from_str(&account) {
+        if let Ok(id) = i32::from_str(&account) {
             selected_accounts.insert(id);
         }
     }

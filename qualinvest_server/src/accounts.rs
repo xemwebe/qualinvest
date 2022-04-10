@@ -17,7 +17,7 @@ use qualinvest_core::user::{User, UserHandler};
 /// Structure for storing information in accounts form
 #[derive(Debug, Serialize, Deserialize, FromForm)]
 pub struct AccountForm {
-    pub id: Option<usize>,
+    pub id: Option<i32>,
     pub broker: String,
     pub account_name: String,
 }
@@ -35,14 +35,14 @@ impl AccountForm {
 /// Structure for storing information users accounts
 #[derive(Debug, Serialize, Deserialize, FromForm)]
 pub struct UserAccountsForm {
-    pub user_id: usize,
-    pub accounts: Option<Vec<usize>>,
+    pub user_id: i32,
+    pub accounts: Option<Vec<i32>>,
 }
 
 /// Structure for storing information in accounts form
 #[derive(Debug, Serialize, Deserialize, FromForm)]
 pub struct UserForm {
-    pub id: Option<usize>,
+    pub id: Option<i32>,
     pub name: String,
     pub display: Option<String>,
     pub is_admin: bool,
@@ -73,7 +73,7 @@ pub async fn accounts(
     let db = state.postgres_db.clone();
     let users; 
     let mut accounts = Vec::new();
-    let mut user_accounts: HashMap<usize, Vec<Account>> = HashMap::new();
+    let mut user_accounts: HashMap<i32, Vec<Account>> = HashMap::new();
     if user.is_admin {
         users = db.get_all_users().await;
         accounts = db.get_all_accounts().await;
@@ -146,7 +146,7 @@ pub async fn add_account(
 
 #[get("/account/delete?<id>")]
 pub async fn delete_account(
-    id: usize,
+    id: i32,
     user: UserCookie,
     state: &State<ServerState>,
 ) -> Result<Redirect, Redirect> {
@@ -204,7 +204,7 @@ pub async fn add_user(
 
 #[get("/user/delete?<id>")]
 pub async fn delete_user(
-    id: usize,
+    id: i32,
     user: UserCookie,
     state: &State<ServerState>,
 ) -> Result<Redirect, Redirect> {
@@ -231,10 +231,10 @@ pub async fn user_accounts(
     }
 
     let user_accounts = &form.into_inner();
-    let old_accounts: HashSet<usize> = state.postgres_db.get_user_accounts(user_accounts.user_id).await
+    let old_accounts: HashSet<i32> = state.postgres_db.get_user_accounts(user_accounts.user_id).await
         .map_err(|e| Redirect::to(uri!(ServerState::base(), accounts(Some(format!("Updating users accounts user failed: {}", e))))))?
         .into_iter().map(|a| a.id).flatten().collect();
-    let new_accounts: HashSet<usize> = user_accounts.accounts.iter().flatten().copied().collect();
+    let new_accounts: HashSet<i32> = user_accounts.accounts.iter().flatten().copied().collect();
     for u in (&old_accounts - &new_accounts).into_iter() {
         state.postgres_db.remove_account_right(user_accounts.user_id, u).await
         .map_err(|e| Redirect::to(uri!(ServerState::base(), accounts(Some(format!("Updating users accounts user failed: {}", e))))))?;

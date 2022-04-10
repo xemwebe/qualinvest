@@ -4,7 +4,7 @@ use rocket::State;
 use rocket::response::Redirect;
 use rocket_dyn_templates::Template;
 
-use finql_data::Currency;
+use finql::datatypes::Currency;
 use qualinvest_core::user::UserHandler;
 use qualinvest_core::position::calculate_position_for_period_for_accounts;
 use crate::user::UserCookie;
