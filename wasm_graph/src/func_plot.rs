@@ -2,9 +2,8 @@ use crate::DrawResult;
 use plotters::prelude::*;
 use plotters_canvas::CanvasBackend;
 use plotters_bitmap::BitMapBackend;
-use chrono::{DateTime, Local, Utc, NaiveDateTime, NaiveDate, Datelike};
+use chrono::{DateTime, Local, NaiveDateTime, NaiveDate, Datelike};
 use std::time::{UNIX_EPOCH, Duration};
-use crate::log;
 
 fn min_max_val<T: PartialOrd+GenericConst<T>+Copy>(values: &[T]) -> (T, T) {
     if values.is_empty() {
@@ -112,14 +111,7 @@ pub fn draw(canvas_id: &str, title: &str, times: &[i64], values: &[f32]) -> Draw
     ))?;
 
     root.present()?;
-    // let area = chart.plotting_area();
-    // log!("Drawing x range: {:?}", area.get_x_range());
-    // log!("Drawing x pixel range: {:?}", area.get_x_axis_pixel_range());
 
-    //let coord_convert = chart.into_coord_trans();
-    // for x in 130..136 {
-    //     println!("Result {:?}", coord_convert((x,300)));
-    // }
     let coord_convert = chart.into_coord_trans();
     return Ok(move |(x,y)| {
         coord_convert((x,y)).map(|(t,v)| (t.timestamp_millis(), v) )
