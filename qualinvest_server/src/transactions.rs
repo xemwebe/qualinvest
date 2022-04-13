@@ -6,7 +6,7 @@ use rocket_dyn_templates::Template;
 use rocket::form::{Form, FromForm};
 use rocket::fs::{TempFile,NamedFile};
 
-use qualinvest_core::accounts::{Account,AccountHandler};
+use qualinvest_core::accounts::{Account,AccountHandler, TransactionView};
 use qualinvest_core::user::UserHandler;
 use finql::datatypes::{Transaction,TransactionType,TransactionHandler,AssetHandler,CashAmount,CashFlow,Currency};
 use qualinvest_core::PdfParseParams;
@@ -34,6 +34,8 @@ pub async fn transactions(err_msg: Option<String>, user_opt: Option<UserCookie>,
         context.insert("transactions", &transactions);
         err_msg = None;
     } else if err_msg.is_none() {
+        let transactions: Vec<TransactionView> = Vec::new();
+        context.insert("transactions", &transactions);
         err_msg = Some("Failed to get list of transactions!".to_string());
     }
 

@@ -120,19 +120,19 @@ pub async fn save_ticker(form: Form<TickerForm>, user: UserCookie, state: &State
                 if ticker_id.is_err() {
                     Err(Redirect::to(uri!(ServerState::base(), edit_ticker(ticker_form.asset_id, ticker_id, Some("Failed to store new ticker in database.")))))
                 } else {
-                    Ok(Redirect::to(uri!(ServerState::base(), crate::asset::assets(Option::<String>::None))))
+                    Ok(Redirect::to(uri!(ServerState::base(), crate::asset::analyze_asset(Some(ticker_form.asset_id), Option::<String>::None))))
                 }
             } else if db.update_ticker(&ticker).await.is_err() {
                 Err(Redirect::to(uri!(ServerState::base(), edit_ticker(ticker_form.asset_id, Option::<i32>::None, Some("Failed to store ticker in database.")))))
             } else {
-                Ok(Redirect::to(uri!(ServerState::base(), crate::asset::assets(Option::<String>::None))))
+                Ok(Redirect::to(uri!(ServerState::base(), crate::asset::analyze_asset(Some(ticker_form.asset_id), Option::<String>::None))))
             }
         } else {
             Err(Redirect::to(uri!(ServerState::base(), edit_ticker(ticker_form.asset_id, Option::<i32>::None, Some("Invalid currency!")))))
         }
         
     } else {
-        Err(Redirect::to(uri!(ServerState::base(), crate::asset::assets(Some("Invalid asset id!")))))
+        Err(Redirect::to(uri!(ServerState::base(), crate::asset::analyze_asset(Option::<i32>::None, Some("Invalid asset id!")))))
     }
 
 }

@@ -1,0 +1,11 @@
+<h2>Select asset class for new Asset</h2>
+<div class="table" style="margin-bottom: 20px;">
+    <div class="table_row">
+        <div class="table_cell">
+            <a class="button" id="edit_link" href="{{relpath}}asset/edit?asset_class=currency">Currency</a>
+        </div>
+        <div class="table_cell">
+            <a class="button" id="edit_link" href="{{relpath}}asset/edit?asset_class=stock">Stock</a>
+        </div>
+    </div>
+</div>

@@ -29,9 +29,9 @@ pub async fn show_quotes(asset_id: i32, err_msg: Option<String>, user: UserCooki
     let (asset, tickers) = futures::join!(f_asset, f_tickers);
     let mut f_quotes = Vec::new();
     let asset = asset.map_err(|_| 
-        Redirect::to(uri!(ServerState::base(), crate::asset::assets(Some("Invalid asset.")))))?;
+        Redirect::to(uri!(ServerState::base(), crate::asset::analyze_asset(Some(asset_id), Some("Invalid asset.")))))?;
     let tickers = tickers.map_err(|_| 
-        Redirect::to(uri!(ServerState::base(), crate::asset::assets(Some("Could not get ticker for asset.")))))?;
+        Redirect::to(uri!(ServerState::base(), crate::asset::analyze_asset(Some(asset_id), Some("Could not get ticker for asset.")))))?;
     for ticker in &tickers {
         if let Some(ticker_id) = ticker.id {
             f_quotes.push(db.get_all_quotes_for_ticker(ticker_id));

@@ -169,8 +169,8 @@
       ]
     }
   },
-  "496899db5e97fc1a49241ff290665b296fabfbd069e3c3214d10251d7b4a36f1": {
-    "query": "SELECT t.id, t.trans_type, t.asset_id, \n        t.cash_amount, t.cash_currency, t.cash_date, t.related_trans, t.position, t.note \n        FROM transactions t, account_transactions a WHERE a.account_id = $1 and a.transaction_id = t.id",
+  "53cfbe3cbae47ef38b030ea50d91e4c6bf3a3e4d7b8658e7a09c8c01d0e6eb86": {
+    "query": "SELECT\n            t.id\n            ,(CASE WHEN t.related_trans IS null THEN t.id \n                ELSE t.related_trans\n                END) AS group_id\n            , a.id AS \"asset_id?\"\n            , t.position\n            , t.trans_type\n            , t.cash_amount\n            , t.cash_currency_id\n            , t.cash_date\n            , t.note\n            , d.path\n            , at.account_id\n            , c.iso_code\n            , c.rounding_digits\n        FROM\n            currencies c,\n            transactions t\n            LEFT JOIN assets a ON a.id = t.asset_id\n            LEFT JOIN documents d ON d.transaction_id = t.id\n            JOIN account_transactions at ON at.transaction_id = t.id\n        WHERE \n            c.id = t.cash_currency_id\n            AND at.account_id = ANY($1)\n            ORDER BY t.cash_date DESC, group_id, t.id",
     "describe": {
       "columns": [
         {
@@ -180,60 +180,84 @@
         },
         {
           "ordinal": 1,
-          "name": "trans_type",
-          "type_info": "Text"
+          "name": "group_id",
+          "type_info": "Int4"
         },
         {
           "ordinal": 2,
-          "name": "asset_id",
+          "name": "asset_id?",
           "type_info": "Int4"
         },
         {
           "ordinal": 3,
-          "name": "cash_amount",
+          "name": "position",
           "type_info": "Float8"
         },
         {
           "ordinal": 4,
-          "name": "cash_currency",
+          "name": "trans_type",
           "type_info": "Text"
         },
         {
           "ordinal": 5,
-          "name": "cash_date",
-          "type_info": "Date"
+          "name": "cash_amount",
+          "type_info": "Float8"
         },
         {
           "ordinal": 6,
-          "name": "related_trans",
+          "name": "cash_currency_id",
           "type_info": "Int4"
         },
         {
           "ordinal": 7,
-          "name": "position",
-          "type_info": "Float8"
+          "name": "cash_date",
+          "type_info": "Date"
         },
         {
           "ordinal": 8,
           "name": "note",
           "type_info": "Text"
+        },
+        {
+          "ordinal": 9,
+          "name": "path",
+          "type_info": "Text"
+        },
+        {
+          "ordinal": 10,
+          "name": "account_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 11,
+          "name": "iso_code",
+          "type_info": "Bpchar"
+        },
+        {
+          "ordinal": 12,
+          "name": "rounding_digits",
+          "type_info": "Int4"
         }
       ],
       "parameters": {
         "Left": [
-          "Int4"
+          "Int4Array"
         ]
       },
       "nullable": [
         false,
+        null,
         false,
         true,
         false,
         false,
         false,
+        false,
         true,
-        true,
-        true
+        false,
+        false,
+        false,
+        false
       ]
     }
   },
@@ -303,8 +327,8 @@
       ]
     }
   },
-  "697df10e652fb514cc25111b978bc4445858d16f37840ef6c39fd17a23999709": {
-    "query": "SELECT t.id, t.trans_type, t.asset_id, \n        t.cash_amount, t.cash_currency, t.cash_date, t.related_trans, t.position, t.note \n        FROM transactions t, account_transactions a WHERE a.account_id = $1 AND a.transaction_id = t.id AND t.cash_date < $2",
+  "6a4fd15145140c4f5e3601464cd4b8fa0e74e4220957f83635be2cce6425135e": {
+    "query": "SELECT \n                    t.id, \n                    t.trans_type, \n                    t.asset_id, \n                    t.cash_amount, \n                    t.cash_currency_id, \n                    t.cash_date, \n                    t.related_trans, \n                    t.position, \n                    t.note,\n                    c.iso_code,\n                    c.rounding_digits \n                FROM \n                    transactions t, \n                    account_transactions a,\n                    currencies c\n                WHERE \n                    a.account_id = $1 \n                    AND a.transaction_id = t.id \n                    AND t.cash_date BETWEEN $2 AND $3\n                    AND c.id = t.cash_currency_id",
     "describe": {
       "columns": [
         {
@@ -329,8 +353,8 @@
         },
         {
           "ordinal": 4,
-          "name": "cash_currency",
-          "type_info": "Text"
+          "name": "cash_currency_id",
+          "type_info": "Int4"
         },
         {
           "ordinal": 5,
@@ -351,11 +375,22 @@
           "ordinal": 8,
           "name": "note",
           "type_info": "Text"
+        },
+        {
+          "ordinal": 9,
+          "name": "iso_code",
+          "type_info": "Bpchar"
+        },
+        {
+          "ordinal": 10,
+          "name": "rounding_digits",
+          "type_info": "Int4"
         }
       ],
       "parameters": {
         "Left": [
           "Int4",
+          "Date",
           "Date"
         ]
       },
@@ -368,7 +403,9 @@
         false,
         true,
         true,
-        true
+        true,
+        false,
+        false
       ]
     }
   },
@@ -473,6 +510,19 @@
       ]
     }
   },
+  "7b8c125724183329597e1ed7a28354d6f4215fe3fca45399b980af13e44cee55": {
+    "query": "INSERT INTO user_settings (user_id, settings)\n        VALUES($1,$2) \n        ON CONFLICT (user_id) \n        DO \n        UPDATE SET settings = $2",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Json"
+        ]
+      },
+      "nullable": []
+    }
+  },
   "7d927c0ee32bbdf3ea70f12db33e4c4c147b9fb176c918813bcd1c21409e8567": {
     "query": "SELECT id FROM users WHERE name = $1 AND is_admin",
     "describe": {
@@ -491,19 +541,6 @@
       "nullable": [
         false
       ]
-    }
-  },
-  "819e985c6a8b4692ee49718954ca5945450d5d688177d0506e7414bcededab22": {
-    "query": "INSERT INTO user_settings (user_id, settings)\n            VALUES($1,$2) \n            ON CONFLICT (user_id) \n            DO \n            UPDATE SET settings = $2",
-    "describe": {
-      "columns": [],
-      "parameters": {
-        "Left": [
-          "Int4",
-          "Json"
-        ]
-      },
-      "nullable": []
     }
   },
   "81d9edbd613ccf7926b2becc188446e851cbe2eddda9ad70c8051724343e5a86": {
@@ -545,76 +582,6 @@
         false,
         false,
         false
-      ]
-    }
-  },
-  "9a08716faebeecf7d8ebd13545f003100d244fb6db7e2e5d125a6df35f9c4031": {
-    "query": "SELECT t.id, t.trans_type, t.asset_id, \n        t.cash_amount, t.cash_currency, t.cash_date, t.related_trans, t.position, t.note \n        FROM transactions t, account_transactions a WHERE a.account_id = $1 AND a.transaction_id = t.id AND t.cash_date BETWEEN $2 AND $3",
-    "describe": {
-      "columns": [
-        {
-          "ordinal": 0,
-          "name": "id",
-          "type_info": "Int4"
-        },
-        {
-          "ordinal": 1,
-          "name": "trans_type",
-          "type_info": "Text"
-        },
-        {
-          "ordinal": 2,
-          "name": "asset_id",
-          "type_info": "Int4"
-        },
-        {
-          "ordinal": 3,
-          "name": "cash_amount",
-          "type_info": "Float8"
-        },
-        {
-          "ordinal": 4,
-          "name": "cash_currency",
-          "type_info": "Text"
-        },
-        {
-          "ordinal": 5,
-          "name": "cash_date",
-          "type_info": "Date"
-        },
-        {
-          "ordinal": 6,
-          "name": "related_trans",
-          "type_info": "Int4"
-        },
-        {
-          "ordinal": 7,
-          "name": "position",
-          "type_info": "Float8"
-        },
-        {
-          "ordinal": 8,
-          "name": "note",
-          "type_info": "Text"
-        }
-      ],
-      "parameters": {
-        "Left": [
-          "Int4",
-          "Date",
-          "Date"
-        ]
-      },
-      "nullable": [
-        false,
-        false,
-        true,
-        false,
-        false,
-        false,
-        true,
-        true,
-        true
       ]
     }
   },
@@ -669,6 +636,86 @@
       ]
     }
   },
+  "9dba690bff7fe95f57014eeaab13ce169dad33a43a4dcc37433973ca00fefc65": {
+    "query": "SELECT \n                    t.id, \n                    t.trans_type, \n                    t.asset_id, \n                    t.cash_amount, \n                    t.cash_currency_id, \n                    t.cash_date, \n                    t.related_trans, \n                    t.position, \n                    t.note,\n                    c.iso_code,\n                    c.rounding_digits\n                FROM \n                    transactions t, \n                    account_transactions a,\n                    currencies c\n                WHERE \n                    a.account_id = $1 \n                    AND a.transaction_id = t.id\n                    AND c.id = t.cash_currency_id",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 1,
+          "name": "trans_type",
+          "type_info": "Text"
+        },
+        {
+          "ordinal": 2,
+          "name": "asset_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 3,
+          "name": "cash_amount",
+          "type_info": "Float8"
+        },
+        {
+          "ordinal": 4,
+          "name": "cash_currency_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 5,
+          "name": "cash_date",
+          "type_info": "Date"
+        },
+        {
+          "ordinal": 6,
+          "name": "related_trans",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 7,
+          "name": "position",
+          "type_info": "Float8"
+        },
+        {
+          "ordinal": 8,
+          "name": "note",
+          "type_info": "Text"
+        },
+        {
+          "ordinal": 9,
+          "name": "iso_code",
+          "type_info": "Bpchar"
+        },
+        {
+          "ordinal": 10,
+          "name": "rounding_digits",
+          "type_info": "Int4"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      },
+      "nullable": [
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        false,
+        false
+      ]
+    }
+  },
   "a1777934752b658b5791552b9829e0bae5bd098f5da16d495b5c38dd63e64f5a": {
     "query": "SELECT DISTINCT a.id, a.broker, a.account_name\n            FROM\n                accounts a,\n                account_rights ar,\n                account_transactions at,\n                users u\n            WHERE\n                at.account_id = a.id\n                AND at.transaction_id = $1\n                AND u.id = $2\n                AND ar.account_id = a.id\n                AND (ar.user_id = u.id\n                    OR u.is_admin\n                    );\n            ",
     "describe": {
@@ -710,6 +757,99 @@
         "Left": []
       },
       "nullable": []
+    }
+  },
+  "ab9e1bea9d0f96e5f504bf8fcbb41d998238400afcc31874dfe8b9b6cd47962a": {
+    "query": "SELECT\n            t.id\n            ,(CASE WHEN t.related_trans IS null THEN t.id \n                ELSE t.related_trans\n                END) AS group_id\n            , a.id AS \"asset_id?\"\n            , t.position\n            , t.trans_type\n            , t.cash_amount\n            , t.cash_currency_id\n            , t.cash_date\n            , t.note\n            , d.path\n            , at.account_id\n            , c.iso_code\n            , c.rounding_digits\n        FROM\n            currencies c,\n            transactions t\n            LEFT JOIN assets a ON a.id = t.asset_id\n            LEFT JOIN documents d ON d.transaction_id = t.id\n            JOIN account_transactions at ON at.transaction_id = t.id\n        WHERE \n            a.id = $1\n            AND c.id = t.cash_currency_id\n            AND at.account_id = ANY($2)\n        ORDER BY t.cash_date desc, group_id, t.id",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 1,
+          "name": "group_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 2,
+          "name": "asset_id?",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 3,
+          "name": "position",
+          "type_info": "Float8"
+        },
+        {
+          "ordinal": 4,
+          "name": "trans_type",
+          "type_info": "Text"
+        },
+        {
+          "ordinal": 5,
+          "name": "cash_amount",
+          "type_info": "Float8"
+        },
+        {
+          "ordinal": 6,
+          "name": "cash_currency_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 7,
+          "name": "cash_date",
+          "type_info": "Date"
+        },
+        {
+          "ordinal": 8,
+          "name": "note",
+          "type_info": "Text"
+        },
+        {
+          "ordinal": 9,
+          "name": "path",
+          "type_info": "Text"
+        },
+        {
+          "ordinal": 10,
+          "name": "account_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 11,
+          "name": "iso_code",
+          "type_info": "Bpchar"
+        },
+        {
+          "ordinal": 12,
+          "name": "rounding_digits",
+          "type_info": "Int4"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int4Array"
+        ]
+      },
+      "nullable": [
+        false,
+        null,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false
+      ]
     }
   },
   "abdab21dc7716e6f8374a5b569216cdfb67519cf9c3ce45bca866e190c29c0d7": {
@@ -934,6 +1074,87 @@
       "nullable": [
         false,
         false,
+        false,
+        false
+      ]
+    }
+  },
+  "ee44c2e82afab370ed64a67d739e8e2684708c570d00955bdf2ab61cb43b654c": {
+    "query": "SELECT \n                    t.id, \n                    t.trans_type, \n                    t.asset_id, \n                    t.cash_amount, \n                    t.cash_currency_id, \n                    t.cash_date, \n                    t.related_trans, \n                    t.position, \n                    t.note,\n                    c.iso_code,\n                    c.rounding_digits\n                FROM \n                    transactions t, \n                    account_transactions a,\n                    currencies c\n                WHERE \n                    a.account_id = $1 \n                    AND a.transaction_id = t.id \n                    AND t.cash_date < $2\n                    AND c.id = t.cash_currency_id",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 1,
+          "name": "trans_type",
+          "type_info": "Text"
+        },
+        {
+          "ordinal": 2,
+          "name": "asset_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 3,
+          "name": "cash_amount",
+          "type_info": "Float8"
+        },
+        {
+          "ordinal": 4,
+          "name": "cash_currency_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 5,
+          "name": "cash_date",
+          "type_info": "Date"
+        },
+        {
+          "ordinal": 6,
+          "name": "related_trans",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 7,
+          "name": "position",
+          "type_info": "Float8"
+        },
+        {
+          "ordinal": 8,
+          "name": "note",
+          "type_info": "Text"
+        },
+        {
+          "ordinal": 9,
+          "name": "iso_code",
+          "type_info": "Bpchar"
+        },
+        {
+          "ordinal": 10,
+          "name": "rounding_digits",
+          "type_info": "Int4"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Date"
+        ]
+      },
+      "nullable": [
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
         false,
         false
       ]

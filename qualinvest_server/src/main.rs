@@ -279,7 +279,6 @@ async fn rocket() -> _ {
             transactions::update_transaction,
             transactions::view_transaction_pdf,
             asset::analyze_asset,
-            asset::assets,
             asset::delete_asset,
             asset::edit_asset,
             asset::save_asset,

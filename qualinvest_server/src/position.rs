@@ -1,12 +1,15 @@
-use std::str::FromStr;
-
 use rocket::State;
 use rocket::response::Redirect;
 use rocket_dyn_templates::Template;
 
-use finql::datatypes::Currency;
-use qualinvest_core::user::UserHandler;
-use qualinvest_core::position::calculate_position_for_period_for_accounts;
+use finql::{
+    datatypes::{AssetHandler, CurrencyISOCode},
+    portfolio::{PortfolioPosition, PositionTotals}, 
+};
+use qualinvest_core::{
+    user::UserHandler,
+    position::calculate_position_for_period_for_accounts,
+};
 use crate::user::UserCookie;
 use crate::layout::layout;
 use super::{rocket_uri_macro_login};
@@ -20,8 +23,9 @@ pub async fn position(user_opt: Option<UserCookie>,
     }
     let user = user_opt.unwrap();
 
-    let currency = Currency::from_str("EUR").unwrap();
     let db = state.postgres_db.clone();
+    let currency = db.get_or_new_currency(CurrencyISOCode::new("EUR").unwrap()).await.unwrap();
+
     let user_settings = db.get_user_settings(user.userid).await;
     let period_end = user_settings.period_end;
     let period_start = user_settings.period_start;
@@ -33,6 +37,8 @@ pub async fn position(user_opt: Option<UserCookie>,
         context.insert("positions", &position);
         context.insert("totals", &totals);
     } else {
+        context.insert("positions", &PortfolioPosition::new(currency));
+        context.insert("totals", &PositionTotals::default());
         context.insert("err_msg", "Calculation of position failed");
     }
 

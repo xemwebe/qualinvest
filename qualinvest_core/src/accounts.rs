@@ -24,7 +24,7 @@ pub struct TransactionView {
     pub cash_currency: String,
     pub cash_date: String,
     pub note: Option<String>,
-    pub doc_path: Option<String>, 
+    pub doc_path: String, 
     pub account_id: i32,
 }
 
@@ -520,14 +520,15 @@ impl AccountHandler for PostgresDB {
         if accounts.is_empty(){
             return Err(DataError::DataAccessFailure("transaction view requires account list".to_string()));
         }
+        println!("accounts: {:?}", accounts);
         let mut transactions = Vec::new();
-        for row in sqlx::query!(
-        "SELECT
+        let rows = sqlx::query!(
+        r#"SELECT
             t.id
             ,(CASE WHEN t.related_trans IS null THEN t.id 
                 ELSE t.related_trans
                 END) AS group_id
-            , a.id AS asset_id
+            , a.id AS "asset_id?"
             , t.position
             , t.trans_type
             , t.cash_amount
@@ -547,10 +548,13 @@ impl AccountHandler for PostgresDB {
         WHERE 
             c.id = t.cash_currency_id
             AND at.account_id = ANY($1)
-            ORDER BY t.cash_date DESC, group_id, t.id;"
+            ORDER BY t.cash_date DESC, group_id, t.id"#
             , accounts)
-            .fetch_all(&self.pool).await?
+            .fetch_all(&self.pool).await?;
+        println!("rows: {:?}", rows.len());
+        for row in rows
         {
+            println!("row: {:?}", row);
             {
             let date: chrono::NaiveDate = row.cash_date;
             let cash_date = date.format("%Y-%m-%d").to_string();          
@@ -558,14 +562,14 @@ impl AccountHandler for PostgresDB {
             transactions.push( TransactionView {
                 id: row.id,
                 group_id: row.group_id,
-                asset_id: Some(row.asset_id),
+                asset_id: row.asset_id,
                 position: row.position,
                 trans_type: row.trans_type,
                 cash_amount: row.cash_amount,
                 cash_currency: currency_isocode.to_string(),
                 cash_date, 
                 note: row.note,
-                doc_path: Some(row.path), 
+                doc_path: row.path, 
                 account_id: row.account_id,
             });
         }
@@ -581,12 +585,12 @@ impl AccountHandler for PostgresDB {
         }
         let mut transactions = Vec::new();
         for row in sqlx::query!(
-        "SELECT
+        r#"SELECT
             t.id
             ,(CASE WHEN t.related_trans IS null THEN t.id 
                 ELSE t.related_trans
                 END) AS group_id
-            , a.id AS asset_id
+            , a.id AS "asset_id?"
             , t.position
             , t.trans_type
             , t.cash_amount
@@ -607,7 +611,7 @@ impl AccountHandler for PostgresDB {
             a.id = $1
             AND c.id = t.cash_currency_id
             AND at.account_id = ANY($2)
-        ORDER BY t.cash_date desc, group_id, t.id", asset_id, accounts)
+        ORDER BY t.cash_date desc, group_id, t.id"#, asset_id, accounts)
             .fetch_all(&self.pool).await?
         {
             let date: chrono::NaiveDate = row.cash_date;
@@ -616,14 +620,14 @@ impl AccountHandler for PostgresDB {
             transactions.push( TransactionView {
                 id: row.id,
                 group_id: row.group_id,
-                asset_id: Some(row.asset_id),
+                asset_id: row.asset_id,
                 position: row.position,
                 trans_type: row.trans_type,
                 cash_amount: row.cash_amount,
                 cash_currency: currency_isocode.to_string(),
                 cash_date: cash_date, 
                 note: row.note,
-                doc_path: Some(row.path), 
+                doc_path: row.path, 
                 account_id: row.account_id
             });
         }
