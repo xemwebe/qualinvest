@@ -11,10 +11,10 @@ pub fn basename(path: &'_ str) -> Cow<'_, str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_basename() {
-     assert_eq!(basename("c:\\users\\fakeUser\\myfile.txt"), "myfile.txt");   
-     assert_eq!(basename("/home/fakeUser/myfile.txt"), "myfile.txt");   
+        assert_eq!(basename("c:\\users\\fakeUser\\myfile.txt"), "myfile.txt");
+        assert_eq!(basename("/home/fakeUser/myfile.txt"), "myfile.txt");
     }
 }

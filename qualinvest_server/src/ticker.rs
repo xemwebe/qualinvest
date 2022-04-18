@@ -1,18 +1,23 @@
+use rocket::form::{Form, FromForm};
+use rocket::response::Redirect;
+use rocket::State;
+use rocket_dyn_templates::Template;
 /// Viewing and editing market quote ticker
 use std::str::FromStr;
-use rocket::State;
-use rocket::response::Redirect;
-use rocket_dyn_templates::Template;
-use rocket::form::{Form, FromForm};
 
 use finql::datatypes::{AssetHandler, QuoteHandler};
 
-use crate::user::UserCookie;
-use crate::layout::layout;
 use super::ServerState;
+use crate::layout::layout;
+use crate::user::UserCookie;
 
 #[get("/tickers?<asset_id>&<err_msg>")]
-pub async fn show_ticker(asset_id: i32, err_msg: Option<String>, user: UserCookie, state: &State<ServerState>) -> Template {
+pub async fn show_ticker(
+    asset_id: i32,
+    err_msg: Option<String>,
+    user: UserCookie,
+    state: &State<ServerState>,
+) -> Template {
     let db = state.postgres_db.clone();
     let mut context = state.default_context();
     context.insert("asset_id", &asset_id);
@@ -23,7 +28,7 @@ pub async fn show_ticker(asset_id: i32, err_msg: Option<String>, user: UserCooki
     } else {
         context.insert("err_msg", "Invalid asset ID");
     }
-   
+
     if let Ok(tickers) = db.get_all_ticker_for_asset(asset_id).await {
         context.insert("tickers", &tickers);
     } else {
@@ -35,9 +40,18 @@ pub async fn show_ticker(asset_id: i32, err_msg: Option<String>, user: UserCooki
 }
 
 #[get("/ticker/edit?<asset_id>&<ticker_id>&<err_msg>")]
-pub async fn edit_ticker(asset_id: i32, ticker_id: Option<i32>, err_msg: Option<String>, user: UserCookie, state: &State<ServerState>) -> Result<Template,Redirect> {
+pub async fn edit_ticker(
+    asset_id: i32,
+    ticker_id: Option<i32>,
+    err_msg: Option<String>,
+    user: UserCookie,
+    state: &State<ServerState>,
+) -> Result<Template, Redirect> {
     if !user.is_admin {
-        return Err(Redirect::to(uri!(ServerState::base(), super::index(Some("Admin rights are required to add quotes")))));
+        return Err(Redirect::to(uri!(
+            ServerState::base(),
+            super::index(Some("Admin rights are required to add quotes"))
+        )));
     }
 
     let db = state.postgres_db.clone();
@@ -66,23 +80,33 @@ pub async fn edit_ticker(asset_id: i32, ticker_id: Option<i32>, err_msg: Option<
     Ok(layout("ticker_form", &context.into_json()))
 }
 
-
 #[get("/ticker/delete?<ticker_id>&<asset_id>")]
-pub async fn delete_ticker(ticker_id: i32, asset_id: i32, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
+pub async fn delete_ticker(
+    ticker_id: i32,
+    asset_id: i32,
+    user: UserCookie,
+    state: &State<ServerState>,
+) -> Result<Redirect, Redirect> {
     let db = state.postgres_db.clone();
     if !user.is_admin {
-        return Err(Redirect::to(uri!(ServerState::base(), super::index(Some("Admin rights are required to delete ticker")))));
+        return Err(Redirect::to(uri!(
+            ServerState::base(),
+            super::index(Some("Admin rights are required to delete ticker"))
+        )));
     }
     let message = if db.delete_ticker(ticker_id).await.is_err() {
         Some("Deleting of ticker failed".to_string())
     } else {
         Option::<String>::None
     };
-    Ok(Redirect::to(uri!(ServerState::base(), show_ticker(asset_id, message))))
+    Ok(Redirect::to(uri!(
+        ServerState::base(),
+        show_ticker(asset_id, message)
+    )))
 }
 
 /// Structure for storing information in ticker form
-#[derive(Debug,Serialize,Deserialize,FromForm)]
+#[derive(Debug, Serialize, Deserialize, FromForm)]
 pub struct TickerForm {
     pub ticker_id: Option<i32>,
     pub asset_id: i32,
@@ -93,10 +117,17 @@ pub struct TickerForm {
     pub factor: f64,
 }
 
-#[post("/ticker/edit", data="<form>")]
-pub async fn save_ticker(form: Form<TickerForm>, user: UserCookie, state: &State<ServerState>) -> Result<Redirect,Redirect> {
+#[post("/ticker/edit", data = "<form>")]
+pub async fn save_ticker(
+    form: Form<TickerForm>,
+    user: UserCookie,
+    state: &State<ServerState>,
+) -> Result<Redirect, Redirect> {
     if !user.is_admin {
-        return Err(Redirect::to(uri!(ServerState::base(), super::index(Some("Admin rights are required to update or insert ticker")))));
+        return Err(Redirect::to(uri!(
+            ServerState::base(),
+            super::index(Some("Admin rights are required to update or insert ticker"))
+        )));
     }
 
     let ticker_form = form.into_inner();
@@ -115,24 +146,55 @@ pub async fn save_ticker(form: Form<TickerForm>, user: UserCookie, state: &State
                 tz: None,
                 cal: None,
             };
-            if ticker.id.is_none()  {
+            if ticker.id.is_none() {
                 let ticker_id = db.insert_if_new_ticker(&ticker).await;
                 if ticker_id.is_err() {
-                    Err(Redirect::to(uri!(ServerState::base(), edit_ticker(ticker_form.asset_id, ticker_id, Some("Failed to store new ticker in database.")))))
+                    Err(Redirect::to(uri!(
+                        ServerState::base(),
+                        edit_ticker(
+                            ticker_form.asset_id,
+                            ticker_id,
+                            Some("Failed to store new ticker in database.")
+                        )
+                    )))
                 } else {
-                    Ok(Redirect::to(uri!(ServerState::base(), crate::asset::analyze_asset(Some(ticker_form.asset_id), Option::<String>::None))))
+                    Ok(Redirect::to(uri!(
+                        ServerState::base(),
+                        crate::asset::analyze_asset(
+                            Some(ticker_form.asset_id),
+                            Option::<String>::None
+                        )
+                    )))
                 }
             } else if db.update_ticker(&ticker).await.is_err() {
-                Err(Redirect::to(uri!(ServerState::base(), edit_ticker(ticker_form.asset_id, Option::<i32>::None, Some("Failed to store ticker in database.")))))
+                Err(Redirect::to(uri!(
+                    ServerState::base(),
+                    edit_ticker(
+                        ticker_form.asset_id,
+                        Option::<i32>::None,
+                        Some("Failed to store ticker in database.")
+                    )
+                )))
             } else {
-                Ok(Redirect::to(uri!(ServerState::base(), crate::asset::analyze_asset(Some(ticker_form.asset_id), Option::<String>::None))))
+                Ok(Redirect::to(uri!(
+                    ServerState::base(),
+                    crate::asset::analyze_asset(Some(ticker_form.asset_id), Option::<String>::None)
+                )))
             }
         } else {
-            Err(Redirect::to(uri!(ServerState::base(), edit_ticker(ticker_form.asset_id, Option::<i32>::None, Some("Invalid currency!")))))
+            Err(Redirect::to(uri!(
+                ServerState::base(),
+                edit_ticker(
+                    ticker_form.asset_id,
+                    Option::<i32>::None,
+                    Some("Invalid currency!")
+                )
+            )))
         }
-        
     } else {
-        Err(Redirect::to(uri!(ServerState::base(), crate::asset::analyze_asset(Option::<i32>::None, Some("Invalid asset id!")))))
+        Err(Redirect::to(uri!(
+            ServerState::base(),
+            crate::asset::analyze_asset(Option::<i32>::None, Some("Invalid asset id!"))
+        )))
     }
-
 }

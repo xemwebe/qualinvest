@@ -10,6 +10,9 @@ mkdir -p config
 cp ../target/release/qualinvest_cli bin
 cp ../target/release/qualinvest_server bin
 cp -R ../qualinvest_server/static/* static
+cp ../wasm_graph/pkg/wasm_graph_bg.wasm static
+cp ../wasm_graph/pkg/wasm_graph.js static
+
 cp -R ../qualinvest_server/templates/*.tera templates
 cp ../qualinvest_template.toml config
 

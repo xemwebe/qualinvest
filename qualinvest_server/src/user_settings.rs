@@ -1,24 +1,21 @@
 use std::collections::HashSet;
 use std::str::FromStr;
 
-use rocket_dyn_templates::{Template};
 use rocket::{
-    State,
+    form::{Form, FromForm},
     response::Redirect,
-    form::{
-        Form,
-        FromForm,
-    },
+    State,
 };
+use rocket_dyn_templates::Template;
 
-use crate::layout::layout;
-use crate::form_types::NaiveDateForm;
-use qualinvest_core::user::{UserHandler, UserSettings};
 use super::ServerState;
+use crate::form_types::NaiveDateForm;
+use crate::layout::layout;
 use crate::user::UserCookie;
 use finql::period_date::PeriodDate;
+use qualinvest_core::user::{UserHandler, UserSettings};
 
-#[derive(Debug,Serialize,Deserialize,FromForm)]
+#[derive(Debug, Serialize, Deserialize, FromForm)]
 pub struct UserSettingsForm {
     pub account_ids: Vec<String>,
     pub start_date_type: String,
@@ -28,9 +25,19 @@ pub struct UserSettingsForm {
 }
 
 #[get("/settings?<err_msg>")]
-pub async fn show_settings(err_msg: Option<String>, user_opt: Option<UserCookie>, state: &State<ServerState>) -> Result<Template,Redirect> {
+pub async fn show_settings(
+    err_msg: Option<String>,
+    user_opt: Option<UserCookie>,
+    state: &State<ServerState>,
+) -> Result<Template, Redirect> {
     if user_opt.is_none() {
-        return Err(Redirect::to(uri!(ServerState::base(), super::retry_login_flash(redirect=Some("transactions".to_string()), err_msg=Some("Please log-in first.".to_string())))));
+        return Err(Redirect::to(uri!(
+            ServerState::base(),
+            super::retry_login_flash(
+                redirect = Some("transactions".to_string()),
+                err_msg = Some("Please log-in first.".to_string())
+            )
+        )));
     }
     let user = user_opt.unwrap();
 
@@ -55,16 +62,29 @@ pub async fn show_settings(err_msg: Option<String>, user_opt: Option<UserCookie>
     Ok(layout("user_settings", &context.into_json()))
 }
 
-#[post("/save_settings", data="<form>")]
-pub async fn save_settings(form: Form<UserSettingsForm>, user_opt: Option<UserCookie>, 
-    state: &State<ServerState>) -> Result<Redirect, Redirect> {
-    let user = user_opt.ok_or_else(||
-        Redirect::to(uri!(ServerState::base(), super::retry_login_flash(redirect=Some("save_settings".to_string()), err_msg=Some("Please log-in first.".to_string()))))
-    )?;
+#[post("/save_settings", data = "<form>")]
+pub async fn save_settings(
+    form: Form<UserSettingsForm>,
+    user_opt: Option<UserCookie>,
+    state: &State<ServerState>,
+) -> Result<Redirect, Redirect> {
+    let user = user_opt.ok_or_else(|| {
+        Redirect::to(uri!(
+            ServerState::base(),
+            super::retry_login_flash(
+                redirect = Some("save_settings".to_string()),
+                err_msg = Some("Please log-in first.".to_string())
+            )
+        ))
+    })?;
 
     let db = state.postgres_db.clone();
-    let user_accounts = user.get_accounts(db.clone()).await
-        .ok_or_else(|| Redirect::to(uri!(ServerState::base(), show_settings(Some("No user account found".to_string())))))?;
+    let user_accounts = user.get_accounts(db.clone()).await.ok_or_else(|| {
+        Redirect::to(uri!(
+            ServerState::base(),
+            show_settings(Some("No user account found".to_string()))
+        ))
+    })?;
 
     let mut all_user_account_ids = HashSet::new();
     for account in user_accounts {
@@ -80,21 +100,39 @@ pub async fn save_settings(form: Form<UserSettingsForm>, user_opt: Option<UserCo
             selected_accounts.insert(id);
         }
     }
-    let account_ids: Vec<_> = all_user_account_ids.intersection(&selected_accounts).cloned().collect();
+    let account_ids: Vec<_> = all_user_account_ids
+        .intersection(&selected_accounts)
+        .cloned()
+        .collect();
     if account_ids.is_empty() {
-        return Err(Redirect::to(uri!(ServerState::base(), show_settings(Some("List of account ids is empty".to_string())))));
+        return Err(Redirect::to(uri!(
+            ServerState::base(),
+            show_settings(Some("List of account ids is empty".to_string()))
+        )));
     }
-    let period_start = if let Ok(date) = PeriodDate::new(&filter_form.start_date_type, filter_form.start_date.map(|d| d.date)) {
+    let period_start = if let Ok(date) = PeriodDate::new(
+        &filter_form.start_date_type,
+        filter_form.start_date.map(|d| d.date),
+    ) {
         date
     } else {
-        return Err(Redirect::to(uri!(ServerState::base(), show_settings(Some("Invalid start date".to_string())))));
+        return Err(Redirect::to(uri!(
+            ServerState::base(),
+            show_settings(Some("Invalid start date".to_string()))
+        )));
     };
-    let period_end = if let Ok(date) = PeriodDate::new(&filter_form.end_date_type, filter_form.end_date.map(|d| d.date)) {
+    let period_end = if let Ok(date) = PeriodDate::new(
+        &filter_form.end_date_type,
+        filter_form.end_date.map(|d| d.date),
+    ) {
         date
     } else {
-        return Err(Redirect::to(uri!(ServerState::base(), show_settings(Some("Invalid end date".to_string())))));
+        return Err(Redirect::to(uri!(
+            ServerState::base(),
+            show_settings(Some("Invalid end date".to_string()))
+        )));
     };
-    let user_settings = UserSettings{
+    let user_settings = UserSettings {
         period_start,
         period_end,
         account_ids,
@@ -102,8 +140,13 @@ pub async fn save_settings(form: Form<UserSettingsForm>, user_opt: Option<UserCo
 
     let result = db.set_user_settings(user.userid, &user_settings).await;
     match result {
-        Ok(()) => Ok(Redirect::to(uri!(ServerState::base(), crate::position::position()))),
-        Err(_) => Err(Redirect::to(uri!(ServerState::base(), show_settings(Some("Failed to save user settings".to_string()))))),
+        Ok(()) => Ok(Redirect::to(uri!(
+            ServerState::base(),
+            crate::position::position()
+        ))),
+        Err(_) => Err(Redirect::to(uri!(
+            ServerState::base(),
+            show_settings(Some("Failed to save user settings".to_string()))
+        ))),
     }
 }
-
