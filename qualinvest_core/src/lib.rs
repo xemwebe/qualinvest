@@ -11,10 +11,10 @@ use chrono::{DateTime, Datelike, Local, Weekday};
 use serde::Deserialize;
 
 use finql::{datatypes::QuoteHandler,
-    calendar::{Calendar, Holiday},
     market::{Market,MarketError},
     market_quotes::MarketDataSource,
 };
+use cal_calc::{Calendar, Holiday};
 
 pub mod accounts;
 pub mod performance;

@@ -4,7 +4,7 @@ use chrono::Datelike;
 
 use finql::time_series::TimeSeries;
 use finql::datatypes::date_time_helper::make_time;
-use finql::calendar::last_day_of_month;
+use cal_calc::last_day_of_month;
 
 /// Error related to plotting graphs
 #[derive(Error, Debug)]
