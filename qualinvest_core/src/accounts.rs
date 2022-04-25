@@ -431,11 +431,6 @@ impl AccountHandler for PostgresDB {
         account_id: i32,
         time: NaiveDate,
     ) -> Result<Vec<Transaction>, DataError> {
-        println!(
-            "Get all transactions for account id {} before time {}",
-            account_id, time
-        );
-
         let mut transactions = Vec::new();
         for row in sqlx::query!(
             "SELECT 

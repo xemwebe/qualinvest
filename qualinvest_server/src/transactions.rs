@@ -12,14 +12,14 @@ use crate::form_types::NaiveDateForm;
 use crate::layout::layout;
 use crate::user::UserCookie;
 use finql::datatypes::{
-    AssetHandler, CashAmount, CashFlow, Currency, Transaction, TransactionHandler, TransactionType,
+    Asset, AssetHandler, CashAmount, CashFlow, Currency, Transaction, TransactionHandler,
+    TransactionType,
 };
 use qualinvest_core::accounts::{Account, AccountHandler, TransactionView};
 use qualinvest_core::read_pdf::parse_and_store;
 use qualinvest_core::user::UserHandler;
 use qualinvest_core::PdfParseParams;
 use std::path::Path;
-use std::str::FromStr;
 
 #[get("/transactions?<err_msg>")]
 pub async fn transactions(
@@ -43,7 +43,6 @@ pub async fn transactions(
         .await
     {
         context.insert("transactions", &transactions);
-        err_msg = None;
     } else if err_msg.is_none() {
         let transactions: Vec<TransactionView> = Vec::new();
         context.insert("transactions", &transactions);
@@ -63,7 +62,7 @@ pub struct TransactionForm {
     pub position: Option<f64>,
     pub trans_type: String,
     pub cash_amount: f64,
-    pub currency: String,
+    pub currency: i32,
     pub date: NaiveDateForm,
     pub note: Option<String>,
     pub trans_ref: Option<i32>,
@@ -78,7 +77,7 @@ impl TransactionForm {
             note: t.note.as_ref().cloned(),
             cash_amount: t.cash_flow.amount.amount,
             date: NaiveDateForm::new(t.cash_flow.date),
-            currency: t.cash_flow.amount.currency.to_string(),
+            currency: t.cash_flow.amount.currency.id.ok_or("Invalid currency")?,
             asset_id: None,
             trans_type: "".to_string(),
             trans_ref: None,
@@ -115,11 +114,11 @@ impl TransactionForm {
         Ok(tf)
     }
 
-    fn to_transaction(&self) -> Result<Transaction, &'static str> {
+    fn to_transaction(&self, currency: Currency) -> Result<Transaction, &'static str> {
         let trans_type = match self.trans_type.as_str() {
             "a" => {
                 if self.asset_id.is_none() || self.position.is_none() {
-                    return Err("malformed_transaction");
+                    return Err("malformed transaction");
                 }
                 TransactionType::Asset {
                     asset_id: self.asset_id.unwrap(),
@@ -127,10 +126,10 @@ impl TransactionForm {
                 }
             }
             "d" => TransactionType::Dividend {
-                asset_id: self.asset_id.ok_or("malformed_transaction")?,
+                asset_id: self.asset_id.ok_or("malformed transaction")?,
             },
             "i" => TransactionType::Interest {
-                asset_id: self.asset_id.ok_or("malformed_transaction")?,
+                asset_id: self.asset_id.ok_or("malformed transaction")?,
             },
             "f" => TransactionType::Fee {
                 transaction_ref: self.trans_ref,
@@ -140,10 +139,9 @@ impl TransactionForm {
             },
             "c" => TransactionType::Cash,
             _ => {
-                return Err("malformed_transaction");
+                return Err("malformed transaction");
             }
         };
-        let currency = Currency::from_str(&self.currency).map_err(|_| "malformed_transaction")?;
         let t = Transaction {
             id: self.id,
             transaction_type: trans_type,
@@ -204,13 +202,13 @@ pub async fn edit_transaction(
         }
     }
 
-    if let Ok(assets) = db.get_all_assets().await {
+    if let Ok(assets) = db.get_asset_list().await {
         context.insert("assets", &assets);
     } else {
         context.insert("err_msg", "Could not find any assets");
     }
 
-    if let Ok(currencies) = db.get_all_currencies().await {
+    if let Ok(currencies) = db.get_currency_list().await {
         context.insert("currencies", &currencies);
     } else {
         context.insert("err_msg", "No currencies have been defined yet");
@@ -415,55 +413,49 @@ pub async fn update_transaction(
             .await
             .is_err()
         {
-            message = Some("The refenrece id is invalid".to_string());
+            message = Some("The reference id is invalid".to_string());
         }
     }
 
     // check whether currency exists
-    if let Ok(currencies) = db.get_all_currencies().await {
-        if !currencies
-            .iter()
-            .any(|&c| c.to_string() == transaction.currency)
-        {
-            message = Some("Currency is unknown".to_string());
-        }
-    } else {
-        message = Some("Found no currencies".to_string());
-    }
-
-    if let Ok(trans) = transaction.to_transaction() {
-        if let Some(id) = transaction.id {
-            // check if id is valid
-            if let Ok(old_account) = db.get_transaction_account_if_valid(id, user.userid).await {
-                if db.update_transaction(&trans).await.is_err() {
-                    message = Some("Updating transaction failed".to_string());
+    let currency = db.get_asset_by_id(transaction.currency).await;
+    if let Ok(Asset::Currency(c)) = currency {
+        if let Ok(trans) = transaction.to_transaction(c) {
+            if let Some(id) = transaction.id {
+                if let Ok(old_account) = db.get_transaction_account_if_valid(id, user.userid).await
+                {
+                    if db.update_transaction(&trans).await.is_err() {
+                        message = Some("Updating transaction failed".to_string());
+                    }
+                    let old_id = old_account.id.unwrap();
+                    if old_id != transaction.account_id
+                        && db
+                            .change_transaction_account(id, old_id, transaction.account_id)
+                            .await
+                            .is_err()
+                    {
+                        message = Some("Updating transaction's account failed".to_string());
+                    }
                 }
-                let old_id = old_account.id.unwrap();
-                if old_id != transaction.account_id
-                    && db
-                        .change_transaction_account(id, old_id, transaction.account_id)
+            } else {
+                // new transaction, all checks passed, write to db
+                if let Ok(id) = db.insert_transaction(&trans).await {
+                    if db
+                        .add_transaction_to_account(transaction.account_id, id)
                         .await
                         .is_err()
-                {
-                    message = Some("Updating transaction's account failed".to_string());
+                    {
+                        message = Some("Inserting transaction failed".to_string());
+                    }
+                } else {
+                    message = Some("Inserting new transaction failed".to_string());
                 }
             }
         } else {
-            // new transaction, all checks passed, write to db
-            if let Ok(id) = db.insert_transaction(&trans).await {
-                if db
-                    .add_transaction_to_account(transaction.account_id, id)
-                    .await
-                    .is_err()
-                {
-                    message = Some("Inserting transaction failed".to_string());
-                }
-            } else {
-                message = Some("Inserting new transaction failed".to_string());
-            }
+            message = Some("Invalid transaction format".to_string());
         }
     } else {
-        message = Some("Invalid transaction format".to_string());
+        message = Some("The currency is invalid".to_string());
     }
 
     Redirect::to(uri!(ServerState::base(), transactions(message)))

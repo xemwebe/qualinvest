@@ -31,13 +31,10 @@ pub async fn parse_multipart(stream: DataStream, boundary: &str, out: &mut Vec<S
         // Get the field's filename if provided in "Content-Disposition" header.
         let file_name = field.file_name();
 
-        println!("Name: {:?}, File Name: {:?}", name, file_name);
 
         // Process the field data chunks e.g. store them in a file.
-        while let Some(chunk) = field.chunk().await
+        while let Some(_) = field.chunk().await
             .map_err(|_| { PdfFormParseError::MalFormedForm })? {
-            // Do something with field chunk.
-            println!("Chunk: {:?}", chunk);
         }
     }
     Ok(())

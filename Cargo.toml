@@ -1,3 +1,6 @@
 [workspace]
 members = ["qualinvest_core", "qualinvest_cli", "qualinvest_server", "gui_tests", "wasm_graph"]
 exclude = ["extern", "finql"]
+
+[profile.release]
+lto = true

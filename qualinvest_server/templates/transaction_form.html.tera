@@ -48,10 +48,9 @@ function setFields() {
 		</div>
 		<div class="table_row">
 			<label class="table_cell" for="currency">Currency:</label>
-			<select class="table_cell" id="currency" name="currency"> 
-				{% if transaction %}{% set currency = transaction.currency %}{% endif %}
+			<select class="table_cell" id="currency" name="currency">
 				{% for curr in currencies %}
-				<option value="{{curr}}" {% if currency %}{% if curr == currency %}selected{% endif %}{% endif %}>{{curr}}</option> 
+				<option value={{curr.id}} {% if currency %}{% if curr.id == transaction.currency %}selected{% endif %}{% endif %}>{{curr.name}}</option> 
 				{% endfor %}
 			</select> 
 		</div>
@@ -80,7 +79,7 @@ function setFields() {
 			<select class="table_cell" id="asset_id" name="asset_id"> 
 				{% if transaction %}{% set asset_id = transaction.asset_id %}{% endif %}
 				{% for asset in assets %}
-				<option value="{{asset.id}}" {% if transaction %}{% if asset.id == transaction.asset_id %}selected{% endif %}{% endif %}>{{asset.name}}</option> 
+				<option value="{{asset.id}}" {% if transaction %}{% if asset.id == transaction.asset_id %}selected{% endif %}{% endif %}>{{asset.class}} | {{asset.name}}</option> 
 				{% endfor %}
 			</select> 
 		</div>

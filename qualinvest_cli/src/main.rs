@@ -2,7 +2,6 @@
 ///! 
 ///! This library is part of a set of tools for quantitative investments.
 ///! For mor information, see [qualinvest on github](https://github.com/xemwebe/qualinvest)
-///!
 
 use std::fs;
 use std::io::{stdout, BufReader};

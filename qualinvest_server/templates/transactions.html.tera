@@ -77,7 +77,6 @@
 {% endblock jsdata %}
 {% block content %}
 {{super()}}
-<div>{{err_msg}}</div>
 <div class="table" style="margin-bottom: 20px;">
 	<div class="table_row">
 		<form class="table_cell" action="transactions/edit">

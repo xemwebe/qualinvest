@@ -37,14 +37,16 @@ pub async fn position(
 
     let mut context = state.default_context();
 
-    if let Ok((position, totals)) = calculate_position_for_period_for_accounts(
+    let pnl = calculate_position_for_period_for_accounts(
         currency,
         &user_settings.account_ids,
         period_start,
         period_end,
         db,
     )
-    .await
+    .await;
+
+    if let Ok((position, totals)) = pnl
     {
         context.insert("positions", &position);
         context.insert("totals", &totals);
