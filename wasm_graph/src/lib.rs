@@ -37,9 +37,9 @@ pub struct Point {
 #[wasm_bindgen]
 impl Chart {
     /// Draw performance graph
-    pub fn performance_graph(canvas_id: &str, title: &str, x_axis: &[i64], y_axis: &[f32]) -> Result<Chart, JsValue> {
+    pub fn performance_graph(canvas_id: &str, title: &str, x_axis: &[i64], values: &[f32], names: &str) -> Result<Chart, JsValue> {
         set_panic_hook();
-        let map_coord = func_plot::draw(canvas_id, title, x_axis, y_axis).map_err(|err| err.to_string())?;
+        let map_coord = func_plot::draw(canvas_id, title, x_axis, values, names).map_err(|err| err.to_string())?;
         Ok(Chart {
             convert: Box::new(move |coord| map_coord(coord).map(|(x, y)| (x.into(), y.into()))),
         })

@@ -16,6 +16,7 @@
 			<li><a href="{{relpath}}transactions">Transactions</a></li>
 			<li><a href="{{relpath}}position">Position</a></li>
 			<li><a href="{{relpath}}asset">Assets</a></li>
+			<li><a href="{{relpath}}performance">Performance</a></li>
 			<li><a href="{{relpath}}settings">Settings</a></li>
 			<li><a href="{{relpath}}accounts">Accounts</a></li>
 			{% if not user.userid %}

@@ -46,6 +46,7 @@ mod ticker;
 mod transactions;
 mod user;
 mod user_settings;
+mod performance;
 
 use auth::authorization::*;
 use layout::*;
@@ -346,6 +347,7 @@ async fn rocket() -> _ {
                 accounts::add_user,
                 accounts::delete_user,
                 accounts::user_accounts,
+                performance::performance,
             ],
         )
 }

@@ -1,0 +1,58 @@
+{% extends "layout" %}
+{% block pagetitle %}{{super()}} - Performance comparison{% endblock %}
+{% block jsdata %}
+	{{super()}}
+
+	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+{% endblock %}
+{% block content %}
+<div class="center" align="center">
+	<form action="{{relpath}}performance" method="get">
+		<div class="table" style="margin-bottom: 20px;">
+			<div class="table_row">
+				<label class="table_cell" for="asset_id">Asset:</label>
+				<div class="table_cell horizontalgap" style="width:10px"></div>
+				<select class="table_cell" id="asset" name="asset_id" multiple onchange="asset_change()"> 
+				{% if assets %}
+					<option value=null {% if not asset_id %}selected{% endif%}></option>
+					{% for asset in assets %}
+						<option value="{{asset.id}}" {% if asset_id and asset.id == asset_id %}selected{% endif %}>{{asset.name}}</option> 
+					{% endfor %}
+				{% endif %}
+				</select> 
+			</div>
+		</div>
+		<div class="table">	
+			<div class="table_row">
+				<button class="button table_cell" type="submit">Update</button>
+			</div>
+		</div>
+	</form>
+	<h3>Total return performance</h3>	
+	<div id="coord"></div>
+	<canvas id="canvas" width="1000" height="800"></canvas>
+</div>
+{% if dates %}
+<script>
+init();
+
+async function init() {
+    const [{Chart, default: init}, {main, setup}] = await Promise.all([
+        import("/static/wasm_graph.js"),
+        import("/static/index.js"),
+    ]);
+    await init();
+    setup(Chart);
+	title = "Performacne Graph";
+	var dates = new BigInt64Array([{% for date in dates %}BigInt(Date.parse('{{quote.time}}')),{% endfor %}]);
+	var values = [];
+	var names = [];
+	{% for graph in graphs %}
+		values.push(new Float32Array([{% for value in graph %}{{value}},{% endfor %}]) );
+		names.push(graph.name);
+	{% endfor %}
+    main(title, dates, values, names);
+}
+</script>
+{% endif %}
+{% endblock %}

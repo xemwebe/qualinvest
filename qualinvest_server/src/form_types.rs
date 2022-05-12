@@ -38,3 +38,10 @@ impl<'r> form::FromFormField<'r> for NaiveDateForm {
         }
     }
 }
+
+
+#[derive(Debug, Serialize)]
+pub struct AssetListItem {
+    pub id: i32,
+    pub name: String,
+}

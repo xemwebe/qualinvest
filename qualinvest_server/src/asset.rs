@@ -11,6 +11,7 @@ use qualinvest_core::accounts::AccountHandler;
 use super::ServerState;
 use crate::layout::layout;
 use crate::user::UserCookie;
+use crate::form_types::AssetListItem;
 
 /// Structure for storing information in asset formular
 #[derive(Debug, Serialize, Deserialize, FromForm)]
@@ -34,12 +35,6 @@ impl AssetForm {
     }
 }
 
-#[derive(Debug, Serialize)]
-struct AssetListItem {
-    id: i32,
-    name: String,
-}
-
 #[get("/asset?<asset_id>&<message>")]
 pub async fn analyze_asset(
     asset_id: Option<i32>,
@@ -56,26 +51,17 @@ pub async fn analyze_asset(
     let user = user_opt.unwrap();
 
     let mut message = message;
+    let mut context = state.default_context();
     let db = state.postgres_db.clone();
-    let assets = if let Ok(assets) = db.get_all_assets().await {
-        assets
+    if let Ok(mut asset_list) = db.get_asset_list().await{ 
+        asset_list.sort_by(|a, b| a.name.cmp(&b.name));
+        context.insert("assets", &asset_list);
     } else {
-        message = Some("Failed to get list of assets".to_string());
-        Vec::new()
-    };
-    let mut asset_list: Vec<AssetListItem> = assets
-        .iter()
-        .map(|a| AssetListItem {
-            id: a.get_id().unwrap_or(0),
-            name: a.name(),
-        })
-        .collect();
-    asset_list.sort_by(|a, b| a.name.cmp(&b.name));
+        message = Some("No assets found!".to_string());
+    }
 
     let user_accounts = user.get_accounts(db.clone()).await;
 
-    let mut context = state.default_context();
-    context.insert("assets", &asset_list);
     context.insert("asset_id", &asset_id);
     context.insert("user", &user);
 
