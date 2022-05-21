@@ -4,13 +4,12 @@ use super::rocket_uri_macro_login;
 use rocket::response::Redirect;
 use rocket::State;
 use rocket_dyn_templates::Template;
-use chrono::{DateTime, Local, TimeZone};
-use finql::datatypes::{Asset, AssetHandler, DataItem, QuoteHandler, Stock};
+use chrono::{Local, TimeZone};
+use finql::datatypes::{AssetHandler};
 
 use super::ServerState;
 use crate::layout::layout;
 use crate::user::UserCookie;
-use crate::form_types::AssetListItem;
 
 
 #[derive(Debug,Serialize)]
@@ -51,13 +50,13 @@ pub async fn performance(
     // test demo graph
     let dates = vec![
         Local.ymd(2022, 1, 1).and_hms_milli(0, 0, 0, 0), 
-        Local.ymd(2022, 1, 1).and_hms_milli(0, 0, 0, 0), 
-        Local.ymd(2022, 1, 1).and_hms_milli(0, 0, 0, 0), 
+        Local.ymd(2022, 2, 1).and_hms_milli(0, 0, 0, 0), 
+        Local.ymd(2022, 3, 1).and_hms_milli(0, 0, 0, 0), 
     ];
     let graphs = vec![
-        Graph{ name: "graph1".to_string(), values: vec![ 1., 4., 2.] },
-        Graph{ name: "graph1".to_string(), values: vec![ 3., 2., 5.] },
-        Graph{ name: "graph1".to_string(), values: vec![ 2., 4., 2.] },
+        Graph{ name: "one".to_string(), values: vec![ 1., 4., 2.] },
+        Graph{ name: "two".to_string(), values: vec![ 3., 2., 5.] },
+        Graph{ name: "three".to_string(), values: vec![ 2., 4., 2.] },
     ];
     context.insert("dates", &dates);
     context.insert("graphs", &graphs);

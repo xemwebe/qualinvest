@@ -17,3 +17,4 @@ wee_alloc = "0.4.5"
 web-sys = { version = "0.3.39", features = ["HtmlCanvasElement", "console"] }
 chrono =  { version = "0.4", features = ["wasmbind"]}
 serde_json = "1.0"
+serde = {version = "1.0", features = ["derive"] }

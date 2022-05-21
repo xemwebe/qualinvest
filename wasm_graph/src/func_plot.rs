@@ -1,10 +1,13 @@
 use crate::DrawResult;
 use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveDateTime};
 use plotters::prelude::*;
+#[cfg(not(target_family = "wasm"))]
 use plotters_bitmap::BitMapBackend;
+#[cfg(target_family = "wasm")]
 use plotters_canvas::CanvasBackend;
 use serde_json;
 use std::time::{Duration, UNIX_EPOCH};
+use crate::log;
 
 fn min_max_val<T: PartialOrd + GenericConst<T> + Copy>(values: &[T]) -> (T, T) {
     if values.is_empty() {
@@ -103,8 +106,12 @@ pub fn draw(
     times: &[i64],
     values: &[f32],
     names_json: &str,
-) -> DrawResult<impl Fn((i32, i32)) -> Option<(i64, f32)>> {
+) -> DrawResult<impl Fn((i32, i32)) -> Option<(i64, f32)>+ 'static> {
     let names: Vec<String> = serde_json::from_str(names_json)?;
+    log!("start draw: title: {}, times: {:?}, values: {:?}, names: {}", title, times, values, names_json);
+    #[cfg(not(target_family = "wasm"))]
+    let backend = BitMapBackend::new("sample.bmp", (1280, 1024));
+    #[cfg(target_family = "wasm")]
     let backend = CanvasBackend::new(canvas_id).expect("cannot find canvas");
     let root = backend.into_drawing_area();
     let font: FontDesc = ("sans-serif", 14.0).into();
@@ -171,80 +178,4 @@ pub fn draw(
 
     let coord_convert = chart.into_coord_trans();
     return Ok(move |(x, y)| coord_convert((x, y)).map(|(t, v)| (t.timestamp_millis(), v)));
-}
-
-/// Draw graph given (x,y) series
-#[cfg(not(target_family = "wasm"))]
-pub fn draw_bmp(
-    file_name: &str,
-    title: &str,
-    times: &[i64],
-    values: &[f32],
-    names_json: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let names: Vec<String> = serde_json::from_str(names_json)?;
-    let backend = BitMapBackend::new(file_name, (1280, 1024));
-    let root = backend.into_drawing_area();
-    let font: FontDesc = ("sans-serif", 14.0).into();
-
-    root.fill(&WHITE)?;
-
-    let len_series = values.len() / names.len();
-    let (min_time, max_time) = calc_time_range(times);
-    let time_range = min_time..max_time;
-    let (min_val, max_val) = min_max_val(values);
-    let y_range = min_val..max_val;
-
-    let mut chart = ChartBuilder::on(&root)
-        .margin::<u32>(50)
-        .caption(title, font)
-        .x_label_area_size::<u32>(80)
-        .y_label_area_size::<u32>(80)
-        .build_cartesian_2d(time_range.yearly(), y_range)?;
-
-    chart
-        .configure_mesh()
-        .x_labels(10)
-        .x_desc("date")
-        .x_label_formatter(&fmt_date_time)
-        .disable_x_mesh()
-        .y_desc("price")
-        .y_labels(10)
-        .label_style(("sans-serif", 16))
-        .axis_desc_style(("sans-serif", 20))
-        .draw()?;
-
-    static COLORS: [&'static RGBColor; 5] = [&BLUE, &GREEN, &RED, &CYAN, &MAGENTA];
-    let mut color_index: usize = 0;
-    let mut idx = 0;
-    for name in names {
-        chart
-            .draw_series(LineSeries::new(
-                times
-                    .into_iter()
-                    .zip(values[idx..idx + len_series].into_iter())
-                    .map(|(x, y)| {
-                        (
-                            DateTime::<Local>::from(UNIX_EPOCH + Duration::from_millis(*x as u64)),
-                            *y,
-                        )
-                    }),
-                &COLORS[color_index],
-            ))?
-            .label(name)
-            .legend(move |(x, y)| {
-                Rectangle::new([(x, y - 5), (x + 10, y + 5)], &COLORS[color_index])
-            });
-        idx += len_series;
-        color_index = (color_index + 1) % COLORS.len();
-    }
-
-    chart
-        .configure_series_labels()
-        .background_style(&WHITE.mix(0.8))
-        .border_style(&BLACK)
-        .draw()?;
-
-    root.present()?;
-    Ok(())
 }

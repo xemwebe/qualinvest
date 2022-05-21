@@ -145,13 +145,15 @@ async function init() {
     setup(Chart);
 	var dates = new BigInt64Array([{% for quote in quotes %}BigInt(Date.parse('{{quote.time}}')),{% endfor %}]);
 	var values = new Float32Array([{% for quote in quotes %}{{quote.price}},{% endfor %}]);
-	title = "Asset quote history";
+	var title = "Asset quote history";
+	var labels = "["
 	{% if assets %}
 		{% for asset in assets %}
-			{% if asset_id and asset.id == asset_id %}title = "{{asset.name}} quote history";{% endif %}
+			{% if asset_id and asset.id == asset_id %}labels += "\"{{asset.name}}\"";{% endif %}
 		{% endfor %}
 	{% endif %}
-    main(title, dates, values);
+	labels += "]"
+    main("Price history", dates, values, labels);
 }
 </script>
 {% endif %}

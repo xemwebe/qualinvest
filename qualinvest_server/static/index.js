@@ -9,10 +9,10 @@ const status = document.getElementById("status");
 let chart = null;
 
 /** Main entry point */
-export function main(title, dates, values) {
+export function main(title, dates, values, labels) {
 	let hash = location.hash.substr(1);
     setupUI();
-    setupCanvas(title, dates, values);
+    setupCanvas(title, dates, values, labels);
 }
 
 /** This function is used in `bootstrap.js` to setup imports. */
@@ -27,7 +27,7 @@ function setupUI() {
 }
 
 /** Setup canvas to properly handle high DPI and redraw current plot. */
-function setupCanvas(title, dates,  values) {
+function setupCanvas(title, dates,  values, labels) {
 	const dpr = window.devicePixelRatio || 1.0;
     const aspectRatio = canvas.width / canvas.height;
     const size = canvas.parentNode.offsetWidth * 0.8;
@@ -35,7 +35,7 @@ function setupCanvas(title, dates,  values) {
     canvas.style.height = size / aspectRatio + "px";
     canvas.width = size;
     canvas.height = size / aspectRatio;
-    updatePlot(title, dates, values);
+    updatePlot(title, dates, values, labels);
 }
 
 /** Update displayed coordinates. */
@@ -58,6 +58,6 @@ function onMouseMove(event) {
 }
 
 /** Redraw currently selected plot. */
-function updatePlot(title, dates, values) {
-    chart = Chart.performance_graph("canvas", title, dates, values);
+function updatePlot(title, dates, values, labels) {
+    chart = Chart.performance_graph("canvas", title, dates, values, labels);
 }
