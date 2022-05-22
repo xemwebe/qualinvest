@@ -74,24 +74,24 @@ fn calc_time_range(times: &[i64]) -> (DateTime<Local>, DateTime<Local>) {
     (min_date, max_date)
 }
 
-fn calc_time_grid(min_time: i64, max_time: i64) -> Vec<(i64, String)> {
-    let mut time_grid = vec![];
+// fn calc_time_grid(min_time: i64, max_time: i64) -> Vec<(i64, String)> {
+//     let mut time_grid = vec![];
 
-    let mut year =
-        NaiveDateTime::from_timestamp(min_time / 1000, (min_time % 1000) as u32 * 1000).year();
-    let last_year =
-        1 + NaiveDateTime::from_timestamp(max_time / 1000, (max_time % 1000) as u32 * 1000).year();
-    while year <= last_year {
-        time_grid.push((
-            NaiveDate::from_ymd(year, 1, 1)
-                .and_hms(0, 0, 0)
-                .timestamp_millis(),
-            format!("{}", year),
-        ));
-        year += 1;
-    }
-    time_grid
-}
+//     let mut year =
+//         NaiveDateTime::from_timestamp(min_time / 1000, (min_time % 1000) as u32 * 1000).year();
+//     let last_year =
+//         1 + NaiveDateTime::from_timestamp(max_time / 1000, (max_time % 1000) as u32 * 1000).year();
+//     while year <= last_year {
+//         time_grid.push((
+//             NaiveDate::from_ymd(year, 1, 1)
+//                 .and_hms(0, 0, 0)
+//                 .timestamp_millis(),
+//             format!("{}", year),
+//         ));
+//         year += 1;
+//     }
+//     time_grid
+// }
 
 fn fmt_date_time(date: &DateTime<Local>) -> String {
     //let date = NaiveDateTime::from_timestamp(*t/1000, (*t % 1000) as u32 * 1000).date();

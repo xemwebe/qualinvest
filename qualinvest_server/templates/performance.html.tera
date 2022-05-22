@@ -7,32 +7,11 @@
 {% endblock %}
 {% block content %}
 <div class="center" align="center">
-	<form action="{{relpath}}performance" method="get">
-		<div class="table" style="margin-bottom: 20px;">
-			<div class="table_row">
-				<label class="table_cell" for="asset_id">Asset:</label>
-				<div class="table_cell horizontalgap" style="width:10px"></div>
-				<select class="table_cell" id="asset" name="asset_id" multiple onchange="asset_change()"> 
-				{% if assets %}
-					<option value=null {% if not asset_id %}selected{% endif%}></option>
-					{% for asset in assets %}
-						<option value="{{asset.id}}" {% if asset_id and asset.id == asset_id %}selected{% endif %}>{{asset.name}}</option> 
-					{% endfor %}
-				{% endif %}
-				</select> 
-			</div>
-		</div>
-		<div class="table">	
-			<div class="table_row">
-				<button class="button table_cell" type="submit">Update</button>
-			</div>
-		</div>
-	</form>
 	<h3>Total return performance</h3>	
 	<div id="coord"></div>
-	<canvas id="canvas" width="1000" height="800"></canvas>
+	<canvas id="canvas" width="800" height="800"></canvas>
 </div>
-{% if dates %}
+{% if time_series %}
 <script>
 init();
 
@@ -43,17 +22,10 @@ async function init() {
     ]);
     await init();
     setup(Chart);
-	title = "Performacne Graph";
-	var dates = new BigInt64Array([{% for date in dates %}BigInt(Date.parse('{{date}}')),{% endfor %}]);
-	var values = new Float32Array([{% for graph in graphs %}{% for value in graph.values %}{{value}},{% endfor %}{% endfor %}]);
-	var names = "[";
-	{% for graph in graphs %}
-		if (names.length > 1) {
-			names += ",";
-		}
-		names += "\"{{graph.name}}\"";
-	{% endfor %}
-	names += "]";
+	title = "Performance Graph";
+	var dates = new BigInt64Array([{% for entry in time_series.series %}BigInt(Date.parse('{{entry.time}}')),{% endfor %}]);
+	var values = new Float32Array([{% for entry in time_series.series %}{{entry.value}},{% endfor %}]);
+	var names = "[\"{{time_series.title}}\"]";
     main(title, dates, values, names);
 }
 </script>

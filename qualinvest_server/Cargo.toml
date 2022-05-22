@@ -29,6 +29,7 @@ mime = "0.3"
 tempfile = "3.2"
 futures = "0.3"
 once_cell = "1.8"
+thiserror = "1.0"
 
 [dependencies.rocket_dyn_templates]
 path = "../extern/rocket/contrib/dyn_templates"

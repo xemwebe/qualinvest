@@ -11,7 +11,6 @@ use qualinvest_core::accounts::AccountHandler;
 use super::ServerState;
 use crate::layout::layout;
 use crate::user::UserCookie;
-use crate::form_types::AssetListItem;
 
 /// Structure for storing information in asset formular
 #[derive(Debug, Serialize, Deserialize, FromForm)]
