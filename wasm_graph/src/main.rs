@@ -35,5 +35,5 @@ fn sample_data() -> (Vec<i64>, Vec<f32>, String) {
 
 fn main() {
     let (x_axis, values, names) = sample_data();
-    let _ = draw("", "sample chart", &x_axis, &values, &names).unwrap();
+    let _ = draw("sample.bmp", "sample chart", &x_axis, &values, &names).unwrap();
 }

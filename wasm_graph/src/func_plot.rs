@@ -106,11 +106,11 @@ pub fn draw(
     times: &[i64],
     values: &[f32],
     names_json: &str,
-) -> DrawResult<impl Fn((i32, i32)) -> Option<(i64, f32)>+ 'static> {
+) -> DrawResult<impl Fn((i32, i32)) -> Option<(i64, f32)>> {
     let names: Vec<String> = serde_json::from_str(names_json)?;
     log!("start draw: title: {}, times: {:?}, values: {:?}, names: {}", title, times, values, names_json);
     #[cfg(not(target_family = "wasm"))]
-    let backend = BitMapBackend::new("sample.bmp", (1280, 1024));
+    let backend = BitMapBackend::new(canvas_id, (1280, 1024));
     #[cfg(target_family = "wasm")]
     let backend = CanvasBackend::new(canvas_id).expect("cannot find canvas");
     let root = backend.into_drawing_area();
@@ -176,6 +176,11 @@ pub fn draw(
 
     root.present()?;
 
-    let coord_convert = chart.into_coord_trans();
-    return Ok(move |(x, y)| coord_convert((x, y)).map(|(t, v)| (t.timestamp_millis(), v)));
+    #[cfg(not(target_family = "wasm"))]
+    return Ok(move |(_,_)| None);
+    #[cfg(target_family = "wasm")]   
+    {
+        let coord_convert = chart.into_coord_trans();
+        return Ok(move |(x, y)| coord_convert((x, y)).map(|(t, v)| (t.timestamp_millis(), v)));
+    }
 }
