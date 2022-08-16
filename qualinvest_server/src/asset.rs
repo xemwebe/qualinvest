@@ -151,7 +151,7 @@ pub async fn edit_asset(
             }
         }
     } else {
-        let asset_class = asset_class.unwrap_or("new".to_string());
+        let asset_class = asset_class.unwrap_or_else(|| "new".to_string());
         match asset_class.as_ref() {
             "currency" => {
                 context.insert("iso_code", "");

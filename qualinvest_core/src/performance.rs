@@ -1,5 +1,5 @@
 use std::cmp::min;
-
+use std::sync::Arc;
 use chrono::NaiveDate;
 
 use finql::{
@@ -23,10 +23,10 @@ pub enum PerformanceError {
 
 pub async fn calc_performance(
     currency: Currency,
-    transactions: &Vec<Transaction>,
+    transactions: &[Transaction],
     start: NaiveDate,
     end: NaiveDate,
-    market: &Market,
+    market: Arc<Market>,
     calendar: &str,
 ) -> Result<Vec<TimeValue>, PerformanceError> {
     let mut current_date = start;
@@ -34,7 +34,7 @@ pub async fn calc_performance(
     let cal = market.get_calendar(calendar)?;
 
     let mut position = PortfolioPosition::new(currency);
-    calc_delta_position(&mut position, &transactions, Some(start), Some(start))?;
+    calc_delta_position(&mut position, transactions, Some(start), Some(start), market.clone()).await?;
     position
         .add_quote(naive_date_to_date_time(&start, 20, None)?, &market)
         .await;
@@ -44,10 +44,11 @@ pub async fn calc_performance(
         let next_date = min(end, cal.next_bday(current_date));
         calc_delta_position(
             &mut position,
-            &transactions,
+            transactions,
             Some(current_date),
             Some(next_date),
-        )?;
+            market.clone(),
+        ).await?;
 
         current_date = next_date;
         let current_time = naive_date_to_date_time(&current_date, 20, None)?;

@@ -7,8 +7,9 @@ use std::fs;
 use std::io::{stdout, BufReader};
 use std::str::FromStr;
 use std::sync::Arc;
+use std::error::Error;
 
-use chrono::{DateTime, Local};
+use chrono::Local;
 use glob::glob;
 use clap::{App, AppSettings, Arg, SubCommand};
 
@@ -37,7 +38,7 @@ async fn main() {
         .about("Tools for quantitative analysis and management of financial asset portfolios")
         .arg(
             Arg::with_name("config")
-                .short("c")
+                .short('c')
                 .long("config")
                 .value_name("file")
                 .help("Sets a custom config file")
@@ -45,13 +46,13 @@ async fn main() {
         )
         .arg(
             Arg::with_name("json-config")
-                .short("J")
+                .short('J')
                 .long("json-config")
                 .help("Set config file format ot JSON (default is TOML)"),
         )
         .arg(
             Arg::with_name("debug")
-                .short("d")
+                .short('d')
                 .long("debug")
                 .help("Prints additional information for debugging purposes")
         )
@@ -81,7 +82,7 @@ async fn main() {
             )
             .arg(
                 Arg::with_name("directory")
-                    .short("D")
+                    .short('D')
                     .long("directory")
                     .help("Parse all files in the given directory")
             )
@@ -116,20 +117,20 @@ async fn main() {
                 .arg(
                     Arg::with_name("json")
                         .long("json")
-                        .short("j")
+                        .short('j')
                         .help("Display output in JSON format (default is csv)")
                 )
                 .arg(
                     Arg::with_name("account")
                         .long("account")
-                        .short("a")
+                        .short('a')
                         .help("Calculate position for the given account only")
                         .takes_value(true)
                 )
                 .arg(
                     Arg::with_name("quote")
                         .long("quote")
-                        .short("q")
+                        .short('q')
                         .help("Include fields for latest quotes")
                 )
             )
@@ -140,27 +141,27 @@ async fn main() {
                 .arg(
                     Arg::with_name("ticker-id")
                         .long("ticker-id")
-                        .short("t")
+                        .short('t')
                         .help("Update only the given ticker id")
                         .takes_value(true)
                 )
                 .arg(
                     Arg::with_name("history")
                         .long("history")
-                        .short("h")
+                        .short('h')
                         .help("Update history of quotes, only allowed in single ticker mode")
                 )
                 .arg(
                     Arg::with_name("start")
                         .long("start")
-                        .short("s")
+                        .short('s')
                         .help("Start of history to be updated")
                         .takes_value(true)
                 )
                 .arg(
                     Arg::with_name("end")
                         .long("end")
-                        .short("e")
+                        .short('e')
                         .help("End of history to be updated")
                         .takes_value(true)
                 )
@@ -187,7 +188,7 @@ async fn main() {
                 .arg(
                     Arg::with_name("min_size")
                         .long("min-size")
-                        .short("s")
+                        .short('s')
                         .help("Ignore gaps with lass than 'min_size' days.")
                         .required(false)
                         .takes_value(true)
@@ -200,7 +201,7 @@ async fn main() {
                 .arg(
                     Arg::with_name("account")
                         .long("account")
-                        .short("a")
+                        .short('a')
                         .help("Account id for performance graph")
                         .required(true)
                         .takes_value(true)
@@ -208,35 +209,35 @@ async fn main() {
                 .arg(
                     Arg::with_name("start")
                         .long("start")
-                        .short("s")
+                        .short('s')
                         .help("Start date for performance calculation (default 2000-01-01)")
                         .takes_value(true)
                 )
                 .arg(
                     Arg::with_name("end")
                         .long("end")
-                        .short("e")
+                        .short('e')
                         .help("End date for performance calculation (default today)")
                         .takes_value(true)
                 )       
                 .arg(
                     Arg::with_name("currency")
                         .long("currency")
-                        .short("c")
+                        .short('c')
                         .help("Base currency for performance calculation")
                         .takes_value(true)
                 )
                 .arg(
                     Arg::with_name("output")
                         .long("output-dir")
-                        .short("o")
+                        .short('o')
                         .help("Output directory")
                         .takes_value(true)
                 )        
                 .arg(
                     Arg::with_name("title")
                         .long("title")
-                        .short("t")
+                        .short('t')
                         .help("Title of performance graph")
                         .takes_value(true)
                 )        
@@ -370,12 +371,12 @@ async fn main() {
                 .await.unwrap(),
             None => db.get_all_transactions().await.unwrap(),
         };
-        let mut position = calc_position(currency, &transactions, None).unwrap();
-        position.get_asset_names(db.clone()).await.unwrap();
+        let market = Arc::new(Market::new(db).await);
+        let mut position = calc_position(currency, &transactions, None, market.clone()).await.unwrap();
+        position.get_asset_names(market.db().into_arc_dispatch()).await.unwrap();
         
         if matches.is_present("quote") {
-            let time = DateTime::from(Local::now());
-            let market = Market::new(db);
+            let time = Local::now();
             position.add_quote(time, &market).await;
         }
 
@@ -411,7 +412,7 @@ async fn main() {
             let ticker_id = i32::from_str(matches.value_of("ticker-id").unwrap()).unwrap();
             qualinvest_core::update_ticker(ticker_id, db.clone(), &config.market_data).await.unwrap();
         } else {
-            let market = setup_market(db.clone(), &config.market_data);
+            let market = setup_market(db.clone(), &config.market_data).await;
             let failed_ticker = market.update_quotes().await.unwrap();
             if !failed_ticker.is_empty() {
                 println!("Some ticker could not be updated: {:?}", failed_ticker);
@@ -436,7 +437,7 @@ async fn main() {
         } else {
             1
         };
-        let mut market = setup_market(db.clone(), &config.market_data);
+        let mut market = setup_market(db.clone(), &config.market_data).await;
         qualinvest_core::fill_quote_gaps(&mut market, min_size).await.unwrap();
     }
 
@@ -471,23 +472,39 @@ async fn main() {
         };
 
         let transactions = db.get_all_transactions_with_account_before(account_id, end_date).await.unwrap();
-        let market = Market::new(db);
+        let market = Arc::new(Market::new(db).await);
 
         let total_performance = calc_performance(
             currency,
             &transactions,
             start_date,
             end_date,
-            &market,
+            market,
             "TARGET",
         )
-        .await.unwrap();
-        let performance_series = vec![TimeSeries {
-            series: total_performance,
-            title: title.clone(),
-        }];
-    
-        // plot the graph
-        plot::make_plot(&file, &title, &performance_series).unwrap();
+        .await;
+        match total_performance {
+            Ok(performance) => {
+                let performance_series = vec![TimeSeries {
+                    series: performance,
+                    title: title.clone(),
+                }];
+            
+                // plot the graph
+                plot::make_plot(&file, &title, &performance_series).unwrap();
+            },
+            Err(err) => {
+                eprintln!("Failure while calculating performance: {err}");
+                if let Some(err2) = err.source() {
+                    eprintln!("  caused by: {err2}");
+                    if let Some(err3) = err2.source() {
+                        eprintln!("    caused by: {err3}");
+                        if let Some(err4) = err3.source() {
+                            eprintln!("      caused by: {err4}");
+                        }
+                    }
+                }
+            }
+        }
     }
 }

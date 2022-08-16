@@ -50,7 +50,7 @@ function setFields() {
 			<label class="table_cell" for="currency">Currency:</label>
 			<select class="table_cell" id="currency" name="currency">
 				{% for curr in currencies %}
-				<option value={{curr.id}} {% if currency %}{% if curr.id == transaction.currency %}selected{% endif %}{% endif %}>{{curr.name}}</option> 
+				<option value={{curr.id}} {% if transaction %}{% if curr.id == transaction.currency %}selected{% endif %}{% endif %}>{{curr.name}}</option> 
 				{% endfor %}
 			</select> 
 		</div>

@@ -143,15 +143,15 @@ pub fn draw(
         .axis_desc_style(("sans-serif", 20))
         .draw()?;
 
-    static COLORS: [&'static RGBColor; 5] = [&BLUE, &GREEN, &RED, &CYAN, &MAGENTA];
+    static COLORS: [&RGBColor; 5] = [&BLUE, &GREEN, &RED, &CYAN, &MAGENTA];
     let mut color_index: usize = 0;
     let mut idx = 0;
     for name in names {
         chart
             .draw_series(LineSeries::new(
                 times
-                    .into_iter()
-                    .zip(values[idx..idx + len_series].into_iter())
+                    .iter()
+                    .zip(values[idx..idx + len_series].iter())
                     .map(|(x, y)| {
                         (
                             DateTime::<Local>::from(UNIX_EPOCH + Duration::from_millis(*x as u64)),

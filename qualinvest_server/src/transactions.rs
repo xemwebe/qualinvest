@@ -357,9 +357,10 @@ pub async fn view_transaction_pdf(
     let db = state.postgres_db.clone();
     let message;
 
-    if let Ok(_) = db
+    if db
         .get_transaction_account_if_valid(transaction_id, user.userid)
         .await
+        .is_ok()
     {
         if let Ok(file_name) = db.get_doc_path(transaction_id).await {
             let file = NamedFile::open(Path::new(&state.doc_path).join(file_name)).await;

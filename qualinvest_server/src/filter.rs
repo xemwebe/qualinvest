@@ -74,7 +74,7 @@ fn type_to_string(value: &Value, _: &HashMap<String, Value>) -> tera::Result<Val
 
 fn remove_line_break(value: &Value, _: &HashMap<String, Value>) -> tera::Result<Value> {
     match value {
-        Value::String(type_str) => Ok(Value::String(type_str.replace("\n", ""))),
+        Value::String(type_str) => Ok(Value::String(type_str.replace('\n', ""))),
         _ => Ok(value.clone()),
     }
 }
@@ -89,7 +89,7 @@ fn base_name(value: &Value, _: &HashMap<String, Value>) -> tera::Result<Value> {
 fn print_str_slice(strs: &[&str]) -> String {
     let mut s = String::new();
     for e in strs {
-        s = format!("{}{}", s, e);
+        s = format!("{s}{e}");
     }
     s
 }

@@ -358,7 +358,7 @@ impl AccountHandler for PostgresDB {
         )
         .fetch_one(&self.pool)
         .await?;
-        Ok(row.path.to_string())
+        Ok(row.path)
     }
 
     /// Get id of account a transaction belongs to
@@ -398,7 +398,9 @@ impl AccountHandler for PostgresDB {
                 WHERE 
                     a.account_id = $1 
                     AND a.transaction_id = t.id
-                    AND c.id = t.cash_currency_id",
+                    AND c.id = t.cash_currency_id
+                ORDER BY
+                    t.cash_date",
             account_id,
         )
         .fetch_all(&self.pool)
@@ -706,7 +708,7 @@ impl AccountHandler for PostgresDB {
                 trans_type: row.trans_type,
                 cash_amount: row.cash_amount,
                 cash_currency: currency_isocode.to_string(),
-                cash_date: cash_date,
+                cash_date,
                 note: row.note,
                 doc_path: row.path,
                 account_id: row.account_id,

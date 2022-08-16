@@ -107,7 +107,7 @@ pub async fn update_quote_history(
     db: Arc<dyn QuoteHandler + Send + Sync>,
     market_data: &MarketDataProviders,
 ) -> Result<(), MarketError> {
-    let mut market = finql::Market::new(db);
+    let mut market = finql::Market::new(db).await;
     set_market_providers(&mut market, market_data);
     market.update_quote_history(ticker_id, start, end).await
 }
@@ -134,10 +134,10 @@ pub async fn update_ticker(
     Ok(())
 }
 
-pub fn setup_market(
+pub async fn setup_market(
     db: Arc<dyn QuoteHandler + Send + Sync>,
     market_data: &MarketDataProviders) -> Market {
-    let mut market = finql::Market::new(db);
+    let mut market = finql::Market::new(db).await;
     set_market_providers(&mut market, market_data);
     market
 }
@@ -181,7 +181,7 @@ pub async fn fill_quote_gaps(
             } else {
                 &weekends_cal
             };
-            let gaps = ts.find_gaps(cal, min_size).unwrap_or(Vec::new());
+            let gaps = ts.find_gaps(cal, min_size).unwrap_or_default();
             for gap in gaps {
                 let _ = market
                     .update_quote_history(

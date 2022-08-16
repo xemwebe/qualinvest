@@ -27,7 +27,7 @@ pub fn make_plot(
     let root = SVGBackend::new(file_name, (2048, 1024)).into_drawing_area();
     root.fill(&WHITE)?;
 
-    if all_time_series.len() == 0 {
+    if all_time_series.is_empty() {
         return Err(PlotError::EmptyTimeSeries);
     }
     let (mut min_date, mut max_date, mut min_val, mut max_val) = all_time_series[0].min_max()?;
@@ -82,7 +82,7 @@ pub fn make_plot(
         .axis_desc_style(("sans-serif", 20))
         .draw()?;
 
-    static COLORS: [&'static RGBColor; 5] = [&BLUE, &GREEN, &RED, &CYAN, &MAGENTA];
+    static COLORS: [&RGBColor; 5] = [&BLUE, &GREEN, &RED, &CYAN, &MAGENTA];
     let mut color_index: usize = 0;
     for ts in all_time_series {
         chart

@@ -125,12 +125,12 @@ pub fn text_from_pdf(file: &Path) -> Result<String, ReadPDFError> {
 /// Convert a string with German number convention
 /// (e.g. '.' as thousands separator and ',' as decimal separator)
 pub fn german_string_to_float(num_string: &str) -> Result<f64, ReadPDFError> {
-    let sign_less_string = num_string.replace("-", "");
+    let sign_less_string = num_string.replace('-', "");
     let positive = sign_less_string == num_string;
     let result = sign_less_string
         .trim()
-        .replace(".", "")
-        .replace(",", ".")
+        .replace('.', "")
+        .replace(',', ".")
         .parse()
         .map_err(ReadPDFError::ParseFloat);
     match result {

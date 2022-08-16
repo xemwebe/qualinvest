@@ -41,7 +41,7 @@ impl Chart {
         set_panic_hook();
         let map_coord = func_plot::draw(canvas_id, title, x_axis, values, names).map_err(|err| err.to_string())?;
         Ok(Chart {
-            convert: Box::new(move |coord| map_coord(coord).map(|(x, y)| (x.into(), y.into()))),
+            convert: Box::new(move |coord| map_coord(coord).map(|(x, y)| (x, y.into()))),
         })
     }
     /// This function can be used to convert screen coordinates to

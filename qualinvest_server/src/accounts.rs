@@ -300,8 +300,7 @@ pub async fn user_accounts(
             ))
         })?
         .into_iter()
-        .map(|a| a.id)
-        .flatten()
+        .filter_map(|a| a.id)
         .collect();
     let new_accounts: HashSet<i32> = user_accounts.accounts.iter().flatten().copied().collect();
     for u in (&old_accounts - &new_accounts).into_iter() {

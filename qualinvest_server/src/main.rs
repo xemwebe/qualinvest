@@ -151,7 +151,7 @@ async fn process_login(
     login
         .flash_redirect(
             login.redirect.clone(),
-            format!("/{}login", ServerState::base()),
+            format!("{}login", ServerState::base()),
             cookies,
             db,
         )
@@ -243,7 +243,7 @@ async fn rocket() -> _ {
         .about("Tools for quantitative analysis and management of financial asset portfolios")
         .arg(
             Arg::with_name("config")
-                .short("c")
+                .short('c')
                 .long("config")
                 .value_name("file")
                 .help("Sets a custom config file")
@@ -251,7 +251,7 @@ async fn rocket() -> _ {
         )
         .arg(
             Arg::with_name("debug")
-                .short("d")
+                .short('d')
                 .long("debug")
                 .help("Prints additional information for debugging purposes"),
         )
