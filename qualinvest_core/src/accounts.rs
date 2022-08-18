@@ -79,6 +79,13 @@ pub trait AccountHandler: TransactionHandler {
 
     /// Get document path for given transaction
     async fn get_doc_path(&self, transaction_id: i32) -> Result<String, DataError>;
+
+    /// Get list of pdf files missing in database
+    async fn get_missing_pdfs(&self) -> Result<Vec<(i32, String, String)>, DataError>;
+    
+    /// Store pdf file in database
+    async fn store_pdf(&self, id: i32, bytes: &[u8]) -> Result<(), DataError>;
+
     /// Get id of account a transaction belongs to
     async fn get_transactions_account_id(&self, transaction_id: i32) -> Result<i32, DataError>;
 
@@ -156,6 +163,9 @@ impl AccountHandler for PostgresDB {
         sqlx::query!("DROP TABLE IF EXISTS accounts")
             .execute(&self.pool)
             .await?;
+        sqlx::query!("DROP TABLE IF EXISTS pdf_files")
+            .execute(&self.pool)
+            .await?;
         sqlx::query!("DROP TABLE IF EXISTS documents")
             .execute(&self.pool)
             .await?;
@@ -205,6 +215,14 @@ impl AccountHandler for PostgresDB {
                 hash TEXT NOT NULL,
                 path TEXT NOT NULL,
                 FOREIGN KEY(transaction_id) REFERENCES transactions(id))"
+        )
+        .execute(&self.pool)
+        .await?;
+        sqlx::query!(
+            "CREATE TABLE public.pdf_files (
+                id int4 NOT NULL,
+                pdf bytea NOT NULL,
+                FOREIGN KEY (id) REFERENCES public.documents(id))"
         )
         .execute(&self.pool)
         .await?;
@@ -361,6 +379,31 @@ impl AccountHandler for PostgresDB {
         Ok(row.path)
     }
 
+    /// Get list of pdf not yet stored in database
+    async fn get_missing_pdfs(&self) -> Result<Vec<(i32, String, String)>, DataError> {
+        let mut missing_pdfs = Vec::new();
+        for row in sqlx::query!(
+            "SELECT
+                d.id, d.hash, d.path
+            FROM documents d
+            LEFT OUTER JOIN pdf_files p ON d.id=p.id
+            WHERE p.id IS NULL"
+        )
+        .fetch_all(&self.pool).await? {
+            missing_pdfs.push((row.id, row.hash, row.path));
+        }
+        Ok(missing_pdfs)
+    }
+
+    /// Store pdf in database
+    async fn store_pdf(&self, id: i32, bytes: &[u8]) -> Result<(), DataError> {
+        sqlx::query!(
+            "INSERT INTO pdf_files (id, pdf) VALUES ($1, $2)", id, bytes
+        )
+        .execute(&self.pool).await?;
+        Ok(())
+    }
+    
     /// Get id of account a transaction belongs to
     async fn get_transactions_account_id(&self, transaction_id: i32) -> Result<i32, DataError> {
         let row = sqlx::query!(

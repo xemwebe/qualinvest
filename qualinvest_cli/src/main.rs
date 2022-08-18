@@ -241,6 +241,18 @@ async fn main() {
                         .help("Title of performance graph")
                         .takes_value(true)
                 )        
+        )
+        .subcommand(
+            SubCommand::with_name("pdfupload")
+                .about("Upload missing pdf to database")
+                .setting(AppSettings::ColoredHelp)
+                .arg(
+                    Arg::with_name("source")
+                        .long("source-dir")
+                        .short('i')
+                        .help("Source directory, if missing use the standard pdf file directory configured in config file")
+                        .takes_value(true)
+                )        
             )
         .get_matches();
 
@@ -441,7 +453,6 @@ async fn main() {
         qualinvest_core::fill_quote_gaps(&mut market, min_size).await.unwrap();
     }
 
-
     if let Some(matches) = matches.subcommand_matches("performance") {
         let account_id = i32::from_str(matches.value_of("account").unwrap()).unwrap();
 
@@ -472,7 +483,7 @@ async fn main() {
         };
 
         let transactions = db.get_all_transactions_with_account_before(account_id, end_date).await.unwrap();
-        let market = Arc::new(Market::new(db).await);
+        let market = Arc::new(Market::new(db.clone()).await);
 
         let total_performance = calc_performance(
             currency,
@@ -504,6 +515,28 @@ async fn main() {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    if let Some(matches) = matches.subcommand_matches("pdfupload") {
+        let source_dir = std::path::Path::new(if let Some(source) = matches.value_of("source") {
+            source
+        } else {
+            &config.pdf.doc_path
+        });
+        let missing_pdfs = db.get_missing_pdfs().await.unwrap();
+        for file in missing_pdfs {
+            let file_path = source_dir.join(file.2);
+            if file_path.is_file() {
+                let hash = sha256_hash(&file_path).unwrap();
+                if hash != file.1 {
+                    eprintln!("Skipping file {}, hash differs!", file_path.display());
+                }      
+                let buffer = std::fs::read(&file_path).unwrap();
+                db.store_pdf(file.0, &buffer).await.unwrap();
+            } else { 
+                eprintln!("file not found: {}", file_path.display());
             }
         }
     }

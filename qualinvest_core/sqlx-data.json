@@ -1,5 +1,63 @@
 {
   "db": "PostgreSQL",
+  "007429d648d7a2a8641469cb54222b28753d6b830096bf7b309d64697f878893": {
+    "query": "SELECT q.id, q.ticker_id, q.price, q.time, q.volume, t.currency_id, t.priority\n                FROM quotes q\n                JOIN ticker t ON t.id = q.ticker_id\n                WHERE t.asset_id = $1 AND q.time>= $2 AND q.time <= $3\n                ORDER BY q.time DESC, t.priority ASC",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 1,
+          "name": "ticker_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 2,
+          "name": "price",
+          "type_info": "Float8"
+        },
+        {
+          "ordinal": 3,
+          "name": "time",
+          "type_info": "Timestamptz"
+        },
+        {
+          "ordinal": 4,
+          "name": "volume",
+          "type_info": "Float8"
+        },
+        {
+          "ordinal": 5,
+          "name": "currency_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 6,
+          "name": "priority",
+          "type_info": "Int4"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Timestamptz",
+          "Timestamptz"
+        ]
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
+    }
+  },
   "03c0cccaff0db036ebcc4a703f94e30402913d3ca2507feb75b1c3a81b36fd4e": {
     "query": "SELECT\n                         id,\n                         iso_code,\n                         rounding_digits\n                     FROM currencies \n                     WHERE id = $1",
     "describe": {
@@ -1510,6 +1568,16 @@
       "nullable": []
     }
   },
+  "a02a450aed3102554e6219fb4abf745702e14d6001a1cc7987678478fae4451e": {
+    "query": "CREATE TABLE public.pdf_files (\n                id int4 NOT NULL,\n                pdf bytea NOT NULL,\n                FOREIGN KEY (id) REFERENCES public.documents(id))",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": []
+      },
+      "nullable": []
+    }
+  },
   "a15d6dddda647bdc06668a5e84410d924f7cce05a78627d39eef14ae67fb49ab": {
     "query": "CREATE TABLE IF NOT EXISTS quotes (\n                id SERIAL PRIMARY KEY,\n                ticker_id INTEGER NOT NULL,\n                price FLOAT8 NOT NULL,\n                time TIMESTAMP WITH TIME ZONE NOT NULL,\n                volume FLOAT8,\n                FOREIGN KEY(ticker_id) REFERENCES ticker(id) \n            )",
     "describe": {
@@ -1653,17 +1721,17 @@
         "Left": []
       },
       "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
         true,
         true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true
+        false,
+        false,
+        false
       ]
     }
   },
@@ -1828,6 +1896,19 @@
         true,
         true
       ]
+    }
+  },
+  "b0a0fdc6ec8f52df52a06cc3026979b9ca9f5f1951511bd3056b55ecf928125e": {
+    "query": "INSERT INTO pdf_files (id, pdf) VALUES ($1, $2)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Bytea"
+        ]
+      },
+      "nullable": []
     }
   },
   "b17067063d609646637eb1536d0a197667fc262df28486279260b6d3633304ef": {
@@ -2234,6 +2315,36 @@
       ]
     }
   },
+  "e6ad1499aad0b15f536e01e16ec577f5e8aaf3f418a08447c1b25939bb9a990e": {
+    "query": "SELECT\n                d.id, d.hash, d.path\n            FROM documents d\n            LEFT OUTER JOIN pdf_files p ON d.id=p.id\n            WHERE p.id IS NULL",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 1,
+          "name": "hash",
+          "type_info": "Text"
+        },
+        {
+          "ordinal": 2,
+          "name": "path",
+          "type_info": "Text"
+        }
+      ],
+      "parameters": {
+        "Left": []
+      },
+      "nullable": [
+        false,
+        false,
+        false
+      ]
+    }
+  },
   "e977d8ba0b90879996b31e154a86422b8a1608d77f8e2c7d6abb9d8ee7ea61db": {
     "query": "SELECT settings FROM user_settings WHERE user_id=$1",
     "describe": {
@@ -2390,14 +2501,14 @@
         "Left": []
       },
       "nullable": [
+        false,
+        false,
         true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
+        false,
+        false,
+        false,
+        false,
+        false,
         true,
         true,
         true
@@ -2483,6 +2594,16 @@
         false,
         false
       ]
+    }
+  },
+  "ef76aaa3ad548314a46e33fda261122449b8053b1d6aa112c7c653771ee1e5e4": {
+    "query": "DROP TABLE IF EXISTS pdf_files",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": []
+      },
+      "nullable": []
     }
   },
   "f1fe1f80a7fa01b7aa12318f6bfd164ec72d4f730792aad71cfc2b4892533eaa": {
