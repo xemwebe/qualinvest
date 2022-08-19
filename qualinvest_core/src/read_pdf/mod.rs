@@ -206,7 +206,11 @@ pub async fn parse_and_store<'a>(
                         let _ = db.add_transaction_to_account(acc_id, trans_id).await?;
                     }
                     store_pdf_as_name(path, &file_name, &hash, config).await?;
-                    db.insert_doc(&trans_ids, &hash, &file_name).await?;
+                    let doc_ids = db.insert_doc(&trans_ids, &hash, &file_name).await?;
+                    let buffer = std::fs::read(path).unwrap();
+                    for id in doc_ids {
+                        db.store_pdf(id, &buffer).await.unwrap();
+                    }
                     Ok(trans_ids.len() as i32)
                 },
                 Err(err) => Err(err),

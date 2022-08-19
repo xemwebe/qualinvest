@@ -75,7 +75,7 @@ pub trait AccountHandler: TransactionHandler {
         transaction_ids: &[i32],
         hash: &str,
         path: &str,
-    ) -> Result<(), DataError>;
+    ) -> Result<Vec<i32>, DataError>;
 
     /// Get document path for given transaction
     async fn get_doc_path(&self, transaction_id: i32) -> Result<String, DataError>;
@@ -219,10 +219,10 @@ impl AccountHandler for PostgresDB {
         .execute(&self.pool)
         .await?;
         sqlx::query!(
-            "CREATE TABLE public.pdf_files (
+            "CREATE TABLE pdf_files (
                 id int4 NOT NULL,
                 pdf bytea NOT NULL,
-                FOREIGN KEY (id) REFERENCES public.documents(id))"
+                FOREIGN KEY (id) REFERENCES documents(id))"
         )
         .execute(&self.pool)
         .await?;
@@ -354,18 +354,20 @@ impl AccountHandler for PostgresDB {
         transaction_ids: &[i32],
         hash: &str,
         path: &str,
-    ) -> Result<(), DataError> {
+    ) -> Result<Vec<i32>, DataError> {
+        let mut doc_ids = Vec::new();
         for trans_id in transaction_ids {
-            sqlx::query!(
-                "INSERT INTO documents (transaction_id, hash, path) VALUES ($1, $2, $3)",
+            let row = sqlx::query!(
+                "INSERT INTO documents (transaction_id, hash, path) VALUES ($1, $2, $3) RETURNING id",
                 *trans_id,
                 hash,
                 path
             )
-            .execute(&self.pool)
+            .fetch_one(&self.pool)
             .await?;
+            doc_ids.push(row.id);
         }
-        Ok(())
+        Ok(doc_ids)
     }
 
     /// Get document path for given transaction
