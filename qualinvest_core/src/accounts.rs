@@ -21,6 +21,7 @@ pub struct TransactionView {
     pub id: i32,
     pub group_id: Option<i32>,
     pub asset_id: Option<i32>,
+    pub asset_name: Option<String>,
     pub position: Option<f64>,
     pub trans_type: String,
     pub cash_amount: f64,
@@ -649,6 +650,8 @@ impl AccountHandler for PostgresDB {
                 ELSE t.related_trans
                 END) AS group_id
             , a.id AS "asset_id?"
+            , s.name as "stock_name?"
+            , cn.iso_code as "currency_name?"
             , t.position
             , t.trans_type
             , t.cash_amount
@@ -664,6 +667,8 @@ impl AccountHandler for PostgresDB {
             transactions t
             LEFT JOIN assets a ON a.id = t.asset_id
             LEFT JOIN documents d ON d.transaction_id = t.id
+            LEFT JOIN stocks s ON s.id = t.asset_id
+            LEFT JOIN currencies cn ON cn.id = t.asset_id
             JOIN account_transactions at ON at.transaction_id = t.id
         WHERE 
             c.id = t.cash_currency_id
@@ -678,8 +683,14 @@ impl AccountHandler for PostgresDB {
                 let date: chrono::NaiveDate = row.cash_date;
                 let cash_date = date.format("%Y-%m-%d").to_string();
                 let currency_isocode = CurrencyISOCode::new(&row.iso_code)?;
+                let asset_name = if let Some(name) = row.stock_name {
+                    Some(name)
+                } else {
+                    row.currency_name
+                };
                 transactions.push(TransactionView {
                     id: row.id,
+                    asset_name,
                     group_id: row.group_id,
                     asset_id: row.asset_id,
                     position: row.position,
@@ -715,6 +726,8 @@ impl AccountHandler for PostgresDB {
                 ELSE t.related_trans
                 END) AS group_id
             , a.id AS "asset_id?"
+            , s.name as "stock_name?"
+            , cn.iso_code as "currency_name?"
             , t.position
             , t.trans_type
             , t.cash_amount
@@ -730,6 +743,8 @@ impl AccountHandler for PostgresDB {
             transactions t
             LEFT JOIN assets a ON a.id = t.asset_id
             LEFT JOIN documents d ON d.transaction_id = t.id
+            LEFT JOIN stocks s ON s.id = t.asset_id
+            LEFT JOIN currencies cn ON cn.id = t.asset_id
             JOIN account_transactions at ON at.transaction_id = t.id
         WHERE 
             a.id = $1
@@ -745,8 +760,14 @@ impl AccountHandler for PostgresDB {
             let date: chrono::NaiveDate = row.cash_date;
             let cash_date = date.format("%Y-%m-%d").to_string();
             let currency_isocode = CurrencyISOCode::new(&row.iso_code)?;
-            transactions.push(TransactionView {
+            let asset_name = if let Some(name) = row.stock_name {
+                Some(name)
+            } else {
+                row.currency_name
+            };
+        transactions.push(TransactionView {
                 id: row.id,
+                asset_name,
                 group_id: row.group_id,
                 asset_id: row.asset_id,
                 position: row.position,

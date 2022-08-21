@@ -30,6 +30,7 @@ pub async fn store_pdf_as_name(
     config: &PdfParseParams,
 ) -> Result<(), ReadPDFError> {
     let new_path = Path::new(&config.doc_path).join(name);
+    println!("Debug: new doc path: {}", new_path.display());
     match copy(pdf_path, &new_path) {
         Ok(_) => Ok(()),
         Err(e) => Err(ReadPDFError::IoError(e))

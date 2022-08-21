@@ -89,7 +89,7 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
                 let ex_div_day = Some(german_string_to_date(&cap[1])?);
                 let position = Some(german_string_to_float(&cap[4])?);
                 if true {
-                    println!("Debug: Found asset in Interest or BondPayBack with wkn: {:?}, isin: {:?}, name: '{:?}', ex_div_day: {:?}, position: {:?}",
+                    println!("Debug: Found asset in Dividend note with wkn: {:?}, isin: {:?}, name: '{:?}', ex_div_day: {:?}, position: {:?}",
                         wkn, isin, name, ex_div_day, position);
                 }
             Ok(AssetInfo {
@@ -158,10 +158,11 @@ async fn parse_fx_rate(text: &str, market: &Market) -> Result<(Option<f64>, Opti
     }
 
     let cap = cap.unwrap();
+    println!("Debug: Parsing FX-rate: {} {} {}", &cap[1], &cap[2], &cap[3]);
     let fx_rate = german_string_to_float(&cap[1])?;
     let amount = german_string_to_float(&cap[3])?;
     let currency = market.get_currency(
-        CurrencyISOCode::new(&cap[1]).map_err(ReadPDFError::ParseCurrency)?
+        CurrencyISOCode::new(&cap[2]).map_err(ReadPDFError::ParseCurrency)?
     ).await?;
 
     Ok((Some(fx_rate), Some(CashAmount { amount, currency })))
@@ -226,6 +227,7 @@ async fn parse_pre_tax(
         return match PRE_TAX_AMOUNT_TAX.captures(text) {
             None => Err(ReadPDFError::NotFound("pre-tax amount")),
             Some(cap) => {
+                println!("Debug: Pre Tax amount: {} {}", &cap[2], &cap[1]);
                 let amount = german_string_to_float(&cap[2])?;
                 let currency = market.get_currency(
                     CurrencyISOCode::new(&cap[1]).map_err(ReadPDFError::ParseCurrency)?
@@ -245,9 +247,10 @@ async fn parse_pre_tax(
     match PRE_TAX_AMOUNT.captures(text) {
         None => Err(ReadPDFError::NotFound("pre-tax amount")),
         Some(cap) => {
+            println!("Debug: Pre Tax amount: {} {} at {}", &cap[3], &cap[2], &cap[1]);
             let amount = german_string_to_float(&cap[3])?;
             let currency = market.get_currency(
-                CurrencyISOCode::new(&cap[1]).map_err(ReadPDFError::ParseCurrency)?
+                CurrencyISOCode::new(&cap[2]).map_err(ReadPDFError::ParseCurrency)?
             ).await?;
             let valuta = german_string_to_date(&cap[1])?;
             Ok((CashAmount { amount, currency }, valuta))
