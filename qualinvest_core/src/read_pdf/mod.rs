@@ -12,10 +12,13 @@ use thiserror::Error;
 use chrono::{NaiveDate, Local, Datelike, TimeZone};
 use sanitize_filename::sanitize;
 
-use finql::fx_rates::SimpleCurrencyConverter;
-use finql::datatypes::{
-    Asset, CashAmount, CashFlow, CurrencyError, DataError, DataItem, Transaction, TransactionType, 
-    date_time_helper::make_time
+use finql::{
+    Market,
+    fx_rates::SimpleCurrencyConverter,
+    datatypes::{
+        Asset, CashAmount, CashFlow, CurrencyError, DataError, Transaction, TransactionType, 
+        date_time_helper::make_time
+    }
 };
 
 use super::accounts::{Account, AccountHandler};
@@ -55,6 +58,10 @@ pub enum ReadPDFError {
     UnknownDocumentType,
     #[error("No proper file name has been delivered")]
     MissingFileName,
+    #[error("Asset '{0}' not found in database")]
+    AssetNotFound(String),
+    #[error("Market data error")]
+    MarketError(#[from] finql::market::MarketError),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -155,6 +162,7 @@ pub async fn parse_and_store<'a>(
     file_name: &'a str,
     db: Arc<dyn AccountHandler+Send+Sync>,
     config: &'a PdfParseParams,
+    market: &'a Market
 ) -> Result<i32, ReadPDFError> {
     let file_name = sanitize(file_name);
     let hash = sha256_hash(path)?;
@@ -184,7 +192,7 @@ pub async fn parse_and_store<'a>(
             };
 
             // Retrieve all transaction relevant data from pdf
-            let tri = parse_transactions(&text)?;
+            let tri = parse_transactions(&text, &market).await?;
             // If not disabled, perform consistency check
             if config.consistency_check {
                 check_consistency(&tri).await?;
@@ -193,7 +201,10 @@ pub async fn parse_and_store<'a>(
             let transactions_info = make_transactions(&tri).await;
             match transactions_info {
                 Ok((transactions, asset)) => {
-                    let asset_id = asset.get_id()?;
+                    let asset_id = db.get_asset_id(&asset).await.ok_or_else(|| ReadPDFError::AssetNotFound(match asset {
+                        Asset::Stock(stock) => stock.name,
+                        Asset::Currency(curr) => curr.to_string(),
+                    }))?;
                     let mut trans_ids = Vec::new();
                     for trans in transactions {
                         let mut trans = trans.clone();

@@ -1,13 +1,12 @@
-use std::ops::Deref;
-use std::str::FromStr;
 ///! # qualinvest_core
 ///!
 ///! This library is part of a set of tools for quantitative investments.
 ///! For mor information, see [qualinvest on github](https://github.com/xemwebe/qualinvest)
 ///!
+
 use std::sync::Arc;
 
-use chrono::{DateTime, Datelike, Local, Weekday};
+use chrono::{Datelike, Local, Weekday};
 use serde::Deserialize;
 
 use finql::{datatypes::QuoteHandler,
@@ -66,7 +65,7 @@ pub struct ServerSettings {
     pub secret_key: Option<String>,
 }
 
-fn add_provider(market: &mut finql::Market, token: &Option<String>, source: MarketDataSource) {
+fn add_provider(market: &finql::Market, token: &Option<String>, source: MarketDataSource) {
     if let Some(token) = token {
         if let Some(provider) = source.get_provider(token.clone()) {
             market.add_provider(source.to_string(), provider)
@@ -74,7 +73,7 @@ fn add_provider(market: &mut finql::Market, token: &Option<String>, source: Mark
     }
 }
 
-fn set_market_providers(market: &mut finql::Market, providers: &MarketDataProviders) {
+fn set_market_providers(market: &finql::Market, providers: &MarketDataProviders) {
     // yahoo is always present
     let yahoo = MarketDataSource::Yahoo;
     market.add_provider(
@@ -82,56 +81,22 @@ fn set_market_providers(market: &mut finql::Market, providers: &MarketDataProvid
         yahoo.get_provider(String::new()).unwrap(),
     );
     add_provider(
-        market,
+        &market,
         &providers.alpha_vantage_token,
         MarketDataSource::AlphaVantage,
     );
     add_provider(
-        market,
+        &market,
         &providers.gurufocus_token,
         MarketDataSource::GuruFocus,
     );
     add_provider(
-        market,
+        &market,
         &providers.eod_historical_data_token,
         MarketDataSource::EodHistData,
     );
     let codi = MarketDataSource::Comdirect;
     market.add_provider(codi.to_string(), codi.get_provider(String::new()).unwrap());
-}
-
-pub async fn update_quote_history(
-    ticker_id: i32,
-    start: DateTime<Local>,
-    end: DateTime<Local>,
-    db: Arc<dyn QuoteHandler + Send + Sync>,
-    market_data: &MarketDataProviders,
-) -> Result<(), MarketError> {
-    let mut market = finql::Market::new(db).await;
-    set_market_providers(&mut market, market_data);
-    market.update_quote_history(ticker_id, start, end).await
-}
-
-pub async fn update_ticker(
-    ticker_id: i32,
-    db: Arc<dyn QuoteHandler + Send + Sync>,
-    market_data: &MarketDataProviders,
-) -> Result<(), MarketError> {
-    let ticker = db.get_ticker_by_id(ticker_id).await?;
-    let ticker_source = MarketDataSource::from_str(&ticker.source)?;
-    let token = match ticker_source {
-        MarketDataSource::AlphaVantage => market_data.alpha_vantage_token.clone(),
-        MarketDataSource::GuruFocus => market_data.gurufocus_token.clone(),
-        MarketDataSource::EodHistData => market_data.eod_historical_data_token.clone(),
-        _ => Some(String::new()),
-    };
-    if let Some(token) = token {
-        let provider = ticker_source.get_provider(token);
-        if let Some(provider) = provider {
-            finql::market_quotes::update_ticker(provider.deref(), &ticker, db).await?;
-        }
-    }
-    Ok(())
 }
 
 pub async fn setup_market(

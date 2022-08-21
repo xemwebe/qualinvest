@@ -15,6 +15,7 @@ use finql::datatypes::{
     Asset, AssetHandler, CashAmount, CashFlow, Currency, Transaction, TransactionHandler,
     TransactionType,
 };
+use finql::Market;
 use qualinvest_core::accounts::{Account, AccountHandler, TransactionView};
 use qualinvest_core::read_pdf::parse_and_store;
 use qualinvest_core::user::UserHandler;
@@ -275,7 +276,7 @@ pub struct UploadError {
 pub async fn pdf_upload(
     mut data: Form<PDFUploadFormData<'_>>,
     user: UserCookie,
-    state: &State<ServerState>,
+    state: &State<ServerState>
 ) -> Result<Template, Redirect> {
     let pdf_config = PdfParseParams {
         doc_path: state.doc_path.clone(),
@@ -313,8 +314,9 @@ pub async fn pdf_upload(
                 .to_string();
 
             if let Some(path) = doc.path() {
+                let market = Market::new(state.postgres_db.clone()).await;
                 let transactions =
-                    parse_and_store(path, &file_name, state.postgres_db.clone(), &pdf_config).await;
+                    parse_and_store(path, &file_name, state.postgres_db.clone(), &pdf_config, &market).await;
                 match transactions {
                     Err(err) => {
                         errors.push(UploadError {

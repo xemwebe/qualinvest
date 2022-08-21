@@ -30,8 +30,8 @@ use rocket::response::{Flash, Redirect};
 use rocket::State;
 use rocket_dyn_templates::Template;
 
-use finql::postgres::PostgresDB;
-use qualinvest_core::{Config, MarketDataProviders};
+use finql::{Market, postgres::PostgresDB};
+use qualinvest_core::{Config, setup_market};
 
 mod accounts;
 mod asset;
@@ -58,7 +58,7 @@ static BASE_PATH: OnceCell<String> = OnceCell::new();
 pub struct ServerState {
     postgres_db: Arc<PostgresDB>,
     doc_path: String,
-    market_data: MarketDataProviders,
+    market: Market,
 }
 
 impl ServerState {
@@ -279,10 +279,14 @@ async fn rocket() -> _ {
             .merge(("secret_key", config.server.secret_key.unwrap()))
     };
     let templates = filter::set_filter();
+
+    let postgres_db = Arc::new(postgres_db);
+    let market = setup_market(postgres_db.clone(), &config.market_data).await;
+
     let server_state = ServerState {
-        postgres_db: Arc::new(postgres_db),
+        postgres_db,
         doc_path: config.pdf.doc_path.clone(),
-        market_data: config.market_data,
+        market,
     };
 
     // Normalize rel_path, i.e. either "" or "<some path>/" such that format!("/{}<rest of path>", rel_path) is valid

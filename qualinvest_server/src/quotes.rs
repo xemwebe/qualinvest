@@ -106,16 +106,14 @@ pub async fn update_asset_quote(
         )));
     }
 
-    let db = state.postgres_db.clone();
-
-    qualinvest_core::update_ticker(ticker_id, db, &state.market_data)
+    state.market.update_quote_for_ticker(ticker_id)
         .await
         .map_err(|_| {
             Redirect::to(uri!(
                 ServerState::base(),
                 show_quotes(
                     asset_id,
-                    Some("Updating prices for ticker failed".to_string())
+                    Some("Updating price for ticker failed".to_string())
                 )
             ))
         })?;
@@ -145,7 +143,6 @@ pub async fn renew_history(
         )));
     }
 
-    let db = state.postgres_db.clone();
     let start_date = date_time_from_str_standard(&start, 0, None).map_err(|_| {
         Redirect::to(uri!(
             ServerState::base(),
@@ -159,7 +156,7 @@ pub async fn renew_history(
         ))
     })?;
 
-    qualinvest_core::update_quote_history(ticker_id, start_date, end_date, db, &state.market_data)
+    state.market.update_quote_history(ticker_id, start_date, end_date)
         .await
         .map_err(|_| {
             Redirect::to(uri!(

@@ -4,10 +4,9 @@ use super::german_string_to_date;
 use super::german_string_to_float;
 use super::{DocumentType, ParsedTransactionInfo, ReadPDFError};
 use chrono::NaiveDate;
-use finql::datatypes::{Asset, Stock, Currency, CashAmount};
+use finql::{Market, datatypes::{Asset, CashAmount, CurrencyISOCode, Stock}};
 use lazy_static::lazy_static;
 use regex::{Regex, RegexSet};
-use std::str::FromStr;
 
 struct AssetInfo {
     asset: Asset,
@@ -49,6 +48,10 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
                     let ex_div_day = Some(german_string_to_date(&cap[1])?);
                     let position = Some(german_string_to_float(&cap[5])?);
                     let interest_rate = Some(german_string_to_float(&cap[2])?);
+                    if true {
+                        println!("Debug: Found asset in Interest or BondPayBack with wkn: {:?}, isin: {:?}, name: '{:?}', ex_div_day: {:?}, position: {:?}, inerest rate: {:?}",
+                            wkn, isin, name, ex_div_day, position, interest_rate);
+                    }
                     Ok(AssetInfo {
                         asset: Asset::Stock(Stock::new(None, name, isin, wkn, None)),
                         _ex_div_day: ex_div_day,
@@ -65,6 +68,9 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
                 Some(cap) => {
                     let wkn = Some(cap[1].to_string());
                     let isin = Some(cap[2].to_string());
+                    if true {
+                        println!("Debug: Found asset in Tax info with wkn: {:?}, isin: {:?}", wkn, isin);
+                    }
                     Ok(AssetInfo {
                         asset: Asset::Stock(Stock::new(None, String::new(), isin, wkn, None)),
                         _ex_div_day: None,
@@ -82,7 +88,11 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
                 let name = format!("{} {}", cap[2].trim(), cap[5].trim());
                 let ex_div_day = Some(german_string_to_date(&cap[1])?);
                 let position = Some(german_string_to_float(&cap[4])?);
-                Ok(AssetInfo {
+                if true {
+                    println!("Debug: Found asset in Interest or BondPayBack with wkn: {:?}, isin: {:?}, name: '{:?}', ex_div_day: {:?}, position: {:?}",
+                        wkn, isin, name, ex_div_day, position);
+                }
+            Ok(AssetInfo {
                     asset: Asset::Stock(Stock::new(None, name, isin, wkn, None)),
                     _ex_div_day: ex_div_day,
                     _interest_rate: None,
@@ -108,13 +118,12 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
     }
 }
 
-fn parse_amount(regex: &Regex, text: &str) -> Result<Option<CashAmount>, ReadPDFError> {
+async fn parse_amount(regex: &Regex, text: &str, market: &Market) -> Result<Option<CashAmount>, ReadPDFError> {
     match regex.captures(text) {
         None => Ok(None),
         Some(cap) => {
             let amount = german_string_to_float(&cap[2])?;
-            let currency =
-                Currency::from_str(&cap[1]).map_err(ReadPDFError::ParseCurrency)?;
+            let currency = market.get_currency_from_str(&cap[1]).await?;
             Ok(Some(CashAmount { amount, currency }))
         }
     }
@@ -130,7 +139,7 @@ fn must_have(
     }
 }
 
-fn parse_fx_rate(text: &str) -> Result<(Option<f64>, Option<CashAmount>), ReadPDFError> {
+async fn parse_fx_rate(text: &str, market: &Market) -> Result<(Option<f64>, Option<CashAmount>), ReadPDFError> {
     lazy_static! {
         static ref EXCHANGE_RATE: Regex = Regex::new(
             r"Umrechn. zum Dev. kurs\s+([0-9,.]*)\s+vom\s+[0-9.]*\s+:\s+([A-Z]{3})\s+([-0-9,.]+)"
@@ -151,7 +160,9 @@ fn parse_fx_rate(text: &str) -> Result<(Option<f64>, Option<CashAmount>), ReadPD
     let cap = cap.unwrap();
     let fx_rate = german_string_to_float(&cap[1])?;
     let amount = german_string_to_float(&cap[3])?;
-    let currency = Currency::from_str(&cap[2]).map_err(ReadPDFError::ParseCurrency)?;
+    let currency = market.get_currency(
+        CurrencyISOCode::new(&cap[1]).map_err(ReadPDFError::ParseCurrency)?
+    ).await?;
 
     Ok((Some(fx_rate), Some(CashAmount { amount, currency })))
 }
@@ -195,9 +206,10 @@ fn parse_doc_type(text: &str) -> Result<DocumentType, ReadPDFError> {
     }
 }
 
-fn parse_pre_tax(
+async fn parse_pre_tax(
     text: &str,
     doc_type: DocumentType,
+    market: &Market
 ) -> Result<(CashAmount, NaiveDate), ReadPDFError> {
     lazy_static! {
         static ref PRE_TAX_AMOUNT: Regex = Regex::new(
@@ -215,8 +227,9 @@ fn parse_pre_tax(
             None => Err(ReadPDFError::NotFound("pre-tax amount")),
             Some(cap) => {
                 let amount = german_string_to_float(&cap[2])?;
-                let currency =
-                    Currency::from_str(&cap[1]).map_err(ReadPDFError::ParseCurrency)?;
+                let currency = market.get_currency(
+                    CurrencyISOCode::new(&cap[1]).map_err(ReadPDFError::ParseCurrency)?
+                ).await?;
                 let valuta = match VALUTA.captures(text) {
                     Some(cap) => Ok(german_string_to_date(&cap[1])?),
                     None => match VALUTA_ALT.captures(text) {
@@ -233,21 +246,23 @@ fn parse_pre_tax(
         None => Err(ReadPDFError::NotFound("pre-tax amount")),
         Some(cap) => {
             let amount = german_string_to_float(&cap[3])?;
-            let currency =
-                Currency::from_str(&cap[2]).map_err(ReadPDFError::ParseCurrency)?;
+            let currency = market.get_currency(
+                CurrencyISOCode::new(&cap[1]).map_err(ReadPDFError::ParseCurrency)?
+            ).await?;
             let valuta = german_string_to_date(&cap[1])?;
             Ok((CashAmount { amount, currency }, valuta))
         }
     }
 }
 
-fn add_or_append(
+async fn add_or_append(
     payments: &mut Vec<CashAmount>,
     regex: &Regex,
     text: &str,
     factor: f64,
+    market: Market,
 ) -> Result<(), ReadPDFError> {
-    let new_payment = parse_amount(regex, text)?;
+    let new_payment = parse_amount(regex, text, &market).await?;
     if new_payment.is_none() {
         return Ok(());
     }
@@ -265,20 +280,21 @@ fn add_or_append(
     Ok(())
 }
 
-fn parse_payment_components(
+async fn parse_payment_components(
     payments: &mut Vec<CashAmount>,
     regex_vec: &[Regex],
     text: &str,
     factor: f64,
+    market: &Market,
 ) -> Result<(), ReadPDFError> {
     for regex in regex_vec {
-        add_or_append(payments, regex, text, factor)?;
+        add_or_append(payments, regex, text, factor, market.clone()).await?;
     }
     Ok(())
 }
 
 /// Extract transaction information from text files
-pub fn parse_transactions(text: &str) -> Result<ParsedTransactionInfo, ReadPDFError> {
+pub async fn parse_transactions(text: &str, market: &Market) -> Result<ParsedTransactionInfo, ReadPDFError> {
     lazy_static! {
         static ref TOTAL_POSITION: Regex = Regex::new(
             r"Summe\s+St.\s+([0-9.,]+)\s+[A-Z]{3}\s+[0-9,.]+\s+([A-Z]{3})\s+([-0-9,.]+)"
@@ -342,36 +358,35 @@ pub fn parse_transactions(text: &str) -> Result<ParsedTransactionInfo, ReadPDFEr
             },
             Some(position) => {
                 let amount = german_string_to_float(&position[3])?;
-                let currency = Currency::from_str(&position[2])
-                    .map_err(ReadPDFError::ParseCurrency)?;
+                let currency = market.get_currency_from_str(&position[2]).await?;
                 pre_tax_fee_value = Some(CashAmount { amount, currency });
                 Some(german_string_to_float(&position[1])?)
             }
         };
     }
 
-    let (pre_tax, valuta) = parse_pre_tax(text, doc_type)?;
+    let (pre_tax, valuta) = parse_pre_tax(text, doc_type, &market).await?;
 
     if pre_tax_fee_value.is_none() {
         pre_tax_fee_value = match doc_type {
-            DocumentType::Buy | DocumentType::Sell => parse_amount(&TRADE_VALUE, text)?,
-            DocumentType::Dividend | DocumentType::Interest => parse_amount(&DIV_PRE_TAX, text)?,
+            DocumentType::Buy | DocumentType::Sell => parse_amount(&TRADE_VALUE, text, market).await?,
+            DocumentType::Dividend | DocumentType::Interest => parse_amount(&DIV_PRE_TAX, text, market).await?,
             DocumentType::Tax => Some(pre_tax),
-            DocumentType::BondPayBack => parse_amount(&BOND_PAYBACK, text)?,
+            DocumentType::BondPayBack => parse_amount(&BOND_PAYBACK, text, &market).await?,
         };
     }
     let pre_tax_fee_value = must_have(pre_tax_fee_value, "can't find value before taxes and fees")?;
 
     // Determine final value
     let total_amount = match doc_type {
-        DocumentType::Sell | DocumentType::Buy => parse_amount(&TOTAL_AMOUNT, text)?,
+        DocumentType::Sell | DocumentType::Buy => parse_amount(&TOTAL_AMOUNT, text, &market).await?,
         DocumentType::Dividend | DocumentType::Interest | DocumentType::BondPayBack => {
             Some(pre_tax)
         }
-        DocumentType::Tax => parse_amount(&PAID_TAX, text)?,
+        DocumentType::Tax => parse_amount(&PAID_TAX, text, &market).await?,
     };
     let total_amount = must_have(total_amount, "can't identify total payment amount")?;
-    let (fx_rate, _) = parse_fx_rate(text)?;
+    let (fx_rate, _) = parse_fx_rate(text, &market).await?;
 
     // Collect essential informations in ParsedTransactionInfo
     let mut tri = match doc_type {
@@ -447,12 +462,12 @@ pub fn parse_transactions(text: &str) -> Result<ParsedTransactionInfo, ReadPDFEr
         } else {
             1.0
         };
-        parse_payment_components(&mut tri.extra_fees, &COMDIRECT_FEES, text, sign)?;
+        parse_payment_components(&mut tri.extra_fees, &COMDIRECT_FEES, text, sign, &market).await?;
         if tri.doc_type != DocumentType::Tax {
             // Already in main payment included if document is of type tax
-            parse_payment_components(&mut tri.extra_taxes, &COMDIRECT_TAXES, text, 1.0)?;
+            parse_payment_components(&mut tri.extra_taxes, &COMDIRECT_TAXES, text, 1.0, &market).await?;
         }
-        parse_payment_components(&mut tri.accruals, &COMDIRECT_ACCRUALS, text, -1.0)?;
+        parse_payment_components(&mut tri.accruals, &COMDIRECT_ACCRUALS, text, -1.0, &market).await?;
     }
 
     Ok(tri)

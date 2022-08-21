@@ -287,6 +287,7 @@ async fn main() {
     }
 
     let db = Arc::new(db);
+    let market = Market::new(db.clone()).await;
 
     if let Some(matches) = matches.subcommand_matches("hash") {
         let pdf_file = std::path::Path::new(matches.value_of("INPUT").unwrap());
@@ -339,7 +340,7 @@ async fn main() {
                 count_docs += 1;
                 let path = file.unwrap();
                 let file_name = path.file_name().unwrap().to_str().unwrap();
-                let transactions = parse_and_store(&path, file_name, db.clone(), &config.pdf).await;
+                let transactions = parse_and_store(&path, file_name, db.clone(),  &config.pdf, &market).await;
                 match transactions {
                     Err(err) => {
                         count_failed += 1;
@@ -357,10 +358,10 @@ async fn main() {
                 count_docs, count_skipped, count_failed, count_docs-count_skipped-count_failed, count_transactions);
         } else {
             // parse single file
-            let pdf_file = matches.value_of("parse-pdf").unwrap();
+            let pdf_file = matches.value_of("PATH").unwrap();
             let path = std::path::Path::new(pdf_file);
             let file_name = path.file_name().unwrap().to_str().unwrap();
-            let transactions = parse_and_store(path, file_name, db, &config.pdf).await;
+            let transactions = parse_and_store(path, file_name, db, &config.pdf, &market).await;
             match transactions {
                 Err(err) => {
                     println!("Failed to parse file {} with error {:?}", pdf_file, err);
@@ -383,7 +384,7 @@ async fn main() {
                 .await.unwrap(),
             None => db.get_all_transactions().await.unwrap(),
         };
-        let market = Arc::new(Market::new(db).await);
+        let market = Market::new(db).await;
         let mut position = calc_position(currency, &transactions, None, market.clone()).await.unwrap();
         position.get_asset_names(market.db().into_arc_dispatch()).await.unwrap();
         
@@ -418,11 +419,11 @@ async fn main() {
             } else {
                 date_time_from_str_standard("2014-01-01", 9, None).unwrap()
             };
-            qualinvest_core::update_quote_history(ticker_id, start, end, db, &config.market_data)
+            market.update_quote_history(ticker_id, start, end)
                 .await.unwrap();
         } else if matches.is_present("ticker-id") {
             let ticker_id = i32::from_str(matches.value_of("ticker-id").unwrap()).unwrap();
-            qualinvest_core::update_ticker(ticker_id, db.clone(), &config.market_data).await.unwrap();
+            market.update_quote_for_ticker(ticker_id).await.unwrap();
         } else {
             let market = setup_market(db.clone(), &config.market_data).await;
             let failed_ticker = market.update_quotes().await.unwrap();
@@ -483,14 +484,14 @@ async fn main() {
         };
 
         let transactions = db.get_all_transactions_with_account_before(account_id, end_date).await.unwrap();
-        let market = Arc::new(Market::new(db.clone()).await);
+        let market = Market::new_with_date_range(db.clone(), start_date, end_date).await.unwrap();
 
         let total_performance = calc_performance(
             currency,
             &transactions,
             start_date,
             end_date,
-            market,
+            &market,
             "TARGET",
         )
         .await;

@@ -2,7 +2,6 @@
 use std::str::FromStr;
 use finql::{
     Market,
-    market::{CachePolicy, TimeRange},
     postgres::PostgresDB,
     datatypes::{DataError, date_time_helper::{DateTimeError, naive_date_to_date_time}},
     portfolio::{calc_delta_position, calculate_position_and_pnl},
@@ -85,11 +84,8 @@ pub async fn account_performance(
     let mut current_date = start.date_from_trades(&transactions)?;
     let end_date = end.date(None)?;
     let mut dates = vec![current_date];
-    let mut market = Market::new(db.clone()).await;
-    market.set_cache_policy(CachePolicy::PredefinedPeriod(TimeRange{start: 
-        naive_date_to_date_time(&current_date, 0, None)?, end: naive_date_to_date_time(&end_date, 0, None)?}));
-    let currency = market.get_currency("EUR").await?;
-    let market = Arc::new(market);
+    let market = Market::new_with_date_range(db.clone(), current_date, end_date).await?;
+    let currency = market.get_currency_from_str("EUR").await?;
     let calendar = market.get_calendar("TARGET")?;
     let period = finql::time_period::TimePeriod::from_str("1B")?;
     while current_date <= end_date {
@@ -98,7 +94,7 @@ pub async fn account_performance(
         current_date = next_date;
     }
     let (mut position, _) =
-        calculate_position_and_pnl(currency, &transactions, Some(dates[0]), market.clone()).await?;
+        calculate_position_and_pnl(currency, &transactions, Some(dates[0]), &market).await?;
     let time = naive_date_to_date_time(&dates[0], 0, None)?;
     position.add_quote(time, &market).await;
     let mut total_pnls = TimeSeries::new(name);
