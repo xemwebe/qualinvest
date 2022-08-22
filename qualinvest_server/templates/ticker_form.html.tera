@@ -22,7 +22,13 @@
 		</div>
 		<div class="table_row">
 			<label class="table_cell" for="currency">Currency:</label>
-			<input class="table_cell" id="currency" name="currency" type="text" {% if ticker %}value="{{ticker.currency}}"{% endif %}>
+			<select class="table_cell" id="currency" name="currency">
+				{% for curr in currencies %}
+				<option value={{curr.id}} {% if ticker %}{% if curr.id == currency_id %}selected{% endif %}
+										  {% else %}{% if curr.name == "EUR" %}selected{% endif %}	
+										  {% endif %}>{{curr.name}}</option> 
+				{% endfor %}
+			</select> 
 		</div>
 		<div class="table_row">
 			<label class="table_cell" for="factor">Factor:</label>

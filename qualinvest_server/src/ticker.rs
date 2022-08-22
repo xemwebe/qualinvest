@@ -1,9 +1,9 @@
+/// Viewing and editing market quote ticker
+
 use rocket::form::{Form, FromForm};
 use rocket::response::Redirect;
 use rocket::State;
 use rocket_dyn_templates::Template;
-/// Viewing and editing market quote ticker
-use std::str::FromStr;
 
 use finql::datatypes::{AssetHandler, QuoteHandler};
 
@@ -68,6 +68,7 @@ pub async fn edit_ticker(
     if let Some(ticker_id) = ticker_id {
         if let Ok(ticker) = db.get_ticker_by_id(ticker_id).await {
             context.insert("ticker", &ticker);
+            context.insert("currency_id", &ticker.currency.id);
         } else {
             context.insert("err_msg", "Invalid ticker ID");
         }
@@ -76,10 +77,16 @@ pub async fn edit_ticker(
     let sources = finql::market_quotes::MarketDataSource::extern_sources();
     context.insert("sources", &sources);
 
+    if let Ok(currencies) = db.get_currency_list().await {
+        context.insert("currencies", &currencies);
+    } else {
+        context.insert("err_msg", "No currencies have been defined yet");
+    }
+
     let _ = context.try_insert("err_msg", &err_msg);
     Ok(layout("ticker_form", &context.into_json()))
 }
-
+ 
 #[get("/ticker/delete?<ticker_id>&<asset_id>")]
 pub async fn delete_ticker(
     ticker_id: i32,
@@ -113,7 +120,7 @@ pub struct TickerForm {
     pub name: String,
     pub source: String,
     pub priority: i32,
-    pub currency: String,
+    pub currency: i32,
     pub factor: f64,
 }
 
@@ -134,7 +141,7 @@ pub async fn save_ticker(
     let db = state.postgres_db.clone();
     // Try to get asset just to make sure it does exist
     if let Ok(_asset) = db.get_asset_by_id(ticker_form.asset_id).await {
-        if let Ok(currency) = finql::datatypes::Currency::from_str(&ticker_form.currency) {
+        if let Ok(currency) = state.market.get_currency_by_id(ticker_form.currency).await {
             let ticker = finql::datatypes::Ticker {
                 id: ticker_form.ticker_id,
                 asset: ticker_form.asset_id,
