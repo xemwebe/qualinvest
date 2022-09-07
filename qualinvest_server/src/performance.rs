@@ -95,11 +95,13 @@ pub async fn account_performance(
     }
     let (mut position, _) =
         calculate_position_and_pnl(currency, &transactions, Some(dates[0]), &market).await?;
-    let time = naive_date_to_date_time(&dates[0], 0, None)?;
+    let mut time = naive_date_to_date_time(&dates[0], 0, None)?;
     position.add_quote(time, &market).await;
     let mut total_pnls = TimeSeries::new(name);
     for i in 1..dates.len() {
-        calc_delta_position(&mut position, &transactions, Some(dates[i]), Some(dates[i-1]), market.clone()).await?;
+        calc_delta_position(&mut position, &transactions, Some(dates[i-1]), Some(dates[i]), market.clone()).await?;
+        time = naive_date_to_date_time(&dates[i], 20, None)?;
+        position.add_quote(time, &market).await;
         let totals = position.calc_totals();
         total_pnls.series.push(TimeValue {
             time,
