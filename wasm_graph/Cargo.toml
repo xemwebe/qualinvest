@@ -3,6 +3,9 @@ name = "wasm-graph"
 version = "0.1.0"
 authors = ["Mark Beinker <mwb@quantlink.de>"]
 edition = "2021"
+description = "Helper library for drawing performance charts for qualinvest"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/xemwebe/qualinvest"
 
 [lib]
 crate-type=["cdylib", "lib"]
@@ -13,7 +16,6 @@ plotters-canvas = "^0.3.*"
 plotters-backend = "^0.3.*"
 plotters-bitmap = "^0.3.*"
 wasm-bindgen = "0.2.62"
-wee_alloc = "0.4.5"
 web-sys = { version = "0.3.39", features = ["HtmlCanvasElement", "console"] }
 chrono =  { version = "0.4", features = ["wasmbind"]}
 serde_json = "1.0"
