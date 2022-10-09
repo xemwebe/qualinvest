@@ -148,7 +148,7 @@ async fn main() {
                 .arg(
                     Arg::with_name("history")
                         .long("history")
-                        .short('h')
+                        .short('H')
                         .help("Update history of quotes, only allowed in single ticker mode")
                 )
                 .arg(

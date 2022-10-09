@@ -15,7 +15,7 @@ fn sample_data() -> (Vec<i64>, Vec<f32>, String) {
         Local.ymd(2022, 3, 1).and_hms_milli(0, 0, 0, 0), 
     ];
     let graphs = vec![
-        Graph{ name: "one".to_string(), values: vec![ 1., 4., 2.] },
+        Graph{ name: "one".to_string(), values: vec![ 1., 4., 2.2] },
         Graph{ name: "two".to_string(), values: vec![ 3., 2., 5.] },
         Graph{ name: "three".to_string(), values: vec![ 2., 4., 2.] },
     ];

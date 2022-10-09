@@ -11,7 +11,7 @@ repository = "https://github.com/xemwebe/qualinvest"
 crate-type=["cdylib", "lib"]
 
 [dependencies]
-plotters = "0.3.1"
+plotters = "0.3"
 plotters-canvas = "^0.3.*"
 plotters-backend = "^0.3.*"
 plotters-bitmap = "^0.3.*"
