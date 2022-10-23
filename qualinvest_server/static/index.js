@@ -50,7 +50,7 @@ function onMouseMove(event) {
 			const point = chart.coord(logicX, logicY);
 			if (point) {
 				let date = new Date(Number(point.x));
-				text = `(${date.getDay()+1}.${date.getMonth()+1}.${date.getFullYear()}, ${point.y.toFixed(4)})`
+				text = `(${date.getDate()}.${date.getMonth()+1}.${date.getFullYear()}, ${point.y.toFixed(4)})`
 			}
 		}
         coord.innerText = text;

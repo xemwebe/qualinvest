@@ -25,9 +25,10 @@ async function init() {
 	title = "Performance Graph";
 	var dates = new BigInt64Array([{% for entry in time_series.series %}BigInt(Date.parse('{{entry.time}}')),{% endfor %}]);
 	var values = new Float32Array([{% for entry in time_series.series %}{{entry.value}},{% endfor %}]);
-	var names = "[\"{{time_series.title}}\"]";
+	var names = '[{"name":"{{time_series.title}}","start_idx":0}]';
     main(title, dates, values, names);
 }
 </script>
 {% endif %}
 {% endblock %}
+

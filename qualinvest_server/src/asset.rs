@@ -4,6 +4,7 @@ use rocket::response::Redirect;
 /// Viewing and analyzing assets
 use rocket::State;
 use rocket_dyn_templates::Template;
+use serde::{Deserialize, Serialize};
 
 use finql::datatypes::{Asset, AssetHandler, DataItem, QuoteHandler, Stock};
 use qualinvest_core::accounts::AccountHandler;
@@ -34,6 +35,12 @@ impl AssetForm {
     }
 }
 
+#[derive(Serialize)]
+pub struct Source {
+    name: String,
+    start_idx: usize,
+}
+
 #[get("/asset?<asset_id>&<message>")]
 pub async fn analyze_asset(
     asset_id: Option<i32>,
@@ -52,7 +59,7 @@ pub async fn analyze_asset(
     let mut message = message;
     let mut context = state.default_context();
     let db = state.postgres_db.clone();
-    if let Ok(mut asset_list) = db.get_asset_list().await{ 
+    if let Ok(mut asset_list) = db.get_asset_list().await {
         asset_list.sort_by(|a, b| a.name.cmp(&b.name));
         context.insert("assets", &asset_list);
     } else {
@@ -73,6 +80,8 @@ pub async fn analyze_asset(
         };
 
         let mut all_quotes = Vec::new();
+        let mut quote_idx = 0;
+        let mut sources = Vec::new();
         for t in ticker {
             let mut quotes = if let Ok(quotes) = db.get_all_quotes_for_ticker(t.id.unwrap()).await {
                 quotes
@@ -80,10 +89,18 @@ pub async fn analyze_asset(
                 message = Some("Failed to get quotes".to_string());
                 Vec::new()
             };
+            if quotes.is_empty() {
+                continue;
+            }
             all_quotes.append(&mut quotes);
-            context.insert(&t.source, &t.name);
+            sources.push(Source {
+                name: format!("{}:{}", t.source, t.name),
+                start_idx: quote_idx,
+            });
+            quote_idx = all_quotes.len();
         }
         context.insert("quotes", &all_quotes);
+        context.insert("sources", &sources);
         if let Some(user_accounts) = user_accounts {
             let mut account_ids = Vec::new();
             for a in user_accounts {

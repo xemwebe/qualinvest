@@ -1,24 +1,25 @@
-/// View performance comparison of different assets / portfolios
-use std::str::FromStr;
 use finql::{
-    Market,
-    postgres::PostgresDB,
-    datatypes::{DataError, date_time_helper::{DateTimeError, naive_date_to_date_time}},
-    portfolio::{calc_delta_position, calculate_position_and_pnl},
-    time_series::{TimeSeries, TimeValue},
+    datatypes::{
+        date_time_helper::{naive_date_to_date_time, DateTimeError},
+        DataError, Transaction,
+    },
     period_date::{PeriodDate, PeriodDateError},
+    portfolio::{calc_delta_position, calculate_position_and_pnl},
+    postgres::PostgresDB,
+    time_series::{TimeSeries, TimeValue},
+    Market,
 };
-use qualinvest_core::{
-    accounts::AccountHandler,
-    user::UserHandler
-};
+use qualinvest_core::{accounts::AccountHandler, user::UserHandler};
 use rocket::response::Redirect;
 use rocket::State;
 use rocket_dyn_templates::Template;
+/// View performance comparison of different assets / portfolios
+use std::str::FromStr;
 use std::sync::Arc;
 use thiserror::Error;
 
 use super::ServerState;
+use crate::asset::Source;
 use crate::layout::layout;
 use crate::user::UserCookie;
 
@@ -37,6 +38,8 @@ pub enum PerformanceError {
     InvalidDateTime(#[from] DateTimeError),
     #[error("Invalid period date")]
     InvalidPeriodDate(#[from] PeriodDateError),
+    #[error("Empty time period")]
+    EmptyTimePeriod,
 }
 
 #[get("/performance?<message>")]
@@ -52,20 +55,33 @@ pub async fn performance(
     let mut message = message;
     let mut context = state.default_context();
 
+    let market = state.market.clone();
     for account_id in user_settings.account_ids {
-        let account_pnl = account_performance(account_id, &format!("performance of {}", account_id),
-        user_settings.period_start, user_settings.period_end, db.clone()).await;
-        if let Ok(pnl_series) = account_pnl {
-            context.insert("time_series", &pnl_series);
+        if let Ok(transactions) = db.get_all_transactions_with_account(account_id).await {
+            let account_pnl = account_performance(
+                account_id,
+                &format!("performance of {}", account_id),
+                user_settings.period_start,
+                user_settings.period_end,
+                &transactions,
+                market.clone(),
+            )
+            .await;
+            if let Ok(pnl_series) = account_pnl {
+                context.insert("time_series", &pnl_series);
+            } else {
+                message = Some(format!(
+                    "Creating total portfolio return graph failed: {:?}",
+                    account_pnl.err()
+                ));
+            }
         } else {
             message = Some(format!(
-                "Create total portfolio return graph failed: {:?}",
-                account_pnl.err()
+                "Failed to read transactions for account {}",
+                account_id
             ));
         }
     }
-
-
 
     context.insert("user", &user);
     context.insert("err_msg", &message);
@@ -77,14 +93,13 @@ pub async fn account_performance(
     name: &str,
     start: PeriodDate,
     end: PeriodDate,
-    db: Arc<PostgresDB>,
+    transactions: &[Transaction],
+    market: Market,
 ) -> Result<TimeSeries, PerformanceError> {
     // Calculate total p&l time series
-    let transactions = db.get_all_transactions_with_account(account_id).await?;
     let mut current_date = start.date_from_trades(&transactions)?;
     let end_date = end.date(None)?;
     let mut dates = vec![current_date];
-    let market = Market::new_with_date_range(db.clone(), current_date, end_date).await?;
     let currency = market.get_currency_from_str("EUR").await?;
     let calendar = market.get_calendar("TARGET")?;
     let period = finql::time_period::TimePeriod::from_str("1B")?;
@@ -98,15 +113,27 @@ pub async fn account_performance(
     let mut time = naive_date_to_date_time(&dates[0], 0, None)?;
     position.add_quote(time, &market).await;
     let mut total_pnls = TimeSeries::new(name);
-    for i in 1..dates.len() {
-        calc_delta_position(&mut position, &transactions, Some(dates[i-1]), Some(dates[i]), market.clone()).await?;
-        time = naive_date_to_date_time(&dates[i], 20, None)?;
-        position.add_quote(time, &market).await;
-        let totals = position.calc_totals();
-        total_pnls.series.push(TimeValue {
-            time,
-            value: totals.value,
-        });    
+    if let Some(last_date) = dates.last() {
+        market.set_cache_period(time, naive_date_to_date_time(last_date, 20, None)?)?;
+        for i in 1..dates.len() {
+            calc_delta_position(
+                &mut position,
+                &transactions,
+                Some(dates[i - 1]),
+                Some(dates[i]),
+                market.clone(),
+            )
+            .await?;
+            time = naive_date_to_date_time(&dates[i], 20, None)?;
+            position.add_quote(time, &market).await;
+            let totals = position.calc_totals();
+            total_pnls.series.push(TimeValue {
+                time,
+                value: totals.value,
+            });
+        }
+    } else {
+        return Err(PerformanceError::EmptyTimePeriod);
     }
 
     Ok(total_pnls)

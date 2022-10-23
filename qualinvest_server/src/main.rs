@@ -30,8 +30,8 @@ use rocket::response::{Flash, Redirect};
 use rocket::State;
 use rocket_dyn_templates::Template;
 
-use finql::{Market, postgres::PostgresDB};
-use qualinvest_core::{Config, setup_market};
+use finql::{postgres::PostgresDB, Market};
+use qualinvest_core::{setup_market, Config};
 
 mod accounts;
 mod asset;
@@ -40,13 +40,13 @@ mod filter;
 mod form_types;
 mod helper;
 mod layout;
+mod performance;
 mod position;
 mod quotes;
 mod ticker;
 mod transactions;
 mod user;
 mod user_settings;
-mod performance;
 
 use auth::authorization::*;
 use layout::*;
@@ -218,6 +218,12 @@ async fn static_files(file: PathBuf) -> Option<NamedFile> {
     NamedFile::open(Path::new("static/").join(file)).await.ok()
 }
 
+/// Provide favicon.ico at default path
+#[get("/favicon.ico", rank = 10)]
+async fn favicon() -> Option<NamedFile> {
+    NamedFile::open(Path::new("static/favicon.ico")).await.ok()
+}
+
 /// As a first proxy, catch errors here
 #[get("/err?<msg>")]
 async fn error_msg(
@@ -319,6 +325,7 @@ async fn rocket() -> _ {
                 logout,
                 index,
                 static_files,
+                favicon,
                 error_msg,
                 graph,
                 position::position,

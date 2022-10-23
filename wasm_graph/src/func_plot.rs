@@ -1,3 +1,4 @@
+use crate::log;
 use crate::DrawResult;
 use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveDateTime};
 use plotters::prelude::*;
@@ -5,9 +6,15 @@ use plotters::prelude::*;
 use plotters_bitmap::BitMapBackend;
 #[cfg(target_family = "wasm")]
 use plotters_canvas::CanvasBackend;
+use serde::Deserialize;
 use serde_json;
 use std::time::{Duration, UNIX_EPOCH};
-use crate::log;
+
+#[derive(Deserialize)]
+pub struct Source {
+    name: String,
+    start_idx: usize,
+}
 
 fn min_max_val<T: PartialOrd + GenericConst<T> + Copy>(values: &[T]) -> (T, T) {
     if values.is_empty() {
@@ -86,8 +93,14 @@ pub fn draw(
     values: &[f32],
     names_json: &str,
 ) -> DrawResult<impl Fn((i32, i32)) -> Option<(i64, f32)>> {
-    let names: Vec<String> = serde_json::from_str(names_json)?;
-    log!("start draw: title: {}, times: {:?}, values: {:?}, names: {}", title, times, values, names_json);
+    let sources: Vec<Source> = serde_json::from_str(names_json)?;
+    log!(
+        "start draw: title: {}, #times: {}, #values: {}, names: {}",
+        title,
+        times.len(),
+        values.len(),
+        names_json
+    );
     #[cfg(not(target_family = "wasm"))]
     let backend = BitMapBackend::new(canvas_id, (1280, 1024));
     #[cfg(target_family = "wasm")]
@@ -97,7 +110,6 @@ pub fn draw(
 
     root.fill(&WHITE)?;
 
-    let len_series = values.len() / names.len();
     let (min_time, max_time) = calc_time_range(times);
     let time_range = min_time..max_time;
     let (min_val, max_val) = min_max_val(values);
@@ -107,19 +119,12 @@ pub fn draw(
         .margin::<u32>(50)
         .caption(title, font)
         .x_label_area_size::<u32>(80)
-        .y_label_area_size::<u32>(80);
-    
-    let time_span = max_time - min_time;
-    if time_span < chrono::days(50) {
-        chart.build_cartesian_2d(time_range.daily(), y_range)?;
-    } else if time_span < Duration::months(50) {
-        chart.build_cartesian_2d(time_range.monthly(), y_range)?;
-    } else {
-        chart.build_cartesian_2d(time_range.yearly(), y_range)?;
-    }
+        .y_label_area_size::<u32>(80)
+        .build_cartesian_2d(time_range, y_range)?;
+
     chart
         .configure_mesh()
-        .x_labels(10)
+        .x_labels(5)
         .x_desc("date")
         .x_label_formatter(&fmt_date_time)
         .disable_x_mesh()
@@ -131,13 +136,24 @@ pub fn draw(
 
     static COLORS: [&RGBColor; 5] = [&BLUE, &GREEN, &RED, &CYAN, &MAGENTA];
     let mut color_index: usize = 0;
-    let mut idx = 0;
-    for name in names {
+    for idx in 0..sources.len() {
+        let start_idx = sources[idx].start_idx;
+        let end_idx = if idx + 1 < sources.len() {
+            sources[idx + 1].start_idx
+        } else {
+            times.len()
+        };
+        log!(
+            "start_idx: {}, end_idx: {}, label: {}",
+            start_idx,
+            end_idx,
+            sources[idx].name
+        );
         chart
             .draw_series(LineSeries::new(
-                times
+                times[start_idx..end_idx]
                     .iter()
-                    .zip(values[idx..idx + len_series].iter())
+                    .zip(values[start_idx..end_idx].iter())
                     .map(|(x, y)| {
                         (
                             DateTime::<Local>::from(UNIX_EPOCH + Duration::from_millis(*x as u64)),
@@ -146,11 +162,10 @@ pub fn draw(
                     }),
                 &COLORS[color_index],
             ))?
-            .label(name)
+            .label(sources[idx].name.clone())
             .legend(move |(x, y)| {
                 Rectangle::new([(x, y - 5), (x + 10, y + 5)], &COLORS[color_index])
             });
-        idx += len_series;
         color_index = (color_index + 1) % COLORS.len();
     }
 
@@ -163,8 +178,8 @@ pub fn draw(
     root.present()?;
 
     #[cfg(not(target_family = "wasm"))]
-    return Ok(move |(_,_)| None);
-    #[cfg(target_family = "wasm")]   
+    return Ok(move |(_, _)| None);
+    #[cfg(target_family = "wasm")]
     {
         let coord_convert = chart.into_coord_trans();
         return Ok(move |(x, y)| coord_convert((x, y)).map(|(t, v)| (t.timestamp_millis(), v)));

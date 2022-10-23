@@ -42,32 +42,6 @@
 	function asset_change() {
 		var asset_id = document.getElementById("asset").value;
 		window.location.href = "asset?asset_id=" + asset_id;
-
-		var edit = document.getElementById('edit_button');
-		var destroy = document.getElementById('destroy_button');
-		var ticker = document.getElementById('ticker_button');
-		var quotes = document.getElementById('quotes_button');
-		if (asset_id) {
-			edit.setAttribute('disabled','true');
-			destroy.setAttribute('disabled','true');
-			analyze.setAttribute('disabled','true');
-			ticker.setAttribute('disabled','true');
-			quotes.setAttribute('disabled','true');
-		} else {
-			var edit_id = document.getElementById('edit_id');
-			edit_id.value = asset_id;
-			edit.removeAttribute('disabled');
-			var destroy_id = document.getElementById('destroy_id');
-			destroy_id.value = asset_id;
-			destroy.removeAttribute('disabled');
-			var ticker_id = document.getElementById('ticker_id');
-			ticker_id.value = asset_id;
-			ticker.removeAttribute('disabled');
-			var quotes_id = document.getElementById('quotes_id');
-			quotes_id.value = asset_id;
-			quotes.removeAttribute('disabled');
-		}
-
 	}
 	</script>
 {% endblock %}
@@ -91,16 +65,16 @@
 		<div class="table_row">
 			{% if asset_id %}
 				<div class="table_cell">
-					<a class="button" id="edit_link" href="{{relpath}}asset/edit?asset_id={{asset_id}}">Edit</a>
+					<a class="button" id="edit_button" href="{{relpath}}asset/edit?asset_id={{asset_id}}">Edit</a>
 				</div>
 				<div class="table_cell">
-					<a class="button" id="edit_link" href="{{relpath}}asset/delete?asset_id={{asset_id}}">Delete</a>
+					<a class="button" id="delete_button" href="{{relpath}}asset/delete?asset_id={{asset_id}}">Delete</a>
 				</div>
 				<div class="table_cell">
-					<a class="button" id="edit_link" href="{{relpath}}tickers?asset_id={{asset_id}}">Tickers</a>
+					<a class="button" id="ticker_button" href="{{relpath}}tickers?asset_id={{asset_id}}">Tickers</a>
 				</div>
 				<div class="table_cell">
-					<a class="button" id="edit_link" href="{{relpath}}quotes?asset_id={{asset_id}}">Quotes</a>
+					<a class="button" id="quotes_button" href="{{relpath}}quotes?asset_id={{asset_id}}">Quotes</a>
 				</div>
 			{% endif %}
 			<div class="table_cell">
@@ -146,14 +120,8 @@ async function init() {
 	var dates = new BigInt64Array([{% for quote in quotes %}BigInt(Date.parse('{{quote.time}}')),{% endfor %}]);
 	var values = new Float32Array([{% for quote in quotes %}{{quote.price}},{% endfor %}]);
 	var title = "Asset quote history";
-	var labels = "["
-	{% if assets %}
-		{% for asset in assets %}
-			{% if asset_id and asset.id == asset_id %}labels += "\"{{asset.name}}\"";{% endif %}
-		{% endfor %}
-	{% endif %}
-	labels += "]"
-    main("Price history", dates, values, labels);
+	var labels = '[{% for source in sources  %}{"name":"{{source.name}}","start_idx":{{source.start_idx}} }{% endfor %}]';
+    main(title, dates, values, labels);
 }
 </script>
 {% endif %}

@@ -4,7 +4,7 @@
 ///! For mor information, see [qualinvest on github](https://github.com/xemwebe/qualinvest)
 
 use std::fs;
-use std::io::{stdout, BufReader};
+use std::io::{stdout, BufReader, Write};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::error::Error;
@@ -229,16 +229,9 @@ async fn main() {
                 )
                 .arg(
                     Arg::with_name("output")
-                        .long("output-dir")
+                        .long("output-file")
                         .short('o')
-                        .help("Output directory")
-                        .takes_value(true)
-                )        
-                .arg(
-                    Arg::with_name("title")
-                        .long("title")
-                        .short('t')
-                        .help("Title of performance graph")
+                        .help("Output file")
                         .takes_value(true)
                 )        
         )
@@ -472,15 +465,10 @@ async fn main() {
         } else {
             Currency::from_str("EUR").unwrap()
         };
-        let file = if matches.is_present("output") {
+        let file_name = if matches.is_present("output") {
             matches.value_of("output").unwrap().to_string()
         } else {
-            "total_performance.svg".to_string()
-        };
-        let title = if matches.is_present("title") {
-            matches.value_of("output").unwrap().to_string()
-        } else {
-            "Total Performance".to_string()
+            "total_performance.json".to_string()
         };
 
         let transactions = db.get_all_transactions_with_account_before(account_id, end_date).await.unwrap();
@@ -495,29 +483,8 @@ async fn main() {
             "TARGET",
         )
         .await;
-        match total_performance {
-            Ok(performance) => {
-                let performance_series = vec![TimeSeries {
-                    series: performance,
-                    title: title.clone(),
-                }];
-            
-                // plot the graph
-                plot::make_plot(&file, &title, &performance_series).unwrap();
-            },
-            Err(err) => {
-                eprintln!("Failure while calculating performance: {err}");
-                if let Some(err2) = err.source() {
-                    eprintln!("  caused by: {err2}");
-                    if let Some(err3) = err2.source() {
-                        eprintln!("    caused by: {err3}");
-                        if let Some(err4) = err3.source() {
-                            eprintln!("      caused by: {err4}");
-                        }
-                    }
-                }
-            }
-        }
+        let mut file = fs::File::open(file_name).unwrap();
+        write!(file, "{:?}", total_performance);
     }
 
     if let Some(matches) = matches.subcommand_matches("pdfupload") {
