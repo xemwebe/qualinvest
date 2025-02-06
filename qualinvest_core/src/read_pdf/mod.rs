@@ -1,7 +1,7 @@
+//! # Read pdf files and transform into plain text
+//! This requires the extern tool `pdftotext`
+//! which is part of [XpdfReader](https://www.xpdfreader.com/pdftotext-man.html).
 use std::path::Path;
-///! # Read pdf files and transform into plain text
-///! This requires the extern tool `pdftotext`
-///! which is part of [XpdfReader](https://www.xpdfreader.com/pdftotext-man.html).
 use std::process::Command;
 use std::sync::Arc;
 use std::{io, num, string};
@@ -124,7 +124,7 @@ pub fn text_from_pdf(file: &Path) -> Result<String, ReadPDFError> {
     let output = Command::new("pdftotext")
         .arg("-layout")
         .arg("-q")
-        .arg(&file)
+        .arg(file)
         .arg("-")
         .output()?;
     Ok(String::from_utf8(output.stdout)?)
@@ -194,7 +194,7 @@ pub async fn parse_and_store<'a>(
             };
 
             // Retrieve all transaction relevant data from pdf
-            let tri = parse_transactions(&text, &market).await?;
+            let tri = parse_transactions(&text, market).await?;
             // If not disabled, perform consistency check
             if config.consistency_check {
                 check_consistency(&tri).await?;
@@ -218,7 +218,7 @@ pub async fn parse_and_store<'a>(
                         }
                         let trans_id = db.insert_transaction(&trans).await?;
                         trans_ids.push(trans_id);
-                        let _ = db.add_transaction_to_account(acc_id, trans_id).await?;
+                        db.add_transaction_to_account(acc_id, trans_id).await?;
                     }
                     store_pdf_as_name(path, &file_name, &hash, config).await?;
                     let doc_ids = db.insert_doc(&trans_ids, &hash, &file_name).await?;

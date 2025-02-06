@@ -1,8 +1,8 @@
-///! # qualinvest_core
-///!
-///! This library is part of a set of tools for quantitative investments.
-///! For mor information, see [qualinvest on github](https://github.com/xemwebe/qualinvest)
-///!
+//! # qualinvest_core
+//!
+//! This library is part of a set of tools for quantitative investments.
+//! For mor information, see [qualinvest on github](https://github.com/xemwebe/qualinvest)
+//!
 use std::sync::Arc;
 
 use chrono::{Datelike, Local};
@@ -81,17 +81,17 @@ fn set_market_providers(market: &finql::Market, providers: &MarketDataProviders)
         yahoo.get_provider(String::new()).unwrap(),
     );
     add_provider(
-        &market,
+        market,
         &providers.alpha_vantage_token,
         MarketDataSource::AlphaVantage,
     );
     add_provider(
-        &market,
+        market,
         &providers.gurufocus_token,
         MarketDataSource::GuruFocus,
     );
     add_provider(
-        &market,
+        market,
         &providers.eod_historical_data_token,
         MarketDataSource::EodHistData,
     );
@@ -103,8 +103,8 @@ pub async fn setup_market(
     db: Arc<dyn QuoteHandler + Send + Sync>,
     market_data: &MarketDataProviders,
 ) -> Market {
-    let mut market = finql::Market::new(db).await;
-    set_market_providers(&mut market, market_data);
+    let market = finql::Market::new(db).await;
+    set_market_providers(&market, market_data);
     market
 }
 

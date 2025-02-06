@@ -2,7 +2,7 @@ use super::ReadPDFError;
 use crate::PdfParseParams;
 use data_encoding::HEXUPPER;
 use ring::digest::{Context, SHA256};
-use std::fs::{File,copy};
+use std::fs::{copy, File};
 use std::io::{BufReader, Read};
 use std::path::Path;
 
@@ -33,7 +33,7 @@ pub async fn store_pdf_as_name(
     println!("Debug: new doc path: {}", new_path.display());
     match copy(pdf_path, &new_path) {
         Ok(_) => Ok(()),
-        Err(e) => Err(ReadPDFError::IoError(e))
+        Err(e) => Err(ReadPDFError::IoError(e)),
     }
 }
 

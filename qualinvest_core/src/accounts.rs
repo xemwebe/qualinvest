@@ -1,4 +1,4 @@
-///! Implementation of Accounts and an according PostgreSQL handler
+//! Implementation of Accounts and an according PostgreSQL handler
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
@@ -83,7 +83,7 @@ pub trait AccountHandler: TransactionHandler {
 
     /// Get list of pdf files missing in database
     async fn get_missing_pdfs(&self) -> Result<Vec<(i32, String, String)>, DataError>;
-    
+
     /// Store pdf file in database
     async fn store_pdf(&self, id: i32, bytes: &[u8]) -> Result<(), DataError>;
 
@@ -252,8 +252,8 @@ impl AccountHandler for PostgresDB {
     async fn update_account(&self, account: &Account) -> Result<(), DataError> {
         if let Some(id) = account.id {
             sqlx::query!(
-                "UPDATE accounts SET 
-                    account_name=$1, 
+                "UPDATE accounts SET
+                    account_name=$1,
                     broker=$2
                 WHERE id=($3)",
                 account.account_name,
@@ -392,7 +392,9 @@ impl AccountHandler for PostgresDB {
             LEFT OUTER JOIN pdf_files p ON d.id=p.id
             WHERE p.id IS NULL"
         )
-        .fetch_all(&self.pool).await? {
+        .fetch_all(&self.pool)
+        .await?
+        {
             missing_pdfs.push((row.id, row.hash, row.path));
         }
         Ok(missing_pdfs)
@@ -400,13 +402,12 @@ impl AccountHandler for PostgresDB {
 
     /// Store pdf in database
     async fn store_pdf(&self, id: i32, bytes: &[u8]) -> Result<(), DataError> {
-        sqlx::query!(
-            "INSERT INTO pdf_files (id, pdf) VALUES ($1, $2)", id, bytes
-        )
-        .execute(&self.pool).await?;
+        sqlx::query!("INSERT INTO pdf_files (id, pdf) VALUES ($1, $2)", id, bytes)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
-    
+
     /// Get id of account a transaction belongs to
     async fn get_transactions_account_id(&self, transaction_id: i32) -> Result<i32, DataError> {
         let row = sqlx::query!(
@@ -425,24 +426,24 @@ impl AccountHandler for PostgresDB {
     ) -> Result<Vec<Transaction>, DataError> {
         let mut transactions = Vec::new();
         for row in sqlx::query!(
-            "SELECT 
-                    t.id, 
-                    t.trans_type, 
-                    t.asset_id, 
-                    t.cash_amount, 
-                    t.cash_currency_id, 
-                    t.cash_date, 
-                    t.related_trans, 
-                    t.position, 
+            "SELECT
+                    t.id,
+                    t.trans_type,
+                    t.asset_id,
+                    t.cash_amount,
+                    t.cash_currency_id,
+                    t.cash_date,
+                    t.related_trans,
+                    t.position,
                     t.note,
                     c.iso_code,
                     c.rounding_digits
-                FROM 
-                    transactions t, 
+                FROM
+                    transactions t,
                     account_transactions a,
                     currencies c
-                WHERE 
-                    a.account_id = $1 
+                WHERE
+                    a.account_id = $1
                     AND a.transaction_id = t.id
                     AND c.id = t.cash_currency_id
                 ORDER BY
@@ -481,25 +482,25 @@ impl AccountHandler for PostgresDB {
     ) -> Result<Vec<Transaction>, DataError> {
         let mut transactions = Vec::new();
         for row in sqlx::query!(
-            "SELECT 
-                    t.id, 
-                    t.trans_type, 
-                    t.asset_id, 
-                    t.cash_amount, 
-                    t.cash_currency_id, 
-                    t.cash_date, 
-                    t.related_trans, 
-                    t.position, 
+            "SELECT
+                    t.id,
+                    t.trans_type,
+                    t.asset_id,
+                    t.cash_amount,
+                    t.cash_currency_id,
+                    t.cash_date,
+                    t.related_trans,
+                    t.position,
                     t.note,
                     c.iso_code,
                     c.rounding_digits
-                FROM 
-                    transactions t, 
+                FROM
+                    transactions t,
                     account_transactions a,
                     currencies c
-                WHERE 
-                    a.account_id = $1 
-                    AND a.transaction_id = t.id 
+                WHERE
+                    a.account_id = $1
+                    AND a.transaction_id = t.id
                     AND t.cash_date < $2
                     AND c.id = t.cash_currency_id",
             account_id,
@@ -538,25 +539,25 @@ impl AccountHandler for PostgresDB {
     ) -> Result<Vec<Transaction>, DataError> {
         let mut transactions = Vec::new();
         for row in sqlx::query!(
-            "SELECT 
-                    t.id, 
-                    t.trans_type, 
-                    t.asset_id, 
-                    t.cash_amount, 
-                    t.cash_currency_id, 
-                    t.cash_date, 
-                    t.related_trans, 
-                    t.position, 
+            "SELECT
+                    t.id,
+                    t.trans_type,
+                    t.asset_id,
+                    t.cash_amount,
+                    t.cash_currency_id,
+                    t.cash_date,
+                    t.related_trans,
+                    t.position,
                     t.note,
                     c.iso_code,
-                    c.rounding_digits 
-                FROM 
-                    transactions t, 
+                    c.rounding_digits
+                FROM
+                    transactions t,
                     account_transactions a,
                     currencies c
-                WHERE 
-                    a.account_id = $1 
-                    AND a.transaction_id = t.id 
+                WHERE
+                    a.account_id = $1
+                    AND a.transaction_id = t.id
                     AND t.cash_date BETWEEN $2 AND $3
                     AND c.id = t.cash_currency_id",
             account_id,
@@ -646,7 +647,7 @@ impl AccountHandler for PostgresDB {
         for row in sqlx::query!(
             r#"SELECT
             t.id
-            ,(CASE WHEN t.related_trans IS null THEN t.id 
+            ,(CASE WHEN t.related_trans IS null THEN t.id
                 ELSE t.related_trans
                 END) AS group_id
             , a.id AS "asset_id?"
@@ -670,7 +671,7 @@ impl AccountHandler for PostgresDB {
             LEFT JOIN stocks s ON s.id = t.asset_id
             LEFT JOIN currencies cn ON cn.id = t.asset_id
             JOIN account_transactions at ON at.transaction_id = t.id
-        WHERE 
+        WHERE
             c.id = t.cash_currency_id
             AND at.account_id = ANY($1)
             ORDER BY t.cash_date DESC, group_id, t.id"#,
@@ -722,7 +723,7 @@ impl AccountHandler for PostgresDB {
         for row in sqlx::query!(
             r#"SELECT
             t.id
-            ,(CASE WHEN t.related_trans IS null THEN t.id 
+            ,(CASE WHEN t.related_trans IS null THEN t.id
                 ELSE t.related_trans
                 END) AS group_id
             , a.id AS "asset_id?"
@@ -746,7 +747,7 @@ impl AccountHandler for PostgresDB {
             LEFT JOIN stocks s ON s.id = t.asset_id
             LEFT JOIN currencies cn ON cn.id = t.asset_id
             JOIN account_transactions at ON at.transaction_id = t.id
-        WHERE 
+        WHERE
             a.id = $1
             AND c.id = t.cash_currency_id
             AND at.account_id = ANY($2)
@@ -765,7 +766,7 @@ impl AccountHandler for PostgresDB {
             } else {
                 row.currency_name
             };
-        transactions.push(TransactionView {
+            transactions.push(TransactionView {
                 id: row.id,
                 asset_name,
                 group_id: row.group_id,
