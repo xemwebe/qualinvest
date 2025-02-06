@@ -9,16 +9,16 @@ repository = "https://github.com/xemwebe/qualinvest"
 keywords = ["finance", "investment", "quantitative", "analysis"]
 
 [dependencies]
-rocket = { version="0.5.0-dev", path="../extern/rocket/core/lib", features=["secrets"] }
-devise = { version="0.3", git="https://github.com/SergioBenitez/Devise.git" }
+rocket = { version = "0.5", features = ["secrets"] }
+devise = { version = "0.4" }
 serde = { version = "1.0.*", features = ["derive"] }
 serde_json = "1.0"
-finql = {version="0.12", path="../finql" }
+finql = { version = "0.12", path = "../finql" }
 chrono = "0.4"
-qualinvest_core = { version="0.1", path="../qualinvest_core" }
+qualinvest_core = { version = "0.1", path = "../qualinvest_core" }
 tera = "1.2"
-clap = "3.2"
-toml = "0.5"
+clap = "4.5"
+toml = "0.8"
 num-format = "0.4"
 regex = "1.3"
 lazy_static = "1.4"
@@ -29,7 +29,7 @@ mime = "0.3"
 tempfile = "3.2"
 futures = "0.3"
 once_cell = "1.8"
-thiserror = "1.0"
+thiserror = "2.0"
 
 [dependencies.rocket_dyn_templates]
 path = "../extern/rocket/contrib/dyn_templates"

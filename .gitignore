@@ -19,7 +19,11 @@ qualinvest.tar.gz
 
 # local development and testing
 /local
+/pdfs
+**/*.pdf
+total_performance.json
 
 # wasm
 package-lock.json
 wasm_graph/sample.bmp
+wasm_graph/tests

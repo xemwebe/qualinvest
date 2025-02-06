@@ -16,9 +16,9 @@ pub struct Source {
 
 fn sample_data() -> (Vec<i64>, Vec<f32>, String) {
     let dates = vec![
-        Local.ymd(2022, 1, 1).and_hms_milli(0, 0, 0, 0),
-        Local.ymd(2022, 2, 1).and_hms_milli(0, 0, 0, 0),
-        Local.ymd(2022, 3, 1).and_hms_milli(0, 0, 0, 0),
+        Local.with_ymd_and_hms(2022, 1, 1, 0, 0, 0).unwrap(),
+        Local.with_ymd_and_hms(2022, 2, 1, 0, 0, 0).unwrap(),
+        Local.with_ymd_and_hms(2022, 3, 1, 0, 0, 0).unwrap(),
     ];
     let graphs = vec![
         Graph {

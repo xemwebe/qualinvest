@@ -9,6 +9,6 @@ repository = "https://github.com/xemwebe/qualinvest"
 keywords = ["finance", "investment", "quantitative", "analysis", "gui", "test"]
 
 [dependencies]
-thirtyfour = "0.27"
+thirtyfour = "0.35"
 tokio = "1.0"
-color-eyre = "0.5"
+color-eyre = "0.6"

@@ -1,7 +1,9 @@
-///! # qualinvest_cli
-///! 
-///! This library is part of a set of tools for quantitative investments.
-///! For mor information, see [qualinvest on github](https://github.com/xemwebe/qualinvest)
+/**
+! # qualinvest_cli
+! 
+! This library is part of a set of tools for quantitative investments.
+! For more information, see [qualinvest on github](https://github.com/xemwebe/qualinvest)
+*/
 
 use std::fs;
 use std::io::{stdout, BufReader, Write};
@@ -12,6 +14,7 @@ use std::error::Error;
 use chrono::Local;
 use glob::glob;
 use clap::{App, AppSettings, Arg, SubCommand};
+use log::{debug, info};
 
 use finql::datatypes::{Ticker, Currency, QuoteHandler, TransactionHandler, date_time_helper::date_time_from_str_standard};
 use finql::postgres::PostgresDB;
@@ -30,6 +33,9 @@ pub mod plot;
 
 #[tokio::main]
 async fn main() {
+    env_logger::init();
+    info!("Entering main function.");
+    
     let matches = App::new("qualinvest")
         .setting(AppSettings::ArgRequiredElseHelp)
         .setting(AppSettings::ColoredHelp)
@@ -460,10 +466,11 @@ async fn main() {
         } else {
             Local::now().naive_local().date()
         };
+        let market = Market::new_with_date_range(db.clone(), start_date, end_date).await.unwrap();
         let currency = if matches.is_present("currency") {
-            Currency::from_str(matches.value_of("currency").unwrap()).unwrap()
+            Market::get_currency_from_str(matches.value_of("currency").unwrap()).unwrap()
         } else {
-            Currency::from_str("EUR").unwrap()
+            Market::get_currency_from_str("EUR").unwrap()
         };
         let file_name = if matches.is_present("output") {
             matches.value_of("output").unwrap().to_string()
@@ -472,7 +479,6 @@ async fn main() {
         };
 
         let transactions = db.get_all_transactions_with_account_before(account_id, end_date).await.unwrap();
-        let market = Market::new_with_date_range(db.clone(), start_date, end_date).await.unwrap();
 
         let total_performance = calc_performance(
             currency,
@@ -482,8 +488,8 @@ async fn main() {
             &market,
             "TARGET",
         )
-        .await;
-        let mut file = fs::File::open(file_name).unwrap();
+        .await.unwrap();
+        let mut file = fs::File::create(file_name).unwrap();
         write!(file, "{:?}", total_performance);
     }
 
