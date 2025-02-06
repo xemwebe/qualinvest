@@ -1,10 +1,10 @@
-use thiserror::Error;
-use plotters::prelude::*;
 use chrono::Datelike;
+use plotters::prelude::*;
+use thiserror::Error;
 
-use finql::time_series::TimeSeries;
-use finql::datatypes::date_time_helper::make_time;
 use cal_calc::last_day_of_month;
+use finql::datatypes::date_time_helper::make_time;
+use finql::time_series::TimeSeries;
 
 /// Error related to plotting graphs
 #[derive(Error, Debug)]
@@ -56,7 +56,7 @@ pub fn make_plot(
     let max_time = make_time(
         max_year,
         max_month,
-        last_day_of_month(max_year, max_month),
+        last_day_of_month(max_year as i32, max_month as u8) as u32,
         23,
         59,
         59,
