@@ -3,17 +3,17 @@
 ///! This library is part of a set of tools for quantitative investments.
 ///! For mor information, see [qualinvest on github](https://github.com/xemwebe/qualinvest)
 ///!
-
 use std::sync::Arc;
 
-use chrono::{Datelike, Local, Weekday};
+use chrono::{Datelike, Local};
 use serde::Deserialize;
 
-use finql::{datatypes::QuoteHandler,
-    market::{Market,MarketError},
+use cal_calc::{Calendar, Holiday};
+use finql::{
+    datatypes::QuoteHandler,
+    market::{Market, MarketError},
     market_quotes::MarketDataSource,
 };
-use cal_calc::{Calendar, Holiday};
 
 pub mod accounts;
 pub mod performance;
@@ -101,18 +101,16 @@ fn set_market_providers(market: &finql::Market, providers: &MarketDataProviders)
 
 pub async fn setup_market(
     db: Arc<dyn QuoteHandler + Send + Sync>,
-    market_data: &MarketDataProviders) -> Market {
+    market_data: &MarketDataProviders,
+) -> Market {
     let mut market = finql::Market::new(db).await;
     set_market_providers(&mut market, market_data);
     market
 }
 
-pub async fn fill_quote_gaps(
-    market: &mut Market,
-    min_size: usize,
-) -> Result<(), MarketError> {
-    use finql::time_series::{TimeSeries, TimeValue};
+pub async fn fill_quote_gaps(market: &mut Market, min_size: usize) -> Result<(), MarketError> {
     use finql::datatypes::date_time_helper::naive_date_to_date_time;
+    use finql::time_series::{TimeSeries, TimeValue};
 
     let today = Local::now().naive_local().date();
 
@@ -120,12 +118,12 @@ pub async fn fill_quote_gaps(
 
     let weekends_cal = Calendar::calc_calendar(
         &[
-            Holiday::WeekDay(Weekday::Sat),
-            Holiday::WeekDay(Weekday::Sun),
+            Holiday::WeekDay(time::Weekday::Saturday),
+            Holiday::WeekDay(time::Weekday::Sunday),
         ],
         2000,
         today.year(),
-    );
+    )?;
     for ticker in tickers {
         if let Some(ticker_id) = ticker.id {
             let quotes = market.db().get_all_quotes_for_ticker(ticker_id).await?;

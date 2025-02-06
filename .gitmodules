@@ -1,6 +1,3 @@
 [submodule "finql"]
 	path = finql
 	url = https://github.com/xemwebe/finql.git
-[submodule "extern/rocket"]
-	path = extern/rocket
-	url = https://github.com/SergioBenitez/Rocket.git

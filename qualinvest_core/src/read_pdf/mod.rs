@@ -1,24 +1,23 @@
+use std::path::Path;
 ///! # Read pdf files and transform into plain text
 ///! This requires the extern tool `pdftotext`
 ///! which is part of [XpdfReader](https://www.xpdfreader.com/pdftotext-man.html).
-
 use std::process::Command;
 use std::sync::Arc;
 use std::{io, num, string};
-use std::path::Path;
 
 use thiserror::Error;
 
-use chrono::{NaiveDate, Local, Datelike, TimeZone};
+use chrono::{Datelike, Local, NaiveDate, TimeZone};
 use sanitize_filename::sanitize;
 
 use finql::{
-    Market,
-    fx_rates::SimpleCurrencyConverter,
     datatypes::{
-        Asset, CashAmount, CashFlow, CurrencyError, DataError, Transaction, TransactionType, 
-        date_time_helper::make_time
-    }
+        date_time_helper::{convert_local_result_to_datetime as to_datetime, make_time},
+        Asset, CashAmount, CashFlow, CurrencyError, DataError, Transaction, TransactionType,
+    },
+    fx_rates::SimpleCurrencyConverter,
+    Market,
 };
 
 use super::accounts::{Account, AccountHandler};
@@ -62,6 +61,8 @@ pub enum ReadPDFError {
     AssetNotFound(String),
     #[error("Market data error")]
     MarketError(#[from] finql::market::MarketError),
+    #[error("Invalid date")]
+    InvalidDate,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -160,9 +161,9 @@ pub fn german_string_to_date(date_string: &str) -> Result<NaiveDate, ReadPDFErro
 pub async fn parse_and_store<'a>(
     path: &'a Path,
     file_name: &'a str,
-    db: Arc<dyn AccountHandler+Send+Sync>,
+    db: Arc<dyn AccountHandler + Send + Sync>,
     config: &'a PdfParseParams,
-    market: &'a Market
+    market: &'a Market,
 ) -> Result<i32, ReadPDFError> {
     let file_name = sanitize(file_name);
     let hash = sha256_hash(path)?;
@@ -187,7 +188,8 @@ pub async fn parse_and_store<'a>(
                     broker,
                     account_name,
                 };
-                db.insert_account_if_new(&account).await
+                db.insert_account_if_new(&account)
+                    .await
                     .map_err(ReadPDFError::DBError)?
             };
 
@@ -201,10 +203,12 @@ pub async fn parse_and_store<'a>(
             let transactions_info = make_transactions(&tri).await;
             match transactions_info {
                 Ok((transactions, asset)) => {
-                    let asset_id = db.get_asset_id(&asset).await.ok_or_else(|| ReadPDFError::AssetNotFound(match asset {
-                        Asset::Stock(stock) => stock.name,
-                        Asset::Currency(curr) => curr.to_string(),
-                    }))?;
+                    let asset_id = db.get_asset_id(&asset).await.ok_or_else(|| {
+                        ReadPDFError::AssetNotFound(match asset {
+                            Asset::Stock(stock) => stock.name,
+                            Asset::Currency(curr) => curr.to_string(),
+                        })
+                    })?;
                     let mut trans_ids = Vec::new();
                     for trans in transactions {
                         let mut trans = trans.clone();
@@ -223,18 +227,26 @@ pub async fn parse_and_store<'a>(
                         db.store_pdf(id, &buffer).await.unwrap();
                     }
                     Ok(trans_ids.len() as i32)
-                },
+                }
                 Err(err) => Err(err),
             }
-        },
-        Err(err) => Err(err)
+        }
+        Err(err) => Err(err),
     }
 }
 
 // Check if main payment plus all fees and taxes add up to total payment
 // Add up all payments separate by currencies, convert into total currency, and check if they add up to zero.
 pub async fn check_consistency(tri: &ParsedTransactionInfo) -> Result<(), ReadPDFError> {
-    let time = make_time(tri.valuta.year(), tri.valuta.month(), tri.valuta.day(), 18, 0, 0).ok_or(ReadPDFError::ParseDate)?;
+    let time = make_time(
+        tri.valuta.year(),
+        tri.valuta.month(),
+        tri.valuta.day(),
+        18,
+        0,
+        0,
+    )
+    .ok_or(ReadPDFError::ParseDate)?;
 
     // temporary storage for fx rates
     // total payment is always in base currency, but main_amount (and maybe fees or taxes) could be in foreign currency.
@@ -280,9 +292,15 @@ pub async fn make_transactions(
     tri: &ParsedTransactionInfo,
 ) -> Result<(Vec<Transaction>, Asset), ReadPDFError> {
     let mut transactions = Vec::new();
-    let time = Local
-        .ymd(tri.valuta.year(), tri.valuta.month(), tri.valuta.day())
-        .and_hms_milli(18, 0, 0, 0);
+    let time = to_datetime(Local.with_ymd_and_hms(
+        tri.valuta.year(),
+        tri.valuta.month(),
+        tri.valuta.day(),
+        18,
+        0,
+        0,
+    ))
+    .ok_or(ReadPDFError::InvalidDate)?;
 
     // temporary storage for fx rates
     // total payment is always in base currency, but main_amount (and maybe fees or taxes) could be in foreign currency.

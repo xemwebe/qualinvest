@@ -1,0 +1,106 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n            t.id\n            ,(CASE WHEN t.related_trans IS null THEN t.id \n                ELSE t.related_trans\n                END) AS group_id\n            , a.id AS \"asset_id?\"\n            , s.name as \"stock_name?\"\n            , cn.iso_code as \"currency_name?\"\n            , t.position\n            , t.trans_type\n            , t.cash_amount\n            , t.cash_currency_id\n            , t.cash_date\n            , t.note\n            , d.path AS \"path?\"\n            , at.account_id\n            , c.iso_code\n            , c.rounding_digits\n        FROM\n            currencies c,\n            transactions t\n            LEFT JOIN assets a ON a.id = t.asset_id\n            LEFT JOIN documents d ON d.transaction_id = t.id\n            LEFT JOIN stocks s ON s.id = t.asset_id\n            LEFT JOIN currencies cn ON cn.id = t.asset_id\n            JOIN account_transactions at ON at.transaction_id = t.id\n        WHERE \n            c.id = t.cash_currency_id\n            AND at.account_id = ANY($1)\n            ORDER BY t.cash_date DESC, group_id, t.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "group_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "asset_id?",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "stock_name?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "currency_name?",
+        "type_info": "Bpchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "position",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 6,
+        "name": "trans_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "cash_amount",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 8,
+        "name": "cash_currency_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "cash_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 10,
+        "name": "note",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "path?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "account_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 13,
+        "name": "iso_code",
+        "type_info": "Bpchar"
+      },
+      {
+        "ordinal": 14,
+        "name": "rounding_digits",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4Array"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "6414485ed623271266190bb20b50802b81f4db3a8ff097840218b5f05f57dca3"
+}

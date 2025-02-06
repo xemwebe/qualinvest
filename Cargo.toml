@@ -6,7 +6,7 @@ members = [
     "gui_tests",
     "wasm_graph",
 ]
-exclude = ["extern", "finql"]
+exclude = ["finql"]
 resolver = "3"
 
 [profile.release]
