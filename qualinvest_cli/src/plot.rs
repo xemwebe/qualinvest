@@ -56,7 +56,7 @@ pub fn make_plot(
     let max_time = make_time(
         max_year,
         max_month,
-        last_day_of_month(max_year as i32, max_month as u8) as u32,
+        last_day_of_month(max_year, max_month as u8) as u32,
         23,
         59,
         59,
@@ -97,7 +97,7 @@ pub fn make_plot(
 
     chart
         .configure_series_labels()
-        .border_style(&BLACK)
+        .border_style(BLACK)
         .position(SeriesLabelPosition::UpperLeft)
         .label_font(("sans-serif", 20))
         .draw()?;
