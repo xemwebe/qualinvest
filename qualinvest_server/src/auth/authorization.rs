@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use rocket::form::FromForm;
-use rocket::http::{Cookie, CookieJar};
+use rocket::http::{Cookie, CookieJar, Status};
 use rocket::request::{FromRequest, Outcome};
 use rocket::response::{Flash, Redirect};
 use rocket::Request;
@@ -49,7 +49,7 @@ pub trait AuthorizeCookie: CookieId {
     /// the private key with the named specified by cookie_id() method.
 
     fn delete_cookie(cookies: &CookieJar) {
-        cookies.remove_private(Cookie::named(Self::cookie_id()));
+        cookies.remove_private(Cookie::from(Self::cookie_id()));
     }
 }
 
@@ -234,11 +234,11 @@ pub trait AuthorizeForm: CookieId {
 ///         let admin = container.cookie;
 ///         Html(String::new())
 ///     }
-///     
+///
 ///     # fn main() {
 ///     #    rocket::ignite().mount("/", routes![]).launch();
 ///     # }
-///     
+///
 /// ```
 ///
 #[rocket::async_trait]
@@ -258,10 +258,10 @@ impl<'r, T: AuthorizeCookie> FromRequest<'r> for AuthCont<T> {
                         cookie: cookie_deserialized,
                     })
                 } else {
-                    Outcome::Forward(())
+                    Outcome::Forward(Status::Forbidden)
                 }
             }
-            None => Outcome::Forward(()),
+            None => Outcome::Forward(Status::Forbidden),
         }
     }
 }

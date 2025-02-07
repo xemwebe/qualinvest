@@ -16,7 +16,7 @@ extern crate rocket;
 #[macro_use]
 extern crate serde;
 
-use clap::{App, AppSettings, Arg};
+use clap::Parser;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -161,7 +161,7 @@ async fn process_login(
 #[get("/logout")]
 async fn logout(user: Option<UserCookie>, cookies: &CookieJar<'_>) -> Result<Redirect, Redirect> {
     if user.is_some() {
-        cookies.remove_private(Cookie::named(UserCookie::cookie_id()));
+        cookies.remove_private(Cookie::from(UserCookie::cookie_id()));
         Ok(Redirect::to(uri!(
             ServerState::base(),
             index(Some("Successfully logged out".to_string()))
@@ -240,36 +240,29 @@ async fn error_msg(
     layout("index", &context.into_json())
 }
 
+#[derive(Parser, Debug)]
+#[command(
+    version = "0.3.0",
+    about = "Tools for quantitative analysis and management of financial asset portfolios",
+    author = "Mark Beinker <mwb@quantlink.de>"
+)]
+struct Cli {
+    /// Sets a custom config file
+    #[arg(short, long)]
+    config: Option<String>,
+    /// Prints additional information for debugging purposes
+    #[arg(short, long, default_value = "false")]
+    debug: bool,
+}
+
 #[launch]
 async fn rocket() -> _ {
-    let matches = App::new("qualinvest")
-        .setting(AppSettings::ColoredHelp)
-        .version("0.3.0")
-        .author("Mark Beinker <mwb@quantlink.de>")
-        .about("Tools for quantitative analysis and management of financial asset portfolios")
-        .arg(
-            Arg::with_name("config")
-                .short('c')
-                .long("config")
-                .value_name("file")
-                .help("Sets a custom config file")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("debug")
-                .short('d')
-                .long("debug")
-                .help("Prints additional information for debugging purposes"),
-        )
-        .get_matches();
+    let args = Cli::parse();
 
-    let config = matches.value_of("config").unwrap_or("qualinvest.toml");
+    let config = args.config.unwrap_or("qualinvest.toml".to_string());
     let config_file = fs::read_to_string(config).unwrap();
     let mut config: Config = toml::from_str(&config_file).unwrap();
-
-    if matches.is_present("debug") {
-        config.debug = true;
-    }
+    config.debug = args.debug;
 
     // Set up database
     let postgres_db = PostgresDB::new(&config.db.url).await.unwrap();

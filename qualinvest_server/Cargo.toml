@@ -10,6 +10,7 @@ keywords = ["finance", "investment", "quantitative", "analysis"]
 
 [dependencies]
 rocket = { version = "0.5", features = ["secrets"] }
+rocket_dyn_templates = { version = "0.2", features = ["tera"] }
 devise = { version = "0.4" }
 serde = { version = "1.0.*", features = ["derive"] }
 serde_json = "1.0"
@@ -17,7 +18,7 @@ finql = { version = "0.12", path = "../finql" }
 chrono = "0.4"
 qualinvest_core = { version = "0.1", path = "../qualinvest_core" }
 tera = "1.2"
-clap = "4.5"
+clap = { version = "4.5", features = ["derive"] }
 toml = "0.8"
 num-format = "0.4"
 regex = "1.3"

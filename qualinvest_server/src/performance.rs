@@ -5,7 +5,6 @@ use finql::{
     },
     period_date::{PeriodDate, PeriodDateError},
     portfolio::{calc_delta_position, calculate_position_and_pnl},
-    postgres::PostgresDB,
     time_series::{TimeSeries, TimeValue},
     Market,
 };
@@ -15,11 +14,9 @@ use rocket::State;
 use rocket_dyn_templates::Template;
 /// View performance comparison of different assets / portfolios
 use std::str::FromStr;
-use std::sync::Arc;
 use thiserror::Error;
 
 use super::ServerState;
-use crate::asset::Source;
 use crate::layout::layout;
 use crate::user::UserCookie;
 
@@ -104,7 +101,7 @@ pub async fn account_performance(
     let calendar = market.get_calendar("TARGET")?;
     let period = finql::time_period::TimePeriod::from_str("1B")?;
     while current_date <= end_date {
-        let next_date = period.add_to(current_date, Some(calendar));
+        let next_date = period.add_to(current_date, Some(calendar))?;
         dates.push(next_date);
         current_date = next_date;
     }

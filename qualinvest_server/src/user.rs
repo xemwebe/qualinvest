@@ -2,8 +2,11 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use rocket::request::{FromRequest, Outcome};
-use rocket::Request;
+use rocket::{
+    http::Status,
+    request::{FromRequest, Outcome},
+    Request,
+};
 
 use super::auth::authorization::*;
 use qualinvest_core::accounts::Account;
@@ -142,10 +145,10 @@ impl<'r> FromRequest<'r> for UserCookie {
                 if let Some(cookie_deserialized) = UserCookie::retrieve_cookie(cookie.value()) {
                     Outcome::Success(cookie_deserialized)
                 } else {
-                    Outcome::Forward(())
+                    Outcome::Forward(Status::Forbidden)
                 }
             }
-            None => Outcome::Forward(()),
+            None => Outcome::Forward(Status::Forbidden),
         }
     }
 }
