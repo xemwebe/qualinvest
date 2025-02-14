@@ -257,6 +257,9 @@ struct Cli {
 
 #[launch]
 async fn rocket() -> _ {
+    pretty_env_logger::init();
+    info!("The rocket has been launched.");
+
     let args = Cli::parse();
 
     let config = args.config.unwrap_or("qualinvest.toml".to_string());

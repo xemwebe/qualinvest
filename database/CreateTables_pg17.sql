@@ -106,3 +106,17 @@ CREATE TABLE pdf_files (
                 id int4 NOT NULL,
                 pdf bytea NOT NULL,
                 FOREIGN KEY (id) REFERENCES documents(id));
+
+insert
+	into
+	users (id,
+	name,
+	display,
+	salt_hash,
+	is_admin)
+values (0,
+'admin',
+'Administrator',
+crypt('admin',
+gen_salt('bf')),
+true);
