@@ -1,11 +1,11 @@
-/target
+target/
+debug/
 qualinvest_core/target
 qualinvest_cli/target
 qualinvest_server/target
 wasm_graph/target
 
 **/*.rs.bk
-Cargo.lock
 .vscode
 qualinvest.json
 qualinvest.toml
