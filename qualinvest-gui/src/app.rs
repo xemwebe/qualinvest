@@ -1,27 +1,10 @@
+use crate::transactions;
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{
     components::{Route, Router, Routes, A},
     StaticSegment,
 };
-
-#[derive(Copy, Clone)]
-struct AppContext {
-    active: RwSignal<String>,
-}
-
-fn set_active(page: &str) {
-    let active = use_context::<AppContext>().unwrap().active;
-    active.set(page.to_string());
-}
-
-fn is_active(active: &str, page: &str) -> &'static str {
-    if active == page {
-        "active"
-    } else {
-        ""
-    }
-}
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -52,7 +35,7 @@ pub fn App() -> impl IntoView {
         <Stylesheet id="leptos" href="/pkg/qualinvest-gui.css"/>
 
         // sets the document title
-        <Title text="Welcome to Leptos"/>
+        <Title text="QuantInvest"/>
 
         // content for this welcome page
         <Router>
@@ -60,7 +43,7 @@ pub fn App() -> impl IntoView {
             <main>
                 <Routes fallback=|| "Page not found.".into_view()>
                     <Route path=StaticSegment("") view=HomePage/>
-                    <Route path=StaticSegment("transactions") view=Transactions/>
+                    <Route path=StaticSegment("transactions") view=|| { view!{ <Transactions/> } }/>
                     <Route path=StaticSegment("position") view=Position/>
                 </Routes>
             </main>
@@ -76,9 +59,10 @@ fn HomePage() -> impl IntoView {
     <div class="warning">
         <h1>Please log in!</h1>
     </div>
-    <div class="warning"> You are logged in as administrator. </div>
+    <div class="warning,block"> You are logged in as administrator. </div>
 
     <h1>Quant Invest</h1>
+        <div class="inline">
         <p class="block">Quant Invest is a tool to manage a portfolio of investments of common assets
         like shares, bonds or loans.</p>
 
@@ -88,23 +72,71 @@ fn HomePage() -> impl IntoView {
         Market data is automatically retreived from various,
         configurable sources.</p>
 
-        <p class="block">Data is stored persistently in an attached PostgreSQL database.
-        The application itsself is written in <a href="https://www.rust-lang.org/" target="_blank"> rust</a>.</p>
+        <p class="block">"Data is stored persistently in an attached PostgreSQL database.
+        The application itsself is written in "<a href="https://www.rust-lang.org/" target="_blank"> rust</a>.</p>
 
-        <p class="block">For more information, please contact
+        <p class="block">"For more information, please contact "
             <a href="mailto:mwb@quantlink.de?Subject=Quinvestor">the author</a>.
         </p>
+        </div>
     </div>
     }
 }
 
 #[component]
 fn Transactions() -> impl IntoView {
+    use crate::transactions;
+
     view! {
         <div class="center">
             <h1>Transactions</h1>
-            <p>Here you can enter transactions.</p>
+            <Await future=transactions::get_transactions(
+                transactions::TransactionFilter {
+                   user_id: 1,
+                })
+            let:transactions
+            >
+               <TransactionTable transactions={transactions.as_ref().unwrap().get()}/>
+            </Await>
         </div>
+    }
+}
+
+#[component]
+fn TransactionTable(transactions: Vec<transactions::TransactionView>) -> impl IntoView {
+    let rows = transactions
+        .into_iter()
+        .map(|transaction| {
+            view! {
+            <tr>
+                <td>{transaction.group_id}</td>
+                <td>{transaction.asset_name}</td>
+                <td>{transaction.position}</td>
+                <td>{transaction.trans_type}</td>
+                <td>{transaction.cash_amount}</td>
+                <td>{transaction.cash_currency}</td>
+                <td>{transaction.cash_date}</td>
+                <td>{transaction.doc_path}</td>
+                <td>{transaction.note}</td>
+            </tr> }
+        })
+        .collect_view();
+
+    view! {
+        <table>
+            <tr>
+                <th>"Group ID"</th>
+                <th>"Asset Name"</th>
+                <th>"Position"</th>
+                <th>"Type"</th>
+                <th>"Amount"</th>
+                <th>"Currency"</th>
+                <th>"Date"</th>
+                <th>"Documentation"</th>
+                <th>"Note"</th>
+            </tr>
+            {rows}
+        </table>
     }
 }
 
@@ -120,18 +152,18 @@ fn Position() -> impl IntoView {
 
 #[component]
 fn Nav() -> impl IntoView {
-    let nav_menu = create_rw_signal(false);
+    let nav_menu = RwSignal::new(false);
 
     view! {
         <header id="top" class="w3-container">
         <div class="topnav">
-            <nav>
+            <nav class="nav">
                 <ul>
-                    <li class="logo"><A href="/"><img id="logo" src="/public/logo.png" alt="Logo"/></A></li>
+                    <li class="logo"><A href="/">QuantInvest</A></li>
                     <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/transactions">Transactions</A></li>
                     <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/position">Position</A></li>
                 </ul>
-                <button id="hamburger" on:click=move |_| nav_menu.update(|f| *f=!(*f)) />
+                //<button id="hamburger" on:click=move |_| nav_menu.update(|f| *f=!(*f)) />
             </nav>
         </div>
         </header>

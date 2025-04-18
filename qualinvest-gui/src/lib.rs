@@ -1,4 +1,6 @@
 pub mod app;
+pub mod error_template;
+pub mod transactions;
 
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]

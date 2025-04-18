@@ -39,12 +39,16 @@ label {
 div.center {
     height: auto;
     margin: 0 auto;
-    align: center;
+    text-align: center;
 }
 
 div.right {
     display: inline-block;
     margin-right: 0px;
+}
+
+div.inline {
+    display: inline-block;
 }
 
 form {
@@ -147,6 +151,7 @@ label.upLabel input[type="file"] {
 /* navigation styles */
 nav {
     background: #061348;
+    color: white;
     background: linear-gradient(
         to bottom,
         rgba(6, 19, 72, 1) 0%,

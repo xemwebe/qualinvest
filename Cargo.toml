@@ -11,3 +11,8 @@ resolver = "3"
 
 [profile.release]
 lto = true
+
+[workspace.dependencies]
+simple_logger = "5.0"
+console_log = "1"
+log = "0.4"
