@@ -1,6 +1,5 @@
 use cfg_if::cfg_if;
 use leptos::prelude::*;
-use leptos_struct_table::{ColumnSort, TableDataProvider, TableRow};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8,27 +7,20 @@ pub struct TransactionFilter {
     pub user_id: u32,
 }
 
-#[derive(TableRow, Debug, Serialize, Deserialize, Clone)]
-#[table(sortable, impl_vec_data_provider)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TransactionView {
-    #[table(skip)]
     pub id: i32,
     pub group_id: Option<i32>,
-    #[table(skip)]
     pub asset_id: Option<i32>,
     pub asset_name: Option<String>,
     pub position: Option<f64>,
-    #[table(getter = "trans_type_getter")]
     pub trans_type: String,
     pub cash_amount: f64,
     pub cash_currency: String,
     pub cash_date: String,
     pub note: Option<String>,
-    #[table(skip)]
     pub doc_path: Option<String>,
-    #[table(skip)]
     pub account_id: i32,
-    #[table(skip)]
     pub state: TransactionDisplay,
 }
 
@@ -56,30 +48,6 @@ impl TransactionView {
             "c" => "Cash".to_string(),
             _ => "unknown".to_string(),
         }
-    }
-}
-
-#[component]
-fn TransTypeEditRenderer(
-    class: String,
-    value: Signal<String>,
-    row: RwSignal<TransactionView>,
-    index: usize,
-) -> impl IntoView {
-    let on_change = move |evt| {
-        row.write().trans_type = event_target_value(&evt);
-    };
-
-    let value = match value.get().as_str() {
-        "a" => "Asset".to_string(),
-        "c" => "Cash".to_string(),
-        _ => "unknown".to_string(),
-    };
-
-    view! {
-        <td class=class>
-            <input type="text" value=value on:change=on_change />
-        </td>
     }
 }
 

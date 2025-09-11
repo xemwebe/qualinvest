@@ -1,5 +1,6 @@
 pub mod app;
 pub mod error_template;
+pub mod transaction_view;
 pub mod transactions;
 
 #[cfg(feature = "hydrate")]
