@@ -1,4 +1,5 @@
 use crate::transaction_view::TransactionsTable;
+use cfg_if::cfg_if;
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{
@@ -29,6 +30,9 @@ pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
 
+    let user = Resource::new(|| {}, |_| async move { get_user().await.ok().flatten() });
+    provide_context(user);
+
     view! {
         // injects a stylesheet into the document <head>
         // id=leptos means cargo-leptos will hot-reload this stylesheet
@@ -43,12 +47,13 @@ pub fn App() -> impl IntoView {
             <main>
                 <Routes fallback=|| "Page not found.".into_view()>
                     <Route path=StaticSegment("") view=HomePage/>
-                    <Route path=StaticSegment("transactions") view=|| { view!{ <Transactions/> } }/>
-                    <Route path=StaticSegment("position") view=Position/>
-                    <Route path=StaticSegment("assets") view=|| { view!{ <Assets/> } }/>
-                    <Route path=StaticSegment("performance") view=|| { view!{ <Performance/> } }/>
-                    <Route path=StaticSegment("settings") view=|| { view!{ <Settings/> } }/>
-                    <Route path=StaticSegment("accounts") view=|| { view!{ <Accounts/> } }/>
+                    <Route path=StaticSegment("login") view=Login/>
+                    <Route path=StaticSegment("transactions") view=|| { view!{ <ProtectedRoute><Transactions/></ProtectedRoute> } }/>
+                    <Route path=StaticSegment("position") view=|| { view!{ <ProtectedRoute><Position/></ProtectedRoute> } }/>
+                    <Route path=StaticSegment("assets") view=|| { view!{ <ProtectedRoute><Assets/></ProtectedRoute> } }/>
+                    <Route path=StaticSegment("performance") view=|| { view!{ <ProtectedRoute><Performance/></ProtectedRoute> } }/>
+                    <Route path=StaticSegment("settings") view=|| { view!{ <ProtectedRoute><Settings/></ProtectedRoute> } }/>
+                    <Route path=StaticSegment("accounts") view=|| { view!{ <ProtectedRoute><Accounts/></ProtectedRoute> } }/>
                 </Routes>
             </main>
         </Router>
@@ -58,32 +63,167 @@ pub fn App() -> impl IntoView {
 /// Renders the home page of your application.
 #[component]
 fn HomePage() -> impl IntoView {
+    let user = expect_context::<Resource<Option<crate::auth::User>>>();
+
     view! {
-    <div class="center">
-    <div class="warning">
-        <h1>Please log in!</h1>
-    </div>
-    <div class="warning,block"> You are logged in as administrator. </div>
+        <div class="center">
+            <Suspense fallback=|| view! { <p>"Loading..."</p> }>
+                {move || {
+                    user.get().map(|user_data| {
+                        match user_data {
+                            Some(user) => view! {
+                                <div class="warning,block">
+                                    "You are logged in as " {user.username.clone()}
+                                </div>
+                            }.into_any(),
+                            None => view! {
+                                <div class="warning">
+                                    <h1>"Please log in!"</h1>
+                                    <A href="/login">"Login"</A>
+                                </div>
+                            }.into_any(),
+                        }
+                    })
+                }}
+            </Suspense>
 
-    <h1>Quant Invest</h1>
-        <div class="inline">
-        <p class="block">Quant Invest is a tool to manage a portfolio of investments of common assets
-        like shares, bonds or loans.</p>
-
-        <p class="block">The functionality covers basic book-keeping of positions,
-        paid fees and tax and calculation of a couple of performance figures,
-        eg. realised and unrealised p&l over specific time periods.
-        Market data is automatically retreived from various,
-        configurable sources.</p>
-
-        <p class="block">"Data is stored persistently in an attached PostgreSQL database.
-        The application itsself is written in "<a href="https://www.rust-lang.org/" target="_blank"> rust</a>.</p>
-
-        <p class="block">"For more information, please contact "
-            <a href="mailto:mwb@quantlink.de?Subject=Quinvestor">the author</a>.
-        </p>
+            <h1>"Quant Invest"</h1>
+            <div class="inline">
+                <p class="block">"Quant Invest is a tool to manage a portfolio of investments of common assets like shares, bonds or loans."</p>
+                <p class="block">"The functionality covers basic book-keeping of positions, paid fees and tax and calculation of a couple of performance figures, eg. realised and unrealised p&l over specific time periods. Market data is automatically retreived from various, configurable sources."</p>
+                <p class="block">"Data is stored persistently in an attached PostgreSQL database. The application itsself is written in " <a href="https://www.rust-lang.org/" target="_blank">"rust"</a>"."</p>
+                <p class="block">"For more information, please contact " <a href="mailto:mwb@quantlink.de?Subject=Quinvestor">"the author"</a>"."</p>
+            </div>
         </div>
-    </div>
+    }
+}
+
+#[server(LoginUser, "/api")]
+pub async fn login_user(username: String, password: String) -> Result<(), ServerFnError> {
+    cfg_if! {
+        if #[cfg(feature = "ssr")] {
+            use crate::auth::{AuthSession, Credentials};
+            let auth: AuthSession = expect_context();
+            let credentials = Credentials { username, password };
+
+            match auth.authenticate(credentials).await {
+                Ok(_user) => Ok(()),
+                Err(_) => Err(ServerFnError::new("Invalid credentials")),
+            }
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[server(LogoutUser, "/api")]
+pub async fn logout_user() -> Result<(), ServerFnError> {
+    cfg_if! {
+        if #[cfg(feature = "ssr")] {
+            use crate::auth::AuthSession;
+            let mut auth: AuthSession = expect_context();
+            let _ = auth.logout().await;
+            Ok(())
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[server(GetUser, "/api")]
+pub async fn get_user() -> Result<Option<crate::auth::User>, ServerFnError> {
+    cfg_if! {
+        if #[cfg(feature = "ssr")] {
+            use crate::auth::AuthSession;
+            let auth: AuthSession = expect_context();
+            Ok(auth.user.clone())
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+#[component]
+fn Login() -> impl IntoView {
+    let login_action = Action::new(|input: &(String, String)| {
+        let username = input.0.clone();
+        let password = input.1.clone();
+        async move { login_user(username, password).await }
+    });
+
+    let (username, set_username) = signal(String::new());
+    let (password, set_password) = signal(String::new());
+
+    view! {
+        <div class="center">
+            <h1>"Login"</h1>
+            <form on:submit=move |ev| {
+                ev.prevent_default();
+                login_action.dispatch((username.get(), password.get()));
+            }>
+                <div class="form-group">
+                    <label for="username">"Username:"</label>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        prop:value=username
+                        on:input=move |ev| set_username.set(event_target_value(&ev))
+                        required
+                    />
+                </div>
+                <div class="form-group">
+                    <label for="password">"Password:"</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        prop:value=password
+                        on:input=move |ev| set_password.set(event_target_value(&ev))
+                        required
+                    />
+                </div>
+                <button type="submit" disabled=move || login_action.pending().get()>
+                    {move || if login_action.pending().get() { "Logging in..." } else { "Login" }}
+                </button>
+            </form>
+            {move || {
+                login_action.value().get().map(|result| {
+                    match result {
+                        Ok(_) => {
+                            use leptos_router::hooks::use_navigate;
+                            let navigate = use_navigate();
+                            navigate("/", Default::default());
+                            view! { <p>"Login successful!"</p> }.into_any()
+                        },
+                        Err(err) => view! { <p class="error">"Login failed: " {err.to_string()}</p> }.into_any(),
+                    }
+                })
+            }}
+        </div>
+    }
+}
+
+#[component]
+fn ProtectedRoute(children: ChildrenFn) -> impl IntoView {
+    let user = expect_context::<Resource<Option<crate::auth::User>>>();
+
+    view! {
+        <Suspense fallback=|| view! { <p>"Loading..."</p> }>
+            {move || {
+                user.get().map(|user_data| {
+                    match user_data {
+                        Some(_) => children().into_any(),
+                        None => {
+                            use leptos_router::hooks::use_navigate;
+                            let navigate = use_navigate();
+                            navigate("/login", Default::default());
+                            view! { <p>"Redirecting to login..."</p> }.into_any()
+                        }
+                    }
+                })
+            }}
+        </Suspense>
     }
 }
 
@@ -134,6 +274,7 @@ fn Performance() -> impl IntoView {
         </div>
     }
 }
+
 #[component]
 fn Settings() -> impl IntoView {
     view! {
@@ -143,6 +284,7 @@ fn Settings() -> impl IntoView {
         </div>
     }
 }
+
 #[component]
 fn Accounts() -> impl IntoView {
     view! {
@@ -152,9 +294,13 @@ fn Accounts() -> impl IntoView {
         </div>
     }
 }
+
 #[component]
 fn Nav() -> impl IntoView {
     let nav_menu = RwSignal::new(false);
+    let user = expect_context::<Resource<Option<crate::auth::User>>>();
+
+    let logout_action = Action::new(|_: &()| async move { logout_user().await });
 
     view! {
         <header id="top" class="w3-container">
@@ -168,8 +314,27 @@ fn Nav() -> impl IntoView {
                     <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/performance">Performance</A></li>
                     <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/settings">Settings</A></li>
                     <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/accounts">Accounts</A></li>
+                    <Suspense fallback=|| view! { <li></li> }>
+                        {move || {
+                            user.get().map(|user_data| {
+                                match user_data {
+                                    Some(_) => view! {
+                                        <li class={move || if nav_menu.get() { "show" } else { "" } }>
+                                            <button on:click=move |_| { logout_action.dispatch(()); }>
+                                                "Logout"
+                                            </button>
+                                        </li>
+                                    }.into_any(),
+                                    None => view! {
+                                        <li class={move || if nav_menu.get() { "show" } else { "" } }>
+                                            <A href="/login">"Login"</A>
+                                        </li>
+                                    }.into_any(),
+                                }
+                            })
+                        }}
+                    </Suspense>
                 </ul>
-                //<button id="hamburger" on:click=move |_| nav_menu.update(|f| *f=!(*f)) />
             </nav>
         </div>
         </header>

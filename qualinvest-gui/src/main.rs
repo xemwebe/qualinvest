@@ -6,6 +6,7 @@ cfg_if! {
         use finql::postgres::PostgresDB;
         use leptos::prelude::LeptosOptions;
         use qualinvest_gui::app::*;
+        use qualinvest_gui::auth::{Backend, AuthSession};
 
         use anyhow::Result;
         use axum::{
@@ -28,6 +29,8 @@ cfg_if! {
         use leptos::prelude::*;
         use tower::ServiceExt;
         use tower_http::services::ServeDir;
+        use axum_login::AuthManagerLayerBuilder;
+        use tower_sessions::{MemoryStore, SessionManagerLayer};
 
         pub async fn file_and_error_handler(
             uri: Uri,
@@ -71,11 +74,13 @@ cfg_if! {
 
         async fn leptos_routes_handler(
             State(app_state): State<AppState>,
+            auth_session: AuthSession,
             req: Request<AxumBody>,
         ) -> AxumResponse {
             let handler = leptos_axum::render_app_to_stream_with_context(
                 move || {
                     provide_context(app_state.db.clone());
+                    provide_context(auth_session.clone());
                 },
                 move || shell(app_state.leptos_options.clone()),
             );
@@ -103,6 +108,7 @@ cfg_if! {
 
         async fn server_fn_handler(
             State(app_state): State<AppState>,
+            auth_session: AuthSession,
             path: Path<String>,
             _headers: HeaderMap,
             _raw_query: RawQuery,
@@ -113,6 +119,7 @@ cfg_if! {
             handle_server_fns_with_context(
                 move || {
                     provide_context(app_state.db.clone());
+                    provide_context(auth_session.clone());
                 },
                 request,
             )
@@ -147,6 +154,15 @@ cfg_if! {
                             leptos_options,
                         };
 
+                        // Set up session management
+                        let session_store = MemoryStore::default();
+                        let session_layer = SessionManagerLayer::new(session_store)
+                            .with_secure(false); // Set to true in production with HTTPS
+
+                        // Set up authentication
+                        let backend = Backend::new();
+                        let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
+
                         let routes = generate_route_list(|| view! { <App/> });
                         // build our application with a route
                         let app = Router::new()
@@ -154,6 +170,7 @@ cfg_if! {
                             .route("/api/*fn_name", post(server_fn_handler))
                             .leptos_routes_with_handler(routes, get(leptos_routes_handler))
                             .fallback(file_and_error_handler)
+                            .layer(auth_layer)
                             .with_state(app_state);
 
             // run our app with hyper

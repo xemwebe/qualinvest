@@ -1,4 +1,5 @@
 pub mod app;
+pub mod auth;
 pub mod error_template;
 pub mod transaction_view;
 pub mod transactions;
