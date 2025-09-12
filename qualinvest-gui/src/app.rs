@@ -1,3 +1,4 @@
+use crate::auth::User;
 use crate::transaction_view::TransactionsTable;
 use cfg_if::cfg_if;
 use leptos::prelude::*;
@@ -63,7 +64,7 @@ pub fn App() -> impl IntoView {
 /// Renders the home page of your application.
 #[component]
 fn HomePage() -> impl IntoView {
-    let user = expect_context::<Resource<Option<crate::auth::User>>>();
+    let user = expect_context::<Resource<Option<User>>>();
 
     view! {
         <div class="center">
@@ -73,7 +74,7 @@ fn HomePage() -> impl IntoView {
                         match user_data {
                             Some(user) => view! {
                                 <div class="warning,block">
-                                    "You are logged in as " {user.username.clone()}
+                                    "You are logged in as " {user.name.clone()}
                                 </div>
                             }.into_any(),
                             None => view! {
@@ -131,7 +132,7 @@ pub async fn logout_user() -> Result<(), ServerFnError> {
 }
 
 #[server(GetUser, "/api")]
-pub async fn get_user() -> Result<Option<crate::auth::User>, ServerFnError> {
+pub async fn get_user() -> Result<Option<User>, ServerFnError> {
     cfg_if! {
         if #[cfg(feature = "ssr")] {
             use crate::auth::AuthSession;
@@ -206,7 +207,7 @@ fn Login() -> impl IntoView {
 
 #[component]
 fn ProtectedRoute(children: ChildrenFn) -> impl IntoView {
-    let user = expect_context::<Resource<Option<crate::auth::User>>>();
+    let user = expect_context::<Resource<Option<User>>>();
 
     view! {
         <Suspense fallback=|| view! { <p>"Loading..."</p> }>
@@ -298,7 +299,7 @@ fn Accounts() -> impl IntoView {
 #[component]
 fn Nav() -> impl IntoView {
     let nav_menu = RwSignal::new(false);
-    let user = expect_context::<Resource<Option<crate::auth::User>>>();
+    let user = expect_context::<Resource<Option<User>>>();
 
     let logout_action = Action::new(|_: &()| async move { logout_user().await });
 

@@ -80,11 +80,6 @@ cfg_if! {
             user::UserHandler,
         };
 
-        pub fn get_db() -> Result<PostgresDB, ServerFnError> {
-            use_context::<PostgresDB>()
-                .ok_or_else(|| ServerFnError::ServerError("Database is missing.".into()))
-        }
-
         pub async fn get_transactions_ssr(user_id: u32, db: PostgresDB) -> Vec<TransactionView> {
             let user_settings = db.get_user_settings(user_id as i32).await;
             if let Ok(transactions) = db
@@ -120,7 +115,7 @@ pub async fn get_transactions(
     use log::debug;
 
     debug!("get transactions called with filter {filter:?}");
-    let db = get_db()?;
+    let db = crate::db::get_db()?;
     Ok(RwSignal::new(
         get_transactions_ssr(filter.user_id, db).await,
     ))

@@ -344,7 +344,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edca88bc138befd0323b20752846e6587272d3b03b0343c8ea28a6f819e6e71f"
 dependencies = [
  "async-trait",
- "axum-core",
+ "axum-core 0.4.5",
  "axum-macros",
  "bytes 1.10.1",
  "futures-util",
@@ -395,6 +395,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "axum-core"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68464cd0412f486726fb3373129ef5d2993f90c34bc2bc1c1e9943b2f4fc7ca6"
+dependencies = [
+ "bytes 1.10.1",
+ "futures-core",
+ "http 1.3.1",
+ "http-body 1.0.1",
+ "http-body-util",
+ "mime 0.3.17",
+ "pin-project-lite 0.2.16",
+ "rustversion",
+ "sync_wrapper 1.0.2",
+ "tower-layer",
+ "tower-service",
+]
+
+[[package]]
 name = "axum-login"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -406,10 +425,10 @@ dependencies = [
  "serde",
  "subtle",
  "thiserror 1.0.69",
- "tower-cookies",
+ "tower-cookies 0.10.0",
  "tower-layer",
  "tower-service",
- "tower-sessions",
+ "tower-sessions 0.13.0",
  "tracing",
  "urlencoding",
 ]
@@ -606,7 +625,6 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
- "serde",
  "wasm-bindgen",
  "windows-link",
 ]
@@ -618,18 +636,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93698b29de5e97ad0ae26447b344c482a7284c737d9ddc5f9e52b74a336671bb"
 dependencies = [
  "chrono",
- "chrono-tz-build 0.3.0",
- "phf 0.11.3",
-]
-
-[[package]]
-name = "chrono-tz"
-version = "0.10.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efdce149c370f133a071ca8ef6ea340b7b88748ab0810097a9e2976eaa34b4f3"
-dependencies = [
- "chrono",
- "chrono-tz-build 0.4.1",
+ "chrono-tz-build",
  "phf 0.11.3",
 ]
 
@@ -641,16 +648,6 @@ checksum = "0c088aee841df9c3041febbb73934cfc39708749bf96dc827e3359cd39ef11b1"
 dependencies = [
  "parse-zoneinfo",
  "phf 0.11.3",
- "phf_codegen 0.11.3",
-]
-
-[[package]]
-name = "chrono-tz-build"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f10f8c9340e31fc120ff885fcdb54a0b48e474bbd77cab557f0c30a3e569402"
-dependencies = [
- "parse-zoneinfo",
  "phf_codegen 0.11.3",
 ]
 
@@ -867,6 +864,7 @@ dependencies = [
  "aes-gcm",
  "base64 0.22.1",
  "hkdf",
+ "hmac",
  "percent-encoding 2.3.1",
  "rand 0.8.5",
  "sha2",
@@ -1434,8 +1432,6 @@ dependencies = [
  "argmin",
  "async-trait",
  "cal-calc",
- "chrono",
- "chrono-tz 0.10.3",
  "computus",
  "csv",
  "eodhistoricaldata_api",
@@ -4005,11 +4001,13 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "simple_logger",
+ "sqlx",
  "thiserror 2.0.12",
  "tokio 1.44.2",
  "tower",
  "tower-http",
- "tower-sessions",
+ "tower-sessions 0.14.0",
+ "tower-sessions-sqlx-store",
  "uuid",
  "wasm-bindgen",
  "web-sys",
@@ -4602,6 +4600,28 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "rmp"
+version = "0.8.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "228ed7c16fa39782c3b3468e974aec2795e9089153cd08ee2e9aefb3613334c4"
+dependencies = [
+ "byteorder",
+ "num-traits",
+ "paste",
+]
+
+[[package]]
+name = "rmp-serde"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52e599a477cf9840e92f2cde9a7189e67b42c57532749bf90aea6ec10facd4db"
+dependencies = [
+ "byteorder",
+ "rmp",
+ "serde",
 ]
 
 [[package]]
@@ -5286,6 +5306,7 @@ dependencies = [
  "sha2",
  "smallvec",
  "thiserror 2.0.12",
+ "time 0.3.41",
  "tokio 1.44.2",
  "tokio-stream",
  "tracing",
@@ -5371,6 +5392,7 @@ dependencies = [
  "sqlx-core",
  "stringprep",
  "thiserror 2.0.12",
+ "time 0.3.41",
  "tracing",
  "whoami",
 ]
@@ -5409,6 +5431,7 @@ dependencies = [
  "sqlx-core",
  "stringprep",
  "thiserror 2.0.12",
+ "time 0.3.41",
  "tracing",
  "whoami",
 ]
@@ -5434,6 +5457,7 @@ dependencies = [
  "serde_urlencoded",
  "sqlx-core",
  "thiserror 2.0.12",
+ "time 0.3.41",
  "tracing",
  "url 2.5.4",
 ]
@@ -5666,7 +5690,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab9d851b45e865f178319da0abdbfe6acbc4328759ff18dafc3a41c16b4cd2ee"
 dependencies = [
  "chrono",
- "chrono-tz 0.9.0",
+ "chrono-tz",
  "globwalk",
  "humansize",
  "lazy_static",
@@ -5992,7 +6016,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fd0118512cf0b3768f7fcccf0bef1ae41d68f2b45edc1e77432b36c97c56c6d"
 dependencies = [
  "async-trait",
- "axum-core",
+ "axum-core 0.4.5",
+ "cookie",
+ "futures-util",
+ "http 1.3.1",
+ "parking_lot",
+ "pin-project-lite 0.2.16",
+ "tower-layer",
+ "tower-service",
+]
+
+[[package]]
+name = "tower-cookies"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "151b5a3e3c45df17466454bb74e9ecedecc955269bdedbf4d150dfa393b55a36"
+dependencies = [
+ "axum-core 0.5.2",
  "cookie",
  "futures-util",
  "http 1.3.1",
@@ -6049,11 +6089,29 @@ dependencies = [
  "http 1.3.1",
  "time 0.3.41",
  "tokio 1.44.2",
- "tower-cookies",
+ "tower-cookies 0.10.0",
  "tower-layer",
  "tower-service",
- "tower-sessions-core",
- "tower-sessions-memory-store",
+ "tower-sessions-core 0.13.0",
+ "tower-sessions-memory-store 0.13.0",
+ "tracing",
+]
+
+[[package]]
+name = "tower-sessions"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43a05911f23e8fae446005fe9b7b97e66d95b6db589dc1c4d59f6a2d4d4927d3"
+dependencies = [
+ "async-trait",
+ "http 1.3.1",
+ "time 0.3.41",
+ "tokio 1.44.2",
+ "tower-cookies 0.11.0",
+ "tower-layer",
+ "tower-service",
+ "tower-sessions-core 0.14.0",
+ "tower-sessions-memory-store 0.14.0",
  "tracing",
 ]
 
@@ -6064,7 +6122,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb6abbfcaf6436ec5a772cd9f965401da12db793e404ae6134eac066fa5a04f3"
 dependencies = [
  "async-trait",
- "axum-core",
+ "axum-core 0.4.5",
  "base64 0.22.1",
  "futures",
  "http 1.3.1",
@@ -6079,6 +6137,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "tower-sessions-core"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce8cce604865576b7751b7a6bc3058f754569a60d689328bb74c52b1d87e355b"
+dependencies = [
+ "async-trait",
+ "axum-core 0.5.2",
+ "base64 0.22.1",
+ "futures",
+ "http 1.3.1",
+ "parking_lot",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.12",
+ "time 0.3.41",
+ "tokio 1.44.2",
+ "tracing",
+]
+
+[[package]]
 name = "tower-sessions-memory-store"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6087,7 +6166,33 @@ dependencies = [
  "async-trait",
  "time 0.3.41",
  "tokio 1.44.2",
- "tower-sessions-core",
+ "tower-sessions-core 0.13.0",
+]
+
+[[package]]
+name = "tower-sessions-memory-store"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb05909f2e1420135a831dd5df9f5596d69196d0a64c3499ca474c4bd3d33242"
+dependencies = [
+ "async-trait",
+ "time 0.3.41",
+ "tokio 1.44.2",
+ "tower-sessions-core 0.14.0",
+]
+
+[[package]]
+name = "tower-sessions-sqlx-store"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e054622079f57fc1a7d6a6089c9334f963d62028fe21dc9eddd58af9a78480b3"
+dependencies = [
+ "async-trait",
+ "rmp-serde",
+ "sqlx",
+ "thiserror 1.0.69",
+ "time 0.3.41",
+ "tower-sessions-core 0.14.0",
 ]
 
 [[package]]

@@ -14,7 +14,7 @@ leptos_router = { version = "0.7.0" }
 axum = { version = "0.7", features = ["macros"], optional = true }
 leptos_axum = { version = "0.7.0", optional = true }
 leptos_meta = { version = "0.7.0" }
-tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "signal"], optional = true }
 wasm-bindgen = { version = "=0.2.100", optional = true }
 qualinvest_core = { version = "0.1", path = "../qualinvest_core", optional = true }
 finql = { version = "0.12", path = "../finql", optional = true }
@@ -31,11 +31,20 @@ tower-http = "0.6.2"
 thiserror = "2.0.12"
 web-sys = "0.3"
 axum-login = { version = "0.16", optional = true }
-tower-sessions = { version = "0.13", features = ["memory-store"], optional = true }
+tower-sessions = { version = "0.14", features = ["memory-store", "signed"], optional = true }
+tower-sessions-sqlx-store = { version = "0.15", features = ["postgres"], optional = true }
 uuid = { version = "1.0", features = ["v4"], optional = true }
 argon2 = { version = "0.5", optional = true }
 async-trait = { version = "0.1", optional = true }
 rand = { version = "0.8", optional = true }
+sqlx = { version = "0.8", features = [
+    "runtime-tokio-rustls",
+    "postgres",
+    "macros",
+    "chrono",
+    "json",
+    "migrate",
+], optional = true }
 
 [features]
 hydrate = ["leptos/hydrate", "dep:console_error_panic_hook", "dep:wasm-bindgen"]
@@ -46,26 +55,20 @@ ssr = [
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",
-    "dep:finql",
-    "dep:qualinvest_core",
     "dep:axum-login",
     "dep:tower-sessions",
+    "dep:tower-sessions-sqlx-store",
+    "dep:finql",
+    "dep:qualinvest_core",
     "dep:uuid",
     "dep:argon2",
     "dep:async-trait",
     "dep:rand",
+    "dep:sqlx",
 ]
 
-# Defines a size-optimized profile for the WASM bundle in release mode
-[profile.wasm-release]
-inherits = "release"
-opt-level = 'z'
-lto = true
-codegen-units = 1
-panic = "abort"
-
-[target.wasm32-unknown-unknown]
-rustflags = ["--cfg", 'getrandom_backend="wasm_js"']
+#[target.wasm32-unknown-unknown]
+#rustflags = ["--cfg", 'getrandom_backend="wasm_js"']
 
 [package.metadata.leptos]
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name

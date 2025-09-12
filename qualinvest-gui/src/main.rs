@@ -6,7 +6,7 @@ cfg_if! {
         use finql::postgres::PostgresDB;
         use leptos::prelude::LeptosOptions;
         use qualinvest_gui::app::*;
-        use qualinvest_gui::auth::{Backend, AuthSession};
+        use qualinvest_gui::auth::{PostgresBackend, AuthSession};
 
         use anyhow::Result;
         use axum::{
@@ -30,7 +30,9 @@ cfg_if! {
         use tower::ServiceExt;
         use tower_http::services::ServeDir;
         use axum_login::AuthManagerLayerBuilder;
-        use tower_sessions::{MemoryStore, SessionManagerLayer};
+        use tower_sessions::{MemoryStore, SessionManagerLayer, cookie::Key};
+        use tokio::{signal, task::AbortHandle, time::Duration};
+        use tower_sessions_sqlx_store::PostgresStore;
 
         pub async fn file_and_error_handler(
             uri: Uri,
@@ -140,7 +142,7 @@ cfg_if! {
                             confy::load("qualinvest", None)?
                         };
 
-                       let db =PostgresDB::new(&config.database_url)
+                       let db = PostgresDB::new(&config.database_url)
                             .await
                             .expect("failed to open database");
                         let mut leptos_options = get_configuration(None)
@@ -149,19 +151,38 @@ cfg_if! {
                         let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), config.port);
                         leptos_options.site_addr = socket;
 
-                        let app_state = AppState {
-                           db,
-                            leptos_options,
-                        };
+                        // Session layer
+                        //
+                        // This uses `tower-sessions`to establish a layer that will provide the
+                        // session as a request service
+                        let session_store = PostgresStore::new(db.pool.clone());
+                        session_store.migrate().await?;
 
+                        let deletion_task = tokio::task::spawn(
+                            session_store.clone().continuously_delete_expired(tokio::time::Duration::from_secs(600)),
+                        );
+
+                        // Generate a cryptographic key for session management
+                        let key = Key::generate();
                         // Set up session management
                         let session_store = MemoryStore::default();
                         let session_layer = SessionManagerLayer::new(session_store)
-                            .with_secure(false); // Set to true in production with HTTPS
+                            .with_secure(false) // Set to true in production with HTTPS
+                            .with_expiry(Expire::OnInactivity(Duration::from_secs(600)))
+                            .with_signed(key);
 
-                        // Set up authentication
-                        let backend = Backend::new();
+                        // Auth service
+                        //
+                        // This combines the session layer with our backend to establish the auth
+                        // service which will provide the auth session as a request extension
+                        let backend = PostgresBackend::new(//db.pool.clone()
+                        );
                         let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
+
+                        let app_state = AppState {
+                            db,
+                            leptos_options,
+                        };
 
                         let routes = generate_route_list(|| view! { <App/> });
                         // build our application with a route
@@ -178,10 +199,36 @@ cfg_if! {
             info!("listening on http://{}", &socket);
             let listener = tokio::net::TcpListener::bind(&socket).await.unwrap();
             axum::serve(listener, app.into_make_service())
+                .with_graceful_shutdown(shutdown_signal(deletion_task.abort_handle()))
                 .await
                 .unwrap();
             Ok(())
         }
+
+        async fn shutdown_signal(deletion_task_abort_handle: AbortHandle) {
+            let ctrl_c = async {
+                signal::ctrl_c()
+                    .await
+                    .expect("failed to install Ctrl+C handler");
+            };
+
+            #[cfg(unix)]
+            let terminate = async {
+                signal::unix::signal(signal::unix::SignalKind::terminate())
+                    .expect("failed to install signal handler")
+                    .recv()
+                    .await;
+            };
+
+            #[cfg(not(unix))]
+            let terminate = std::future::pending::<()>();
+
+            tokio::select! {
+                _ = ctrl_c => { deletion_task_abort_handle.abort() },
+                _ = terminate => { deletion_task_abort_handle.abort() },
+            }
+        }
+
     } else {
         pub fn main() {
             // no client-side main function
