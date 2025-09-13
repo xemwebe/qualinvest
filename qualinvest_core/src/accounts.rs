@@ -1,7 +1,7 @@
 //! Implementation of Accounts and an according PostgreSQL handler
 use async_trait::async_trait;
-use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
+use time::Date;
 
 use finql::{
     datatypes::{Currency, CurrencyISOCode, DataError, Transaction, TransactionHandler},
@@ -100,15 +100,15 @@ pub trait AccountHandler: TransactionHandler {
     async fn get_all_transactions_with_account_before(
         &self,
         account_id: i32,
-        time: NaiveDate,
+        time: Date,
     ) -> Result<Vec<Transaction>, DataError>;
 
     /// Get transactions filtered by account id in time range
     async fn get_all_transactions_with_account_in_range(
         &self,
         account_id: i32,
-        start: NaiveDate,
-        end: NaiveDate,
+        start: Date,
+        end: Date,
     ) -> Result<Vec<Transaction>, DataError>;
 
     /// Get transactions filtered by a list of account ids
@@ -121,15 +121,15 @@ pub trait AccountHandler: TransactionHandler {
     async fn get_transactions_before_time(
         &self,
         accounts: &[i32],
-        time: NaiveDate,
+        time: Date,
     ) -> Result<Vec<Transaction>, DataError>;
 
     /// Get transactions filtered by a list of account ids and cash dates in time range
     async fn get_transactions_in_range(
         &self,
         accounts: &[i32],
-        start: NaiveDate,
-        end: NaiveDate,
+        start: Date,
+        end: Date,
     ) -> Result<Vec<Transaction>, DataError>;
 
     /// Get transactions view for list of account ids that a related to a given asset
@@ -478,7 +478,7 @@ impl AccountHandler for PostgresDB {
     async fn get_all_transactions_with_account_before(
         &self,
         account_id: i32,
-        time: NaiveDate,
+        time: Date,
     ) -> Result<Vec<Transaction>, DataError> {
         let mut transactions = Vec::new();
         for row in sqlx::query!(
@@ -534,8 +534,8 @@ impl AccountHandler for PostgresDB {
     async fn get_all_transactions_with_account_in_range(
         &self,
         account_id: i32,
-        start: NaiveDate,
-        end: NaiveDate,
+        start: Date,
+        end: Date,
     ) -> Result<Vec<Transaction>, DataError> {
         let mut transactions = Vec::new();
         for row in sqlx::query!(
@@ -604,7 +604,7 @@ impl AccountHandler for PostgresDB {
     async fn get_transactions_before_time(
         &self,
         accounts: &[i32],
-        time: NaiveDate,
+        time: Date,
     ) -> Result<Vec<Transaction>, DataError> {
         let mut transactions = Vec::new();
         for i in accounts {
@@ -620,8 +620,8 @@ impl AccountHandler for PostgresDB {
     async fn get_transactions_in_range(
         &self,
         accounts: &[i32],
-        start: NaiveDate,
-        end: NaiveDate,
+        start: Date,
+        end: Date,
     ) -> Result<Vec<Transaction>, DataError> {
         let mut transactions = Vec::new();
         for i in accounts {
@@ -681,7 +681,7 @@ impl AccountHandler for PostgresDB {
         .await?
         {
             {
-                let date: chrono::NaiveDate = row.cash_date;
+                let date: time::Date = row.cash_date;
                 let cash_date = date.format("%Y-%m-%d").to_string();
                 let currency_isocode = CurrencyISOCode::new(&row.iso_code)?;
                 let asset_name = if let Some(name) = row.stock_name {
@@ -758,7 +758,7 @@ impl AccountHandler for PostgresDB {
         .fetch_all(&self.pool)
         .await?
         {
-            let date: chrono::NaiveDate = row.cash_date;
+            let date: time::Date = row.cash_date;
             let cash_date = date.format("%Y-%m-%d").to_string();
             let currency_isocode = CurrencyISOCode::new(&row.iso_code)?;
             let asset_name = if let Some(name) = row.stock_name {

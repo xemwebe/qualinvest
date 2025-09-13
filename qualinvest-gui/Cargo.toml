@@ -7,7 +7,11 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+finql =  {workspace = true, optional = true}
+time.workspace = true
 console_error_panic_hook = { version = "0.1", optional = true }
+log.workspace = true
+simple_logger.workspace = true
 
 leptos = { version = "0.7.0" }
 leptos_router = { version = "0.7.0" }
@@ -16,12 +20,9 @@ leptos_axum = { version = "0.7.0", optional = true }
 leptos_meta = { version = "0.7.0" }
 tokio = { version = "1", features = ["rt-multi-thread", "signal"], optional = true }
 wasm-bindgen = { version = "=0.2.100", optional = true }
-qualinvest_core = { version = "0.1", path = "../qualinvest_core", optional = true }
-finql = { version = "0.12", path = "../finql", optional = true }
+qualinvest_core = { version = "0.2", path = "../qualinvest_core", optional = true }
 cfg-if = { version = "1.0" }
 serde = { version = "1.0", features = ["derive"] }
-log.workspace = true
-simple_logger.workspace = true
 anyhow = "1.0"
 clap = { version = "4.5.36", features = ["derive"] }
 confy = "0.6.1"

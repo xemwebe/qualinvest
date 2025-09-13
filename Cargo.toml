@@ -13,6 +13,8 @@ resolver = "3"
 lto = true
 
 [workspace.dependencies]
+finql = { version = "0.13", path = "finql" }
+time = { version = "0.3", features = ["local-offset", "serde"] }
 simple_logger = "5.0"
 console_log = "1"
 log = "0.4"

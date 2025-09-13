@@ -8,12 +8,11 @@ use std::{io, num, string};
 
 use thiserror::Error;
 
-use chrono::{Datelike, Local, NaiveDate, TimeZone};
 use sanitize_filename::sanitize;
+use time::{Date, OffsetDateTime};
 
 use finql::{
     datatypes::{
-        date_time_helper::{convert_local_result_to_datetime as to_datetime, make_time},
         Asset, CashAmount, CashFlow, CurrencyError, DataError, Transaction, TransactionType,
     },
     fx_rates::SimpleCurrencyConverter,
@@ -80,7 +79,7 @@ pub struct ParsedTransactionInfo {
     doc_type: DocumentType,
     asset: Asset,
     position: f64,
-    valuta: NaiveDate,
+    valuta: Date,
     fx_rate: Option<f64>,
     main_amount: CashAmount,
     total_amount: CashAmount,
@@ -97,7 +96,7 @@ impl ParsedTransactionInfo {
         main_amount: CashAmount,
         total_amount: CashAmount,
         fx_rate: Option<f64>,
-        valuta: NaiveDate,
+        valuta: Date,
     ) -> ParsedTransactionInfo {
         ParsedTransactionInfo {
             doc_type,
@@ -154,8 +153,8 @@ pub fn german_string_to_float(num_string: &str) -> Result<f64, ReadPDFError> {
 }
 
 /// Converts strings in German data convention to NaiveDate
-pub fn german_string_to_date(date_string: &str) -> Result<NaiveDate, ReadPDFError> {
-    NaiveDate::parse_from_str(date_string, "%d.%m.%Y").map_err(|_| ReadPDFError::ParseDate)
+pub fn german_string_to_date(date_string: &str) -> Result<Date, ReadPDFError> {
+    Date::parse_from_str(date_string, "%d.%m.%Y").map_err(|_| ReadPDFError::ParseDate)
 }
 
 pub async fn parse_and_store<'a>(
@@ -238,7 +237,7 @@ pub async fn parse_and_store<'a>(
 // Check if main payment plus all fees and taxes add up to total payment
 // Add up all payments separate by currencies, convert into total currency, and check if they add up to zero.
 pub async fn check_consistency(tri: &ParsedTransactionInfo) -> Result<(), ReadPDFError> {
-    let time = make_time(
+    let time = make_offset_date_time(
         tri.valuta.year(),
         tri.valuta.month(),
         tri.valuta.day(),
@@ -292,14 +291,14 @@ pub async fn make_transactions(
     tri: &ParsedTransactionInfo,
 ) -> Result<(Vec<Transaction>, Asset), ReadPDFError> {
     let mut transactions = Vec::new();
-    let time = to_datetime(Local.with_ymd_and_hms(
+    let time = make_offset_date_time(
         tri.valuta.year(),
         tri.valuta.month(),
         tri.valuta.day(),
         18,
         0,
         0,
-    ))
+    )
     .ok_or(ReadPDFError::InvalidDate)?;
 
     // temporary storage for fx rates

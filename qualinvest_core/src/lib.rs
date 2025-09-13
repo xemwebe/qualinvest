@@ -3,10 +3,9 @@
 //! This library is part of a set of tools for quantitative investments.
 //! For mor information, see [qualinvest on github](https://github.com/xemwebe/qualinvest)
 //!
-use std::sync::Arc;
-
-use chrono::{Datelike, Local};
 use serde::Deserialize;
+use std::sync::Arc;
+use time::OffsetDateTime;
 
 use cal_calc::{Calendar, Holiday};
 use finql::{
@@ -95,8 +94,6 @@ fn set_market_providers(market: &finql::Market, providers: &MarketDataProviders)
         &providers.eod_historical_data_token,
         MarketDataSource::EodHistData,
     );
-    let codi = MarketDataSource::Comdirect;
-    market.add_provider(codi.to_string(), codi.get_provider(String::new()).unwrap());
 }
 
 pub async fn setup_market(
@@ -109,10 +106,10 @@ pub async fn setup_market(
 }
 
 pub async fn fill_quote_gaps(market: &mut Market, min_size: usize) -> Result<(), MarketError> {
-    use finql::datatypes::date_time_helper::naive_date_to_date_time;
+    use finql::datatypes::date_time_helper::date_to_offset_date_time;
     use finql::time_series::{TimeSeries, TimeValue};
 
-    let today = Local::now().naive_local().date();
+    let today = OffsetDateTime::now_local()?.date();
 
     let tickers = market.db().get_all_ticker().await?;
 
@@ -149,8 +146,8 @@ pub async fn fill_quote_gaps(market: &mut Market, min_size: usize) -> Result<(),
                 let _ = market
                     .update_quote_history(
                         ticker_id,
-                        naive_date_to_date_time(&gap.0, 0, ticker.tz.clone())?,
-                        naive_date_to_date_time(&gap.1, 23, ticker.tz.clone())?,
+                        date_to_offset_date_time(&gap.0, 0, ticker.tz.clone())?,
+                        date_to_offset_date_time(&gap.1, 23, ticker.tz.clone())?,
                     )
                     .await;
             }

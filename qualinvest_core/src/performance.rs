@@ -1,11 +1,8 @@
-use chrono::NaiveDate;
 use std::cmp::min;
+use time::Date;
 
 use finql::{
-    datatypes::{
-        date_time_helper::{from_date, naive_date_to_date_time, to_date},
-        Currency, Transaction,
-    },
+    datatypes::{date_time_helper::date_to_offset_date_time, Currency, Transaction},
     portfolio::{calc_delta_position, PortfolioPosition},
     time_series::TimeValue,
     Market,
@@ -27,8 +24,8 @@ pub enum PerformanceError {
 pub async fn calc_performance(
     currency: Currency,
     transactions: &[Transaction],
-    start: NaiveDate,
-    end: NaiveDate,
+    start: Date,
+    end: Date,
     market: &Market,
     calendar: &str,
 ) -> Result<Vec<TimeValue>, PerformanceError> {
@@ -46,12 +43,12 @@ pub async fn calc_performance(
     )
     .await?;
     position
-        .add_quote(naive_date_to_date_time(&start, 20, None)?, market)
+        .add_quote(date_to_offset_date_time(&start, 20, None)?, market)
         .await;
 
     while current_date < end {
         // roll position forward to next day
-        let next_date = min(end, from_date(cal.next_bday(to_date(current_date)?)?)?);
+        let next_date = min(end, cal.next_bday(current_date)?);
         calc_delta_position(
             &mut position,
             transactions,
@@ -62,7 +59,7 @@ pub async fn calc_performance(
         .await?;
 
         current_date = next_date;
-        let current_time = naive_date_to_date_time(&current_date, 20, None)?;
+        let current_time = date_to_offset_date_time(&current_date, 20, None)?;
         position.add_quote(current_time, market).await;
         let totals = position.calc_totals();
         total_return.push(TimeValue {
