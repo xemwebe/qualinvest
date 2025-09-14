@@ -3,18 +3,18 @@
 use super::german_string_to_date;
 use super::german_string_to_float;
 use super::{DocumentType, ParsedTransactionInfo, ReadPDFError};
-use chrono::NaiveDate;
 use finql::{
     datatypes::{Asset, CashAmount, CurrencyISOCode, Stock},
     Market,
 };
 use lazy_static::lazy_static;
 use regex::{Regex, RegexSet};
+use time::Date;
 
 struct AssetInfo {
     asset: Asset,
     // reserved for later use; could also be ex-interest date
-    _ex_div_day: Option<NaiveDate>,
+    _ex_div_day: Option<Date>,
     // interest rate of a bond, for later use
     _interest_rate: Option<f64>,
     position: Option<f64>,
@@ -227,7 +227,7 @@ async fn parse_pre_tax(
     text: &str,
     doc_type: DocumentType,
     market: &Market,
-) -> Result<(CashAmount, NaiveDate), ReadPDFError> {
+) -> Result<(CashAmount, Date), ReadPDFError> {
     lazy_static! {
         static ref PRE_TAX_AMOUNT: Regex = Regex::new(
             r"(?m)Zu Ihren (?:Gunsten|Lasten) vor Steuern\s*\n.*\s*([0-9.]{10})\s*([A-Z]{3})\s*([-0-9.,]+)"

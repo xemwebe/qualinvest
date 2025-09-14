@@ -681,8 +681,6 @@ impl AccountHandler for PostgresDB {
         .await?
         {
             {
-                let date: time::Date = row.cash_date;
-                let cash_date = date.format("%Y-%m-%d").to_string();
                 let currency_isocode = CurrencyISOCode::new(&row.iso_code)?;
                 let asset_name = if let Some(name) = row.stock_name {
                     Some(name)
@@ -698,7 +696,7 @@ impl AccountHandler for PostgresDB {
                     trans_type: row.trans_type,
                     cash_amount: row.cash_amount,
                     cash_currency: currency_isocode.to_string(),
-                    cash_date,
+                    cash_date: format!("{}", row.cash_date),
                     note: row.note,
                     doc_path: row.path,
                     account_id: row.account_id,
@@ -758,8 +756,6 @@ impl AccountHandler for PostgresDB {
         .fetch_all(&self.pool)
         .await?
         {
-            let date: time::Date = row.cash_date;
-            let cash_date = date.format("%Y-%m-%d").to_string();
             let currency_isocode = CurrencyISOCode::new(&row.iso_code)?;
             let asset_name = if let Some(name) = row.stock_name {
                 Some(name)
@@ -775,7 +771,7 @@ impl AccountHandler for PostgresDB {
                 trans_type: row.trans_type,
                 cash_amount: row.cash_amount,
                 cash_currency: currency_isocode.to_string(),
-                cash_date,
+                cash_date: format!("{}", row.cash_date),
                 note: row.note,
                 doc_path: row.path,
                 account_id: row.account_id,

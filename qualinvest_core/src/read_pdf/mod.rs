@@ -9,15 +9,17 @@ use std::{io, num, string};
 use thiserror::Error;
 
 use sanitize_filename::sanitize;
-use time::{Date, OffsetDateTime};
+use time::{macros::format_description, Date};
 
 use finql::{
     datatypes::{
-        Asset, CashAmount, CashFlow, CurrencyError, DataError, Transaction, TransactionType,
+        date_time_helper::make_offset_time, Asset, CashAmount, CashFlow, CurrencyError, DataError,
+        Transaction, TransactionType,
     },
     fx_rates::SimpleCurrencyConverter,
     Market,
 };
+use unic_ucd::SentenceBreak::Upper;
 
 use super::accounts::{Account, AccountHandler};
 use crate::PdfParseParams;
@@ -152,9 +154,10 @@ pub fn german_string_to_float(num_string: &str) -> Result<f64, ReadPDFError> {
     }
 }
 
-/// Converts strings in German data convention to NaiveDate
+/// Converts strings in German data convention to Date
 pub fn german_string_to_date(date_string: &str) -> Result<Date, ReadPDFError> {
-    Date::parse_from_str(date_string, "%d.%m.%Y").map_err(|_| ReadPDFError::ParseDate)
+    let format = format_description!("[day].[month].[year]");
+    Date::parse(date_string, &format).map_err(|_| ReadPDFError::ParseDate)
 }
 
 pub async fn parse_and_store<'a>(
@@ -237,10 +240,10 @@ pub async fn parse_and_store<'a>(
 // Check if main payment plus all fees and taxes add up to total payment
 // Add up all payments separate by currencies, convert into total currency, and check if they add up to zero.
 pub async fn check_consistency(tri: &ParsedTransactionInfo) -> Result<(), ReadPDFError> {
-    let time = make_offset_date_time(
+    let time = make_offset_time(
         tri.valuta.year(),
-        tri.valuta.month(),
-        tri.valuta.day(),
+        tri.valuta.month() as u32,
+        tri.valuta.day() as u32,
         18,
         0,
         0,
@@ -291,10 +294,10 @@ pub async fn make_transactions(
     tri: &ParsedTransactionInfo,
 ) -> Result<(Vec<Transaction>, Asset), ReadPDFError> {
     let mut transactions = Vec::new();
-    let time = make_offset_date_time(
+    let time = make_offset_time(
         tri.valuta.year(),
-        tri.valuta.month(),
-        tri.valuta.day(),
+        tri.valuta.month() as u32,
+        tri.valuta.day() as u32,
         18,
         0,
         0,
