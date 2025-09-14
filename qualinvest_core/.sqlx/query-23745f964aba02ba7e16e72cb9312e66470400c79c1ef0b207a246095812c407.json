@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT DISTINCT t.id FROM transactions t, users u, account_rights ar, accounts a, account_transactions at\n        WHERE (t.id=$1 OR t.related_trans=$1)\n        AND u.id=$2\n        AND (u.is_admin\n            OR\n            (\n                ar.user_id = u.id\n                AND ar.account_id = a.id\n                AND at.account_id = a.id\n                AND at.transaction_id = t.id\n            )\n        );",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "23745f964aba02ba7e16e72cb9312e66470400c79c1ef0b207a246095812c407"
+}

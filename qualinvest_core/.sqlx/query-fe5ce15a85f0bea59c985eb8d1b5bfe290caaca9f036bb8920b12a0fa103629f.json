@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "CREATE TABLE IF NOT EXISTS account_rights (\n            id SERIAL PRIMARY KEY,\n            user_id INTEGER NOT NULL,\n            account_id INTEGER NOT NULL,\n            FOREIGN KEY(user_id) REFERENCES users(id),\n            FOREIGN KEY(account_id) REFERENCES accounts(id))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "fe5ce15a85f0bea59c985eb8d1b5bfe290caaca9f036bb8920b12a0fa103629f"
+}

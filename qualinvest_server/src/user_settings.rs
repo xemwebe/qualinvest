@@ -9,7 +9,7 @@ use rocket::{
 use rocket_dyn_templates::Template;
 
 use super::ServerState;
-use crate::form_types::NaiveDateForm;
+use crate::form_types::DateForm;
 use crate::layout::layout;
 use crate::user::UserCookie;
 use finql::period_date::PeriodDate;
@@ -19,9 +19,9 @@ use qualinvest_core::user::{UserHandler, UserSettings};
 pub struct UserSettingsForm {
     pub account_ids: Vec<String>,
     pub start_date_type: String,
-    pub start_date: Option<NaiveDateForm>,
+    pub start_date: Option<DateForm>,
     pub end_date_type: String,
-    pub end_date: Option<NaiveDateForm>,
+    pub end_date: Option<DateForm>,
 }
 
 #[get("/settings?<err_msg>")]
@@ -50,10 +50,10 @@ pub async fn show_settings(
     context.insert("start_date_type", &settings.period_start.to_string());
     context.insert("end_date_type", &settings.period_end.to_string());
     if let Ok(start_date) = settings.period_start.date(None) {
-        context.insert("start_date", &start_date.format("%Y-%m-%d").to_string());
+        context.insert("start_date", &format!("{start_date}"));
     }
     if let Ok(end_date) = settings.period_end.date(None) {
-        context.insert("end_date", &end_date.format("%Y-%m-%d").to_string());
+        context.insert("end_date", &format!("{end_date}"));
     }
 
     context.insert("valid_accounts", &user_accounts);

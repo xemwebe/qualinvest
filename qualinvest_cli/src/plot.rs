@@ -1,10 +1,11 @@
-use chrono::Datelike;
 use plotters::prelude::*;
 use thiserror::Error;
 
 use cal_calc::last_day_of_month;
-use finql::datatypes::date_time_helper::make_time;
+use chrono::{DateTime, Utc};
+use finql::datatypes::date_time_helper::make_offset_time;
 use finql::time_series::TimeSeries;
+use time::OffsetDateTime;
 
 /// Error related to plotting graphs
 #[derive(Error, Debug)]
@@ -17,6 +18,10 @@ pub enum PlotError {
     DrawingError(#[from] DrawingAreaErrorKind<std::io::Error>),
     #[error("time series error")]
     TimeSerieos(#[from] finql::time_series::TimeSeriesError),
+}
+
+fn convert_to_utc(time: &OffsetDateTime) -> DateTime<Utc> {
+    return DateTime::from_timestamp_secs(time.unix_timestamp()).unwrap();
 }
 
 pub fn make_plot(
@@ -50,19 +55,21 @@ pub fn make_plot(
     }
 
     let y_range = min_val..max_val;
-    let min_time = make_time(min_date.year(), min_date.month(), 1, 0, 0, 0).unwrap();
+    let min_time = make_offset_time(min_date.year(), min_date.month() as u32, 1, 0, 0, 0).unwrap();
     let max_year = max_date.year();
     let max_month = max_date.month();
-    let max_time = make_time(
+    let max_time = make_offset_time(
         max_year,
-        max_month,
+        max_month as u32,
         last_day_of_month(max_year, max_month as u8) as u32,
         23,
         59,
         59,
     )
     .unwrap();
-    let x_range = (min_time..max_time).monthly();
+    let min_naive_time = convert_to_utc(&min_time);
+    let max_naive_time = convert_to_utc(&max_time);
+    let x_range = (min_naive_time..max_naive_time).monthly();
 
     let mut chart = ChartBuilder::on(&root)
         .margin(10)
@@ -87,7 +94,7 @@ pub fn make_plot(
     for ts in all_time_series {
         chart
             .draw_series(LineSeries::new(
-                ts.series.iter().map(|v| (v.time, v.value)),
+                ts.series.iter().map(|v| (convert_to_utc(&v.time), v.value)),
                 COLORS[color_index],
             ))?
             .label(&ts.title)

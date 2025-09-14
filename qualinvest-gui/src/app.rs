@@ -1,6 +1,5 @@
 use crate::auth::User;
 use crate::transaction_view::TransactionsTable;
-use cfg_if::cfg_if;
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{
@@ -101,47 +100,39 @@ fn HomePage() -> impl IntoView {
 
 #[server(LoginUser, "/api")]
 pub async fn login_user(username: String, password: String) -> Result<(), ServerFnError> {
-    cfg_if! {
-        if #[cfg(feature = "ssr")] {
-            use crate::auth::{AuthSession, Credentials};
-            let auth: AuthSession = expect_context();
-            let credentials = Credentials { username, password };
+    use crate::auth::{AuthSession, Credentials};
+    use log::debug;
 
-            match auth.authenticate(credentials).await {
-                Ok(_user) => Ok(()),
-                Err(_) => Err(ServerFnError::new("Invalid credentials")),
+    debug!("Logging in user");
+    let mut auth: AuthSession = expect_context();
+    let credentials = Credentials { username, password };
+
+    match auth.authenticate(credentials).await {
+        Ok(Some(user)) => {
+            if auth.login(&user).await.is_err() {
+                Err(ServerFnError::new("Failed to establisch session"))
+            } else {
+                Ok(())
             }
-        } else {
-            Ok(())
         }
+        Ok(None) => Err(ServerFnError::new("Invalid credentials")),
+        Err(_) => Err(ServerFnError::new("Failed to verify credentials")),
     }
 }
 
 #[server(LogoutUser, "/api")]
 pub async fn logout_user() -> Result<(), ServerFnError> {
-    cfg_if! {
-        if #[cfg(feature = "ssr")] {
-            use crate::auth::AuthSession;
-            let mut auth: AuthSession = expect_context();
-            let _ = auth.logout().await;
-            Ok(())
-        } else {
-            Ok(())
-        }
-    }
+    use crate::auth::AuthSession;
+    let mut auth: AuthSession = expect_context();
+    let _ = auth.logout().await;
+    Ok(())
 }
 
 #[server(GetUser, "/api")]
 pub async fn get_user() -> Result<Option<User>, ServerFnError> {
-    cfg_if! {
-        if #[cfg(feature = "ssr")] {
-            use crate::auth::AuthSession;
-            let auth: AuthSession = expect_context();
-            Ok(auth.user.clone())
-        } else {
-            Ok(None)
-        }
-    }
+    use crate::auth::AuthSession;
+    let auth: AuthSession = expect_context();
+    Ok(auth.user.clone())
 }
 
 #[component]

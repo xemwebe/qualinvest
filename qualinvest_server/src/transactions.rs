@@ -8,7 +8,7 @@ use tempfile::TempDir;
 
 use super::rocket_uri_macro_login;
 use super::ServerState;
-use crate::form_types::NaiveDateForm;
+use crate::form_types::DateForm;
 use crate::layout::layout;
 use crate::user::UserCookie;
 use finql::datatypes::{
@@ -64,7 +64,7 @@ pub struct TransactionForm {
     pub trans_type: String,
     pub cash_amount: f64,
     pub currency: i32,
-    pub date: NaiveDateForm,
+    pub date: DateForm,
     pub note: Option<String>,
     pub trans_ref: Option<i32>,
     pub account_id: i32,
@@ -77,7 +77,7 @@ impl TransactionForm {
             id: t.id,
             note: t.note.as_ref().cloned(),
             cash_amount: t.cash_flow.amount.amount,
-            date: NaiveDateForm::new(t.cash_flow.date),
+            date: DateForm::new(t.cash_flow.date),
             currency: t.cash_flow.amount.currency.id.ok_or("Invalid currency")?,
             asset_id: None,
             trans_type: "".to_string(),
@@ -276,7 +276,7 @@ pub struct UploadError {
 pub async fn pdf_upload(
     mut data: Form<PDFUploadFormData<'_>>,
     user: UserCookie,
-    state: &State<ServerState>
+    state: &State<ServerState>,
 ) -> Result<Template, Redirect> {
     let pdf_config = PdfParseParams {
         doc_path: state.doc_path.clone(),
@@ -315,8 +315,14 @@ pub async fn pdf_upload(
 
             if let Some(path) = doc.path() {
                 let market = Market::new(state.postgres_db.clone()).await;
-                let transactions =
-                    parse_and_store(path, &file_name, state.postgres_db.clone(), &pdf_config, &market).await;
+                let transactions = parse_and_store(
+                    path,
+                    &file_name,
+                    state.postgres_db.clone(),
+                    &pdf_config,
+                    &market,
+                )
+                .await;
                 match transactions {
                     Err(err) => {
                         errors.push(UploadError {

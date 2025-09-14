@@ -1,6 +1,6 @@
 use finql::{
     datatypes::{
-        date_time_helper::{naive_date_to_date_time, DateTimeError},
+        date_time_helper::{date_to_offset_date_time, DateTimeError},
         DataError, Transaction,
     },
     period_date::{PeriodDate, PeriodDateError},
@@ -107,11 +107,11 @@ pub async fn account_performance(
     }
     let (mut position, _) =
         calculate_position_and_pnl(currency, &transactions, Some(dates[0]), &market).await?;
-    let mut time = naive_date_to_date_time(&dates[0], 0, None)?;
+    let mut time = date_to_offset_date_time(&dates[0], 0, None)?;
     position.add_quote(time, &market).await;
     let mut total_pnls = TimeSeries::new(name);
     if let Some(last_date) = dates.last() {
-        market.set_cache_period(time, naive_date_to_date_time(last_date, 20, None)?)?;
+        market.set_cache_period(time, date_to_offset_date_time(last_date, 20, None)?)?;
         for i in 1..dates.len() {
             calc_delta_position(
                 &mut position,
@@ -121,7 +121,7 @@ pub async fn account_performance(
                 market.clone(),
             )
             .await?;
-            time = naive_date_to_date_time(&dates[i], 20, None)?;
+            time = date_to_offset_date_time(&dates[i], 20, None)?;
             position.add_quote(time, &market).await;
             let totals = position.calc_totals();
             total_pnls.series.push(TimeValue {

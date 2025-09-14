@@ -8,7 +8,7 @@ use rocket_dyn_templates::Template;
 use std::{collections::BTreeMap, str::FromStr};
 
 use finql::datatypes::{
-    date_time_helper::date_time_from_str_standard, AssetHandler, Quote, QuoteHandler,
+    date_time_helper::offset_date_time_from_str_standard, AssetHandler, Quote, QuoteHandler,
 };
 
 use super::ServerState;
@@ -106,7 +106,9 @@ pub async fn update_asset_quote(
         )));
     }
 
-    state.market.update_quote_for_ticker(ticker_id)
+    state
+        .market
+        .update_quote_for_ticker(ticker_id)
         .await
         .map_err(|_| {
             Redirect::to(uri!(
@@ -143,20 +145,22 @@ pub async fn renew_history(
         )));
     }
 
-    let start_date = date_time_from_str_standard(&start, 0, None).map_err(|_| {
+    let start_date = offset_date_time_from_str_standard(&start, 0, None).map_err(|_| {
         Redirect::to(uri!(
             ServerState::base(),
             show_quotes(asset_id, Some("Invalid start date.".to_string()))
         ))
     })?;
-    let end_date = date_time_from_str_standard(&end, 0, None).map_err(|_| {
+    let end_date = offset_date_time_from_str_standard(&end, 0, None).map_err(|_| {
         Redirect::to(uri!(
             ServerState::base(),
             show_quotes(asset_id, Some("Invalid end date.".to_string()))
         ))
     })?;
 
-    state.market.update_quote_history(ticker_id, start_date, end_date)
+    state
+        .market
+        .update_quote_history(ticker_id, start_date, end_date)
         .await
         .map_err(|_| {
             Redirect::to(uri!(
@@ -290,8 +294,8 @@ pub async fn add_new_quote(
         ))
     })?;
 
-    let date =
-        date_time_from_str_standard(&quote_form.date, quote_form.hour, None).map_err(|_| {
+    let date = offset_date_time_from_str_standard(&quote_form.date, quote_form.hour, None)
+        .map_err(|_| {
             Redirect::to(uri!(
                 ServerState::base(),
                 show_quotes(quote_form.asset_id, Some("Invalid date".to_string()))

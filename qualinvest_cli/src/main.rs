@@ -11,13 +11,13 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use chrono::Local;
 use clap::{Args, Parser, Subcommand};
 use glob::glob;
 use log::info;
+use time::OffsetDateTime;
 
 use finql::datatypes::{
-    date_time_helper::date_time_from_str_standard, Currency, QuoteHandler, Ticker,
+    date_time_helper::offset_date_time_from_str_standard, Currency, QuoteHandler, Ticker,
     TransactionHandler,
 };
 use finql::postgres::PostgresDB;
@@ -291,7 +291,8 @@ async fn main() {
                 .unwrap();
 
             if args.quote {
-                let time = Local::now();
+                let time =
+                    OffsetDateTime::now_local().expect("Indeterminate local time zone offset");
                 position.add_quote(time, &market).await;
             }
 
@@ -312,14 +313,14 @@ async fn main() {
                     .ticker_id
                     .expect("Ticker id must be given for history update.");
                 let end = if args.end.is_some() {
-                    date_time_from_str_standard(&args.end.unwrap(), 18, None).unwrap()
+                    offset_date_time_from_str_standard(&args.end.unwrap(), 18, None).unwrap()
                 } else {
-                    Local::now()
+                    OffsetDateTime::now_local().expect("Indeterminate local time zone offset")
                 };
                 let start = if args.start.is_some() {
-                    date_time_from_str_standard(&args.start.unwrap(), 9, None).unwrap()
+                    offset_date_time_from_str_standard(&args.start.unwrap(), 9, None).unwrap()
                 } else {
-                    date_time_from_str_standard("2014-01-01", 9, None).unwrap()
+                    offset_date_time_from_str_standard("2014-01-01", 9, None).unwrap()
                 };
                 market
                     .update_quote_history(ticker_id, start, end)
@@ -355,23 +356,22 @@ async fn main() {
             let account_id = args.account;
 
             let start_date = if let Some(start) = args.start {
-                date_time_from_str_standard(&start, 9, None)
+                offset_date_time_from_str_standard(&start, 9, None)
                     .unwrap()
-                    .naive_local()
                     .date()
             } else {
-                date_time_from_str_standard("2000-01-01", 9, None)
+                offset_date_time_from_str_standard("2000-01-01", 9, None)
                     .unwrap()
-                    .naive_local()
                     .date()
             };
             let end_date = if let Some(end) = args.end {
-                date_time_from_str_standard(&end, 9, None)
+                offset_date_time_from_str_standard(&end, 9, None)
                     .unwrap()
-                    .naive_local()
                     .date()
             } else {
-                Local::now().naive_local().date()
+                OffsetDateTime::now_local()
+                    .expect("Indeterminate local time zone offset")
+                    .date()
             };
             let market = Market::new_with_date_range(db.clone(), start_date, end_date)
                 .await

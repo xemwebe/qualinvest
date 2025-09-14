@@ -1,44 +1,45 @@
-use chrono::NaiveDate;
 use rocket::form;
+use time::{macros::format_description, Date};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct OptionalNaiveDateForm {
-    pub date: Option<NaiveDate>,
+pub struct OptionalDateForm {
+    pub date: Option<Date>,
 }
 
 #[rocket::async_trait]
-impl<'r> form::FromFormField<'r> for OptionalNaiveDateForm {
+impl<'r> form::FromFormField<'r> for OptionalDateForm {
     fn from_value(field: form::ValueField<'r>) -> form::Result<'r, Self> {
-        match NaiveDate::parse_from_str(field.value, "%Y-%m-%d") {
-            Ok(date) => Ok(OptionalNaiveDateForm { date: Some(date) }),
-            Err(_) => Ok(OptionalNaiveDateForm { date: None }),
+        let format = format_description!("[year]-[month]-[day]");
+        match Date::parse(field.value, &format) {
+            Ok(date) => Ok(OptionalDateForm { date: Some(date) }),
+            Err(_) => Ok(OptionalDateForm { date: None }),
         }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct NaiveDateForm {
-    pub date: NaiveDate,
+pub struct DateForm {
+    pub date: Date,
 }
 
-impl NaiveDateForm {
-    pub fn new(date: NaiveDate) -> NaiveDateForm {
-        NaiveDateForm { date }
+impl DateForm {
+    pub fn new(date: Date) -> DateForm {
+        DateForm { date }
     }
 }
 
 #[rocket::async_trait]
-impl<'r> form::FromFormField<'r> for NaiveDateForm {
+impl<'r> form::FromFormField<'r> for DateForm {
     fn from_value(field: form::ValueField<'r>) -> form::Result<'r, Self> {
-        match NaiveDate::parse_from_str(field.value, "%Y-%m-%d") {
-            Ok(date) => Ok(NaiveDateForm { date }),
+        let format = format_description!("[year]-[month]-[day]");
+        match Date::parse(field.value, &format) {
+            Ok(date) => Ok(DateForm { date }),
             Err(err) => Err(rocket::form::Errors::from(form::Error::validation(
                 err.to_string(),
             ))),
         }
     }
 }
-
 
 #[derive(Debug, Serialize)]
 pub struct AssetListItem {

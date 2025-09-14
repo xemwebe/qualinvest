@@ -30,9 +30,10 @@ cfg_if! {
         use tower::ServiceExt;
         use tower_http::services::ServeDir;
         use axum_login::AuthManagerLayerBuilder;
-        use tower_sessions::{MemoryStore, SessionManagerLayer, cookie::Key};
-        use tokio::{signal, task::AbortHandle, time::Duration};
+        use tower_sessions::{MemoryStore, SessionManagerLayer, cookie::Key, Expiry, ExpiredDeletion};
+        use tokio::{signal, task::AbortHandle};
         use tower_sessions_sqlx_store::PostgresStore;
+        use time::Duration;
 
         pub async fn file_and_error_handler(
             uri: Uri,
@@ -168,7 +169,7 @@ cfg_if! {
                         let session_store = MemoryStore::default();
                         let session_layer = SessionManagerLayer::new(session_store)
                             .with_secure(false) // Set to true in production with HTTPS
-                            .with_expiry(Expire::OnInactivity(Duration::from_secs(600)))
+                            .with_expiry(Expiry::OnInactivity(Duration::minutes(10)))
                             .with_signed(key);
 
                         // Auth service
