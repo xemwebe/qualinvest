@@ -61,7 +61,7 @@ impl UserHandler for PostgresDB {
     /// Insert new user into database, fails if user with same name already exists
     async fn insert_user(&self, user: &User, password: &str) -> Result<i32, DataError> {
         let row = sqlx::query!(
-            "INSERT INTO users (name, display, salt_hash, is_admin) 
+            "INSERT INTO users (name, display, salt_hash, is_admin)
                 VALUES ($1, $2, crypt($3,gen_salt('bf',8)), $4) RETURNING id",
             user.name,
             user.display,
@@ -77,7 +77,7 @@ impl UserHandler for PostgresDB {
     /// Get full user information if user name and password are valid
     async fn get_user_by_credentials(&self, name: &str, password: &str) -> Option<User> {
         match sqlx::query!(
-            "SELECT id, name, display, is_admin FROM users WHERE name = $1 AND 
+            "SELECT id, name, display, is_admin FROM users WHERE name = $1 AND
                 salt_hash = crypt($2, salt_hash)",
             name,
             password,
@@ -159,7 +159,7 @@ impl UserHandler for PostgresDB {
     /// Get user id if user name and password are valid
     async fn get_user_id_by_credentials(&self, name: &str, password: &str) -> Option<i32> {
         match sqlx::query!(
-            "SELECT id FROM users WHERE name = $1 AND 
+            "SELECT id FROM users WHERE name = $1 AND
                 salt_hash = crypt($2, salt_hash)",
             name,
             password,
@@ -278,7 +278,7 @@ impl UserHandler for PostgresDB {
 
     /// Get list of account ids a user as access to
     async fn get_user_accounts(&self, user_id: i32) -> Result<Vec<Account>, DataError> {
-        let rows = sqlx::query!("SELECT a.id, a.broker, a.account_name FROM accounts a, account_rights r WHERE r.account_id = a.id AND r.user_id=$1", 
+        let rows = sqlx::query!("SELECT a.id, a.broker, a.account_name FROM accounts a, account_rights r WHERE r.account_id = a.id AND r.user_id=$1",
                 user_id).fetch_all(&self.pool).await?;
         let mut accounts = Vec::new();
         for row in rows {
@@ -358,7 +358,7 @@ impl UserHandler for PostgresDB {
                 AND at.account_id = a.id
                 AND at.transaction_id = t.id
             )
-        );"#, 
+        );"#,
         trans_id, user_id)
         .fetch_all(&self.pool).await?;
         let mut ids = Vec::new();
@@ -410,9 +410,9 @@ impl UserHandler for PostgresDB {
         let settings_json = serde_json::to_value(settings)?;
         sqlx::query!(
             r"INSERT INTO user_settings (user_id, settings)
-        VALUES($1,$2) 
-        ON CONFLICT (user_id) 
-        DO 
+        VALUES($1,$2)
+        ON CONFLICT (user_id)
+        DO
         UPDATE SET settings = $2",
             user_id,
             settings_json

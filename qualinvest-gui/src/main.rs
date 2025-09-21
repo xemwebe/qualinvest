@@ -6,7 +6,8 @@ cfg_if! {
         use finql::postgres::PostgresDB;
         use leptos::prelude::LeptosOptions;
         use qualinvest_gui::app::*;
-        use qualinvest_gui::auth::{PostgresBackend, AuthSession};
+        use qualinvest_gui::auth::{PostgresBackend};
+        use axum_login::{AuthSession};
 
         use anyhow::Result;
         use axum::{
@@ -15,7 +16,7 @@ cfg_if! {
             response::{IntoResponse, Response as AxumResponse},
             routing::{get, post},
             Router,
-            http::{HeaderMap, Request, Response, StatusCode, Uri},
+            http::{HeaderMap, Request, StatusCode, Uri},
         };
         use clap::Parser;
         //use http::{HeaderMap, Request};
@@ -26,11 +27,10 @@ cfg_if! {
         use std::path::PathBuf;
         use std::net::{IpAddr, Ipv4Addr, SocketAddr};
         use qualinvest_gui::error_template::{AppError, ErrorTemplate};
-        use leptos::prelude::*;
         use tower::ServiceExt;
         use tower_http::services::ServeDir;
         use axum_login::AuthManagerLayerBuilder;
-        use tower_sessions::{MemoryStore, SessionManagerLayer, cookie::Key, Expiry, ExpiredDeletion};
+        use tower_sessions::{SessionManagerLayer, cookie::Key, Expiry, ExpiredDeletion};
         use tokio::{signal, task::AbortHandle};
         use tower_sessions_sqlx_store::PostgresStore;
         use time::Duration;
@@ -77,7 +77,7 @@ cfg_if! {
 
         async fn leptos_routes_handler(
             State(app_state): State<AppState>,
-            auth_session: AuthSession,
+            auth_session: AuthSession<PostgresBackend>,
             req: Request<AxumBody>,
         ) -> AxumResponse {
             let handler = leptos_axum::render_app_to_stream_with_context(
@@ -111,7 +111,7 @@ cfg_if! {
 
         async fn server_fn_handler(
             State(app_state): State<AppState>,
-            auth_session: AuthSession,
+            auth_session: AuthSession<PostgresBackend>,
             path: Path<String>,
             _headers: HeaderMap,
             _raw_query: RawQuery,
@@ -166,7 +166,6 @@ cfg_if! {
                         // Generate a cryptographic key for session management
                         let key = Key::generate();
                         // Set up session management
-                        let session_store = MemoryStore::default();
                         let session_layer = SessionManagerLayer::new(session_store)
                             .with_secure(false) // Set to true in production with HTTPS
                             .with_expiry(Expiry::OnInactivity(Duration::minutes(10)))
@@ -176,7 +175,7 @@ cfg_if! {
                         //
                         // This combines the session layer with our backend to establish the auth
                         // service which will provide the auth session as a request extension
-                        let backend = PostgresBackend::new(//db.pool.clone()
+                        let backend = PostgresBackend::new(db.pool.clone()
                         );
                         let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id FROM users WHERE name = $1 AND \n                salt_hash = crypt($2, salt_hash)",
+  "query": "SELECT id FROM users WHERE name = $1 AND\n                salt_hash = crypt($2, salt_hash)",
   "describe": {
     "columns": [
       {
@@ -19,5 +19,5 @@
       false
     ]
   },
-  "hash": "c175bbf620d9ca8d2f0c57a83461770f59dffbe7006c1093593ec9866646efcb"
+  "hash": "d19083733ce8dc916c3c0c151fd9dfe582c57c2b14351cd2e83e13b4ce00e994"
 }

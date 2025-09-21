@@ -6,6 +6,7 @@ use leptos_router::{
     components::{Route, Router, Routes, A},
     StaticSegment,
 };
+use log::debug;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -100,38 +101,50 @@ fn HomePage() -> impl IntoView {
 
 #[server(LoginUser, "/api")]
 pub async fn login_user(username: String, password: String) -> Result<(), ServerFnError> {
-    use crate::auth::{AuthSession, Credentials};
+    use crate::auth::{Credentials, PostgresBackend};
+    use axum_login::AuthSession;
     use log::debug;
 
     debug!("Logging in user");
-    let mut auth: AuthSession = expect_context();
+    let mut auth: AuthSession<PostgresBackend> = expect_context();
     let credentials = Credentials { username, password };
 
     match auth.authenticate(credentials).await {
         Ok(Some(user)) => {
-            if auth.login(&user).await.is_err() {
-                Err(ServerFnError::new("Failed to establisch session"))
+            let session = auth.login(&user).await;
+            if session.is_err() {
+                debug!("failed to establish session error: {session:?}");
+                Err(ServerFnError::new("Failed to establish session"))
             } else {
                 Ok(())
             }
         }
-        Ok(None) => Err(ServerFnError::new("Invalid credentials")),
-        Err(_) => Err(ServerFnError::new("Failed to verify credentials")),
+        Ok(None) => {
+            debug!("invalid credentilas");
+            Err(ServerFnError::new("Invalid credentials"))
+        }
+        Err(e) => {
+            debug!("failed to verify credentials: {e}");
+            Err(ServerFnError::new("Failed to verify credentials"))
+        }
     }
 }
 
 #[server(LogoutUser, "/api")]
 pub async fn logout_user() -> Result<(), ServerFnError> {
-    use crate::auth::AuthSession;
-    let mut auth: AuthSession = expect_context();
+    use crate::auth::PostgresBackend;
+    use axum_login::AuthSession;
+    let mut auth: AuthSession<PostgresBackend> = expect_context();
     let _ = auth.logout().await;
     Ok(())
 }
 
 #[server(GetUser, "/api")]
 pub async fn get_user() -> Result<Option<User>, ServerFnError> {
-    use crate::auth::AuthSession;
-    let auth: AuthSession = expect_context();
+    use crate::auth::PostgresBackend;
+    use axum_login::AuthSession;
+    let auth: AuthSession<PostgresBackend> = expect_context();
+    debug!("got user: {:?}", auth.user);
     Ok(auth.user.clone())
 }
 
@@ -199,11 +212,13 @@ fn Login() -> impl IntoView {
 #[component]
 fn ProtectedRoute(children: ChildrenFn) -> impl IntoView {
     let user = expect_context::<Resource<Option<User>>>();
-
+    debug!("ProtectedRoute user: {:?}", user);
     view! {
         <Suspense fallback=|| view! { <p>"Loading..."</p> }>
             {move || {
+                debug!("ProtectedRoute: trying to get user");
                 user.get().map(|user_data| {
+                    debug!("ProtectedRoute: user data: {:?}", user_data);
                     match user_data {
                         Some(_) => children().into_any(),
                         None => {

@@ -19,7 +19,6 @@ use finql::{
     fx_rates::SimpleCurrencyConverter,
     Market,
 };
-use unic_ucd::SentenceBreak::Upper;
 
 use super::accounts::{Account, AccountHandler};
 use crate::PdfParseParams;

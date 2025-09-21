@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, display, is_admin FROM users WHERE name = $1 AND \n                salt_hash = crypt($2, salt_hash)",
+  "query": "SELECT id, name, display, is_admin FROM users WHERE name = $1 AND\n                salt_hash = crypt($2, salt_hash)",
   "describe": {
     "columns": [
       {
@@ -37,5 +37,5 @@
       false
     ]
   },
-  "hash": "9d28f744ac0516a5c256242651560dfbfdb7c2a28fd1e45525a0de354dcdc716"
+  "hash": "479c5a0534bb8542a7f060d5063204b78f8bb95868da14ff743daa7e81c57d89"
 }

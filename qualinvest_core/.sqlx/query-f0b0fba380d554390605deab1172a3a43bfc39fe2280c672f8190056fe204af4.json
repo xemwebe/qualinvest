@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO users (name, display, salt_hash, is_admin) \n                VALUES ($1, $2, crypt($3,gen_salt('bf',8)), $4) RETURNING id",
+  "query": "INSERT INTO users (name, display, salt_hash, is_admin)\n                VALUES ($1, $2, crypt($3,gen_salt('bf',8)), $4) RETURNING id",
   "describe": {
     "columns": [
       {
@@ -21,5 +21,5 @@
       false
     ]
   },
-  "hash": "cc605a0205ef4d6433bcc2a844175c1f5e02f72d8a3b4b313e7ccaeccbf9d7fd"
+  "hash": "f0b0fba380d554390605deab1172a3a43bfc39fe2280c672f8190056fe204af4"
 }
