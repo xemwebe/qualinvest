@@ -175,8 +175,7 @@ cfg_if! {
                         //
                         // This combines the session layer with our backend to establish the auth
                         // service which will provide the auth session as a request extension
-                        let backend = PostgresBackend::new(db.pool.clone()
-                        );
+                        let backend = PostgresBackend::new(db.pool.clone());
                         let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
                         let app_state = AppState {

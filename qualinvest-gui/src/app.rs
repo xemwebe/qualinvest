@@ -46,10 +46,16 @@ pub fn App() -> impl IntoView {
         <Router>
             <Nav />
             <main>
-                <Routes fallback=|| "Page not found.".into_view()>
+                <Routes fallback=|| {
+                    debug!("Route fallback triggered - page not found");
+                    "Page not found.".into_view()
+                }>
                     <Route path=StaticSegment("") view=HomePage/>
                     <Route path=StaticSegment("login") view=Login/>
-                    <Route path=StaticSegment("transactions") view=|| { view!{ <ProtectedRoute><Transactions/></ProtectedRoute> } }/>
+                    <Route path=StaticSegment("transactions") view=|| {
+                        debug!("Transactions route matched");
+                        view!{ <ProtectedRoute><Transactions/></ProtectedRoute> }
+                    }/>
                     <Route path=StaticSegment("position") view=|| { view!{ <ProtectedRoute><Position/></ProtectedRoute> } }/>
                     <Route path=StaticSegment("assets") view=|| { view!{ <ProtectedRoute><Assets/></ProtectedRoute> } }/>
                     <Route path=StaticSegment("performance") view=|| { view!{ <ProtectedRoute><Performance/></ProtectedRoute> } }/>
@@ -150,6 +156,8 @@ pub async fn get_user() -> Result<Option<User>, ServerFnError> {
 
 #[component]
 fn Login() -> impl IntoView {
+    let user = expect_context::<Resource<Option<User>>>();
+
     let login_action = Action::new(|input: &(String, String)| {
         let username = input.0.clone();
         let password = input.1.clone();
@@ -158,6 +166,22 @@ fn Login() -> impl IntoView {
 
     let (username, set_username) = signal(String::new());
     let (password, set_password) = signal(String::new());
+    let (should_navigate, set_should_navigate) = signal(false);
+
+    // Effect to handle navigation after successful login and user refetch
+    Effect::new(move |_| {
+        if should_navigate.get() {
+            if let Some(user_data) = user.get() {
+                if user_data.is_some() {
+                    debug!("User is authenticated, navigating to /transactions");
+                    use leptos_router::hooks::use_navigate;
+                    let navigate = use_navigate();
+                    navigate("/transactions", Default::default());
+                    set_should_navigate.set(false);
+                }
+            }
+        }
+    });
 
     view! {
         <div class="center">
@@ -196,10 +220,11 @@ fn Login() -> impl IntoView {
                 login_action.value().get().map(|result| {
                     match result {
                         Ok(_) => {
-                            use leptos_router::hooks::use_navigate;
-                            let navigate = use_navigate();
-                            navigate("/", Default::default());
-                            view! { <p>"Login successful!"</p> }.into_any()
+                            // Refetch user data after successful login
+                            debug!("Login successful, refetching user data");
+                            user.refetch();
+                            set_should_navigate.set(true);
+                            view! { <p>"Login successful! Redirecting..."</p> }.into_any()
                         },
                         Err(err) => view! { <p class="error">"Login failed: " {err.to_string()}</p> }.into_any(),
                     }
@@ -211,8 +236,9 @@ fn Login() -> impl IntoView {
 
 #[component]
 fn ProtectedRoute(children: ChildrenFn) -> impl IntoView {
+    debug!("ProtectedRoute component called");
     let user = expect_context::<Resource<Option<User>>>();
-    debug!("ProtectedRoute user: {:?}", user);
+    debug!("ProtectedRoute user resource: {:?}", user);
     view! {
         <Suspense fallback=|| view! { <p>"Loading..."</p> }>
             {move || {
