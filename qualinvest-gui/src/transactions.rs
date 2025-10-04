@@ -109,9 +109,24 @@ cfg_if! {
 pub async fn get_transactions(
     filter: TransactionFilter,
 ) -> Result<RwSignal<Vec<TransactionView>>, ServerFnError> {
+    use crate::auth::PostgresBackend;
+    use axum_login::AuthSession;
     use log::debug;
 
     debug!("get transactions called with filter {filter:?}");
+
+    let auth: AuthSession<PostgresBackend> = expect_context();
+    let user = auth
+        .user
+        .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
+
+    // Verify the authenticated user matches the requested user_id
+    if user.id != 0 && user.id != filter.user_id as i32 {
+        return Err(ServerFnError::new(
+            "Forbidden: Cannot access other user's transactions",
+        ));
+    }
+
     let db = crate::db::get_db()?;
     Ok(RwSignal::new(
         get_transactions_ssr(filter.user_id, db).await,
