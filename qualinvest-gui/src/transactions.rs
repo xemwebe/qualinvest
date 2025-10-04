@@ -19,7 +19,6 @@ pub struct TransactionView {
     pub cash_currency: String,
     pub cash_date: String,
     pub note: Option<String>,
-    pub doc_path: Option<String>,
     pub account_id: i32,
     pub state: TransactionDisplay,
 }
@@ -37,7 +36,6 @@ impl TransactionView {
             cash_currency: "EUR".to_string(),
             cash_date: "2025-01-01".to_string(),
             note: None,
-            doc_path: None,
             account_id: 0,
             state: TransactionDisplay::Edit,
         }
@@ -97,7 +95,6 @@ cfg_if! {
                     cash_currency: t.cash_currency,
                     cash_date: t.cash_date,
                     note: t.note,
-                    doc_path: t.doc_path,
                     account_id: t.account_id,
                     state: TransactionDisplay::View,
                 }).collect()

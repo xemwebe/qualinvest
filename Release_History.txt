@@ -1,6 +1,16 @@
+Version 0.4.0
+ * Complete purpose shift of library, new focus is on measuring performance of transaction histories and simulating investment strategies (i.e. simulate future transaction "histories"); The previouy purpose of bookeeping past realized transactions has been dropped
+ * quantlink_server has been removed
+ * support for parsing pdf documents have been dropped, since it is no longer needed for the purpose
+ * new gui qualinvest-gui based on the leptos framework is under construction and will support the following features:
+   - Displaying transaction histories
+   - Simulating investment strategies
+   - Visualizing performance metrics
+   - Analyzing investment portfolios
+
 Version 0.3.3
  * Don't panic if updating all tickers but return a list of those that failed
- 
+
 Version 0.3.2
  * Update to finql 0.7
  * Switching to TOML as default format for config files (JSON format files are still supported via flag `-J`)
@@ -9,7 +19,7 @@ Version 0.3.2
 
 Version 0.3.1
  * Update to finql 0.6.0
- 
+
 Version 0.3.0
 * Split into separate crates. `qualinvest_core` contains the core functionality, while `qualinvest_cli` contains the command line interface.
   This prepares for an additional REST service interface and a GUI as web assembly.

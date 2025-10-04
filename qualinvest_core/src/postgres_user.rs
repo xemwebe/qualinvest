@@ -367,9 +367,6 @@ impl UserHandler for PostgresDB {
             ids.push(id);
         }
         for id in ids {
-            sqlx::query!("DELETE FROM documents WHERE transaction_id=$1", id)
-                .execute(&self.pool)
-                .await?;
             sqlx::query!(
                 "DELETE FROM account_transactions WHERE transaction_id=$1",
                 id

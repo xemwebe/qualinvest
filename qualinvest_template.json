@@ -1,23 +1,14 @@
 {
-    "db" : 
-    {
-        "host": "/var/run/postgresql",
-        "name": "qlinvestdb",
-        "user": "qualinvest",
-        "password": "<password>" 
-    },
-    "pdf" :
-    {
-        "doc_path": "<directory path to store documents in>",
-        "warn_old": false,
-        "consistency_check": true,
-        "rename_asset": false
-    },
-    "market_data" :
-    {
-        "alpha_vantage_token": "<token>",
-        "gurufocus_token": "<token>",
-        "eod_historical_data_token": "<token>"
-    },
-    "debug": false
+  "db": {
+    "host": "/var/run/postgresql",
+    "name": "qlinvestdb",
+    "user": "qualinvest",
+    "password": "<password>"
+  },
+  "market_data": {
+    "alpha_vantage_token": "<token>",
+    "gurufocus_token": "<token>",
+    "eod_historical_data_token": "<token>"
+  },
+  "debug": false
 }

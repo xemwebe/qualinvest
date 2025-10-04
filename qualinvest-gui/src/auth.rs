@@ -131,7 +131,7 @@ cfg_if! {
 
                 let id: i32 = row.id;
                 Ok(Some(User {
-                    id: id,
+                    id,
                     name: if row.display.is_empty() {
                         row.name
                     } else {
@@ -169,7 +169,7 @@ cfg_if! {
 
                 let id: i32 = row.id;
                 Ok(Some(User {
-                    id: id,
+                    id,
                     name: if row.display.is_empty() {
                         row.name
                     } else {

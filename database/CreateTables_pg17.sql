@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS quotes (
                 price FLOAT8 NOT NULL,
                 time TIMESTAMP WITH TIME ZONE NOT NULL,
                 volume FLOAT8,
-                FOREIGN KEY(ticker_id) REFERENCES ticker(id) 
+                FOREIGN KEY(ticker_id) REFERENCES ticker(id)
             );
 
 CREATE TABLE IF NOT EXISTS objects (
@@ -101,11 +101,6 @@ CREATE TABLE IF NOT EXISTS documents (
                 hash TEXT NOT NULL,
                 path TEXT NOT NULL,
                 FOREIGN KEY(transaction_id) REFERENCES transactions(id));
-
-CREATE TABLE pdf_files (
-                id int4 NOT NULL,
-                pdf bytea NOT NULL,
-                FOREIGN KEY (id) REFERENCES documents(id));
 
 insert
 	into

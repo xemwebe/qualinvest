@@ -12,7 +12,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use clap::{Args, Parser, Subcommand};
-use glob::glob;
 use log::info;
 use time::OffsetDateTime;
 
@@ -24,10 +23,7 @@ use finql::postgres::PostgresDB;
 use finql::{portfolio::calc_position, Market};
 
 use qualinvest_core::{
-    accounts::AccountHandler,
-    performance::calc_performance,
-    read_pdf::{parse_and_store, sha256_hash},
-    setup_market, Config,
+    accounts::AccountHandler, performance::calc_performance, setup_market, Config,
 };
 
 pub mod plot;
@@ -57,17 +53,13 @@ struct Cli {
 #[derive(Subcommand)]
 #[command()]
 enum Command {
-    /// Calculate SHA256 hash sum of given file
-    Hash(Hash),
     /// Clear all data in database
     CleanDb,
-    Parse(Parse),
     Position(Position),
     Update(Update),
     Insert(Insert),
     FillGaps(FillGaps),
     Performance(Performance),
-    PdfUpload(PdfUpload),
 }
 
 #[derive(Args)]
@@ -75,28 +67,6 @@ struct Hash {
     /// Input file of which to calculate hash from
     #[arg(required = true, index = 1)]
     input: PathBuf,
-}
-
-#[derive(Args)]
-struct Parse {
-    /// Path of pdf file or directory
-    #[arg(required = true, index = 1)]
-    path: String,
-    /// Parse all files in the given directory
-    #[arg(short, long)]
-    directory: bool,
-    /// Print warning if pdf file has already been parsed, otherwise ignore silently
-    #[arg(long)]
-    warn_old: bool,
-    /// Process in spite of failed consistency check, but add note
-    #[arg(long)]
-    ignore_consistency_check: bool,
-    /// In case of duplicate asset names with different ISIN or WKN, rename asset by appending ' (NEW)'
-    #[arg(long)]
-    rename_asset: bool,
-    /// Specify (existing) account id to which transactions should be assigned if no account details could not be found
-    #[arg(long)]
-    default_account: Option<i32>,
 }
 
 /// Calculate the position per asset
@@ -201,75 +171,12 @@ async fn main() {
     let market = Market::new(db.clone()).await;
 
     match args.command {
-        Command::Hash(args) => {
-            let pdf_file = args.input;
-            match sha256_hash(&pdf_file) {
-                Err(err) => {
-                    println!(
-                        "Failed to calculate hash of file {:?} with error {:?}",
-                        pdf_file, err
-                    );
-                }
-                Ok(hash) => {
-                    println!("Hash is {}.", hash);
-                }
-            }
-        }
         Command::CleanDb => {
             print!("Cleaning database...");
             db.clean_accounts().await.unwrap();
             db.clean().await.unwrap();
             db.init_accounts().await.unwrap();
             println!("done");
-        }
-        Command::Parse(args) => {
-            let path = args.path;
-            if args.directory {
-                // Parse complete directory
-                let pattern = format!("{}/*.pdf", path);
-                let mut count_transactions = 0_i32;
-                let mut count_docs = 0_i32;
-                let mut count_failed = 0_i32;
-                let mut count_skipped = 0_i32;
-                for file in glob(&pattern).expect("Failed to read directory") {
-                    count_docs += 1;
-                    let path = file.unwrap();
-                    let file_name = path.file_name().unwrap().to_str().unwrap();
-                    let transactions =
-                        parse_and_store(&path, file_name, db.clone(), &config.pdf, &market).await;
-                    match transactions {
-                        Err(err) => {
-                            count_failed += 1;
-                            println!("Failed to parse file {} with error {:?}", file_name, err);
-                        }
-                        Ok(count) => {
-                            if count == 0 {
-                                count_skipped += 1;
-                            }
-                            count_transactions += count;
-                        }
-                    }
-                }
-                println!("{} documents found, {} skipped, {} failed, {} parsed successfully, {} transaction(s) stored in database.",
-                    count_docs, count_skipped, count_failed, count_docs-count_skipped-count_failed, count_transactions);
-            } else {
-                // parse single file
-                let path = std::path::Path::new(&path);
-                let file_name = path.file_name().unwrap().to_str().unwrap();
-                let transactions = parse_and_store(path, file_name, db, &config.pdf, &market).await;
-                match transactions {
-                    Err(err) => {
-                        println!(
-                            "Failed to parse file {} with error {:?}",
-                            path.as_os_str().to_string_lossy(),
-                            err
-                        );
-                    }
-                    Ok(count) => {
-                        println!("{} transaction(s) stored in database.", count);
-                    }
-                }
-            }
         }
         Command::Position(args) => {
             let currency = Currency::from_str("EUR").unwrap();
@@ -410,28 +317,6 @@ async fn main() {
             .unwrap();
             let mut file = fs::File::create(file_name).unwrap();
             write!(file, "{:?}", total_performance).unwrap();
-        }
-        Command::PdfUpload(args) => {
-            let source = if let Some(source) = args.source {
-                source
-            } else {
-                config.pdf.doc_path.clone()
-            };
-            let source_dir = std::path::Path::new(&source);
-            let missing_pdfs = db.get_missing_pdfs().await.unwrap();
-            for file in missing_pdfs {
-                let file_path = source_dir.join(file.2);
-                if file_path.is_file() {
-                    let hash = sha256_hash(&file_path).unwrap();
-                    if hash != file.1 {
-                        eprintln!("Skipping file {}, hash differs!", file_path.display());
-                    }
-                    let buffer = std::fs::read(&file_path).unwrap();
-                    db.store_pdf(file.0, &buffer).await.unwrap();
-                } else {
-                    eprintln!("file not found: {}", file_path.display());
-                }
-            }
         }
     }
 }

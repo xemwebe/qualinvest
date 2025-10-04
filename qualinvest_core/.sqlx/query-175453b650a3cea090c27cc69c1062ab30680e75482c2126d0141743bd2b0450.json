@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n            t.id\n            ,(CASE WHEN t.related_trans IS null THEN t.id\n                ELSE t.related_trans\n                END) AS group_id\n            , a.id AS \"asset_id?\"\n            , s.name as \"stock_name?\"\n            , cn.iso_code as \"currency_name?\"\n            , t.position\n            , t.trans_type\n            , t.cash_amount\n            , t.cash_currency_id\n            , t.cash_date\n            , t.note\n            , d.path AS \"path?\"\n            , at.account_id\n            , c.iso_code\n            , c.rounding_digits\n        FROM\n            currencies c,\n            transactions t\n            LEFT JOIN assets a ON a.id = t.asset_id\n            LEFT JOIN documents d ON d.transaction_id = t.id\n            LEFT JOIN stocks s ON s.id = t.asset_id\n            LEFT JOIN currencies cn ON cn.id = t.asset_id\n            JOIN account_transactions at ON at.transaction_id = t.id\n        WHERE\n            c.id = t.cash_currency_id\n            AND at.account_id = ANY($1)\n            ORDER BY t.cash_date DESC, group_id, t.id",
+  "query": "SELECT\n            t.id\n            ,(CASE WHEN t.related_trans IS null THEN t.id\n                ELSE t.related_trans\n                END) AS group_id\n            , a.id AS \"asset_id?\"\n            , s.name as \"stock_name?\"\n            , cn.iso_code as \"currency_name?\"\n            , t.position\n            , t.trans_type\n            , t.cash_amount\n            , t.cash_currency_id\n            , t.cash_date\n            , t.note\n            , at.account_id\n            , c.iso_code\n            , c.rounding_digits\n        FROM\n            currencies c,\n            transactions t\n            LEFT JOIN assets a ON a.id = t.asset_id\n            LEFT JOIN stocks s ON s.id = t.asset_id\n            LEFT JOIN currencies cn ON cn.id = t.asset_id\n            JOIN account_transactions at ON at.transaction_id = t.id\n        WHERE\n            c.id = t.cash_currency_id\n            AND at.account_id = ANY($1)\n            ORDER BY t.cash_date DESC, group_id, t.id",
   "describe": {
     "columns": [
       {
@@ -60,21 +60,16 @@
       },
       {
         "ordinal": 11,
-        "name": "path?",
-        "type_info": "Text"
-      },
-      {
-        "ordinal": 12,
         "name": "account_id",
         "type_info": "Int4"
       },
       {
-        "ordinal": 13,
+        "ordinal": 12,
         "name": "iso_code",
         "type_info": "Bpchar"
       },
       {
-        "ordinal": 14,
+        "ordinal": 13,
         "name": "rounding_digits",
         "type_info": "Int4"
       }
@@ -98,9 +93,8 @@
       true,
       false,
       false,
-      false,
       false
     ]
   },
-  "hash": "afc6cbfeba4c7bccb1969d91a7b1a2a9a2a4504fe843017cc1862bf204c41e4a"
+  "hash": "175453b650a3cea090c27cc69c1062ab30680e75482c2126d0141743bd2b0450"
 }

@@ -21,7 +21,7 @@ pub enum PlotError {
 }
 
 fn convert_to_utc(time: &OffsetDateTime) -> DateTime<Utc> {
-    return DateTime::from_timestamp_secs(time.unix_timestamp()).unwrap();
+    DateTime::from_timestamp_secs(time.unix_timestamp()).unwrap()
 }
 
 pub fn make_plot(

@@ -2,11 +2,10 @@
 members = [
     "qualinvest_core",
     "qualinvest_cli",
-    "qualinvest_server",
     "qualinvest-gui",
     "wasm_graph",
 ]
-exclude = ["finql", "gui_tests"]
+exclude = ["finql"]
 resolver = "3"
 
 [profile.release]

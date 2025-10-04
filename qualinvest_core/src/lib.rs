@@ -18,7 +18,6 @@ pub mod accounts;
 pub mod performance;
 pub mod position;
 pub mod postgres_user;
-pub mod read_pdf;
 pub mod sanitization;
 pub mod user;
 
@@ -26,7 +25,6 @@ pub mod user;
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub db: DbParams,
-    pub pdf: PdfParseParams,
     pub market_data: MarketDataProviders,
     pub server: ServerSettings,
     pub debug: bool,

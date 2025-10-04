@@ -21,7 +21,6 @@ pub fn TransactionsTable(transactions: Vec<TransactionView>) -> impl IntoView {
             cash_currency: "EUR".to_string(),
             cash_date: String::new(),
             note: None,
-            doc_path: None,
             account_id: -1,
             state: TransactionDisplay::Edit,
         };
@@ -227,7 +226,6 @@ fn EditableTransactionRow(
                                 cash_currency: edit_cash_currency.get(),
                                 cash_date: edit_cash_date.get(),
                                 note: edit_note.get(),
-                                doc_path: None,
                                 account_id: 0,
                                 state: TransactionDisplay::View,
                             };

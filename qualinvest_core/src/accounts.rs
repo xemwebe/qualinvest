@@ -28,7 +28,6 @@ pub struct TransactionView {
     pub cash_currency: String,
     pub cash_date: String,
     pub note: Option<String>,
-    pub doc_path: Option<String>,
     pub account_id: i32,
 }
 
@@ -66,26 +65,6 @@ pub trait AccountHandler: TransactionHandler {
         account: i32,
         transaction: i32,
     ) -> Result<(), DataError>;
-
-    /// Check if we have already parsed a given document by look-up its hash
-    /// If successful, return the transaction ids and the path of the document
-    async fn lookup_hash(&self, hash: &str) -> Result<(Vec<i32>, String), DataError>;
-    /// Insert document information for successfully parsed documents
-    async fn insert_doc(
-        &self,
-        transaction_ids: &[i32],
-        hash: &str,
-        path: &str,
-    ) -> Result<Vec<i32>, DataError>;
-
-    /// Get document path for given transaction
-    async fn get_doc_path(&self, transaction_id: i32) -> Result<String, DataError>;
-
-    /// Get list of pdf files missing in database
-    async fn get_missing_pdfs(&self) -> Result<Vec<(i32, String, String)>, DataError>;
-
-    /// Store pdf file in database
-    async fn store_pdf(&self, id: i32, bytes: &[u8]) -> Result<(), DataError>;
 
     /// Get id of account a transaction belongs to
     async fn get_transactions_account_id(&self, transaction_id: i32) -> Result<i32, DataError>;
@@ -164,9 +143,6 @@ impl AccountHandler for PostgresDB {
         sqlx::query!("DROP TABLE IF EXISTS accounts")
             .execute(&self.pool)
             .await?;
-        sqlx::query!("DROP TABLE IF EXISTS pdf_files")
-            .execute(&self.pool)
-            .await?;
         sqlx::query!("DROP TABLE IF EXISTS documents")
             .execute(&self.pool)
             .await?;
@@ -216,14 +192,6 @@ impl AccountHandler for PostgresDB {
                 hash TEXT NOT NULL,
                 path TEXT NOT NULL,
                 FOREIGN KEY(transaction_id) REFERENCES transactions(id))"
-        )
-        .execute(&self.pool)
-        .await?;
-        sqlx::query!(
-            "CREATE TABLE pdf_files (
-                id int4 NOT NULL,
-                pdf bytea NOT NULL,
-                FOREIGN KEY (id) REFERENCES documents(id))"
         )
         .execute(&self.pool)
         .await?;
@@ -329,82 +297,6 @@ impl AccountHandler for PostgresDB {
         )
         .execute(&self.pool)
         .await?;
-        Ok(())
-    }
-
-    /// Insert document information for successfully parsed documents
-    async fn lookup_hash(&self, hash: &str) -> Result<(Vec<i32>, String), DataError> {
-        let mut trans_ids = Vec::new();
-        let mut path = "".to_string();
-        for row in sqlx::query!(
-            "SELECT transaction_id, path FROM documents WHERE hash=$1",
-            hash
-        )
-        .fetch_all(&self.pool)
-        .await?
-        {
-            trans_ids.push(row.transaction_id);
-            path = row.path;
-        }
-        Ok((trans_ids, path))
-    }
-
-    /// Insert document information for successfully parsed documents
-    async fn insert_doc(
-        &self,
-        transaction_ids: &[i32],
-        hash: &str,
-        path: &str,
-    ) -> Result<Vec<i32>, DataError> {
-        let mut doc_ids = Vec::new();
-        for trans_id in transaction_ids {
-            let row = sqlx::query!(
-                "INSERT INTO documents (transaction_id, hash, path) VALUES ($1, $2, $3) RETURNING id",
-                *trans_id,
-                hash,
-                path
-            )
-            .fetch_one(&self.pool)
-            .await?;
-            doc_ids.push(row.id);
-        }
-        Ok(doc_ids)
-    }
-
-    /// Get document path for given transaction
-    async fn get_doc_path(&self, transaction_id: i32) -> Result<String, DataError> {
-        let row = sqlx::query!(
-            "SELECT path FROM documents WHERE transaction_id=$1",
-            transaction_id
-        )
-        .fetch_one(&self.pool)
-        .await?;
-        Ok(row.path)
-    }
-
-    /// Get list of pdf not yet stored in database
-    async fn get_missing_pdfs(&self) -> Result<Vec<(i32, String, String)>, DataError> {
-        let mut missing_pdfs = Vec::new();
-        for row in sqlx::query!(
-            "SELECT
-                d.id, d.hash, d.path
-            FROM documents d
-            LEFT OUTER JOIN pdf_files p ON d.id=p.id
-            WHERE p.id IS NULL"
-        )
-        .fetch_all(&self.pool)
-        .await?
-        {
-            missing_pdfs.push((row.id, row.hash, row.path));
-        }
-        Ok(missing_pdfs)
-    }
-
-    /// Store pdf in database
-    async fn store_pdf(&self, id: i32, bytes: &[u8]) -> Result<(), DataError> {
-        sqlx::query!("INSERT INTO pdf_files (id, pdf) VALUES ($1, $2)", id, bytes)
-            .execute(&self.pool)
-            .await?;
         Ok(())
     }
 
@@ -659,7 +551,6 @@ impl AccountHandler for PostgresDB {
             , t.cash_currency_id
             , t.cash_date
             , t.note
-            , d.path AS "path?"
             , at.account_id
             , c.iso_code
             , c.rounding_digits
@@ -667,7 +558,6 @@ impl AccountHandler for PostgresDB {
             currencies c,
             transactions t
             LEFT JOIN assets a ON a.id = t.asset_id
-            LEFT JOIN documents d ON d.transaction_id = t.id
             LEFT JOIN stocks s ON s.id = t.asset_id
             LEFT JOIN currencies cn ON cn.id = t.asset_id
             JOIN account_transactions at ON at.transaction_id = t.id
@@ -698,7 +588,6 @@ impl AccountHandler for PostgresDB {
                     cash_currency: currency_isocode.to_string(),
                     cash_date: format!("{}", row.cash_date),
                     note: row.note,
-                    doc_path: row.path,
                     account_id: row.account_id,
                 });
             }
@@ -733,7 +622,6 @@ impl AccountHandler for PostgresDB {
             , t.cash_currency_id
             , t.cash_date
             , t.note
-            , d.path as "path?"
             , at.account_id
             , c.iso_code
             , c.rounding_digits
@@ -741,7 +629,6 @@ impl AccountHandler for PostgresDB {
             currencies c,
             transactions t
             LEFT JOIN assets a ON a.id = t.asset_id
-            LEFT JOIN documents d ON d.transaction_id = t.id
             LEFT JOIN stocks s ON s.id = t.asset_id
             LEFT JOIN currencies cn ON cn.id = t.asset_id
             JOIN account_transactions at ON at.transaction_id = t.id
@@ -773,7 +660,6 @@ impl AccountHandler for PostgresDB {
                 cash_currency: currency_isocode.to_string(),
                 cash_date: format!("{}", row.cash_date),
                 note: row.note,
-                doc_path: row.path,
                 account_id: row.account_id,
             });
         }
