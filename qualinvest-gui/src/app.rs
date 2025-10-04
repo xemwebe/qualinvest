@@ -1,6 +1,6 @@
 use crate::auth::User;
 use crate::transaction_view::TransactionsTable;
-use leptos::prelude::*;
+use leptos::{prelude::*, task::spawn_local};
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{
     components::{Route, Router, Routes, A},
@@ -140,6 +140,7 @@ pub async fn login_user(username: String, password: String) -> Result<(), Server
 pub async fn logout_user() -> Result<(), ServerFnError> {
     use crate::auth::PostgresBackend;
     use axum_login::AuthSession;
+    debug!("logging out user");
     let mut auth: AuthSession<PostgresBackend> = expect_context();
     let _ = auth.logout().await;
     Ok(())
@@ -263,18 +264,29 @@ fn ProtectedRoute(children: ChildrenFn) -> impl IntoView {
 #[component]
 fn Transactions() -> impl IntoView {
     use crate::transactions;
+    let user = expect_context::<Resource<Option<User>>>();
 
     view! {
         <div class="center">
             <h1>Transactions</h1>
-            <Await future=transactions::get_transactions(
-                transactions::TransactionFilter {
-                   user_id: 1,
-                })
-            let:transactions
-            >
-               <TransactionsTable transactions={transactions.as_ref().unwrap().get()}/>
-            </Await>
+            <Suspense fallback=|| view! { <p>"Loading..."</p> }>
+                {move || {
+                    user.get().and_then(|user_data| {
+                        user_data.map(|u| {
+                            view! {
+                                <Await future=transactions::get_transactions(
+                                    transactions::TransactionFilter {
+                                       user_id: u.id as u32,
+                                    })
+                                let:transactions
+                                >
+                                   <TransactionsTable transactions={transactions.as_ref().unwrap().get()}/>
+                                </Await>
+                            }
+                        })
+                    })
+                }}
+            </Suspense>
         </div>
     }
 }
@@ -333,8 +345,6 @@ fn Nav() -> impl IntoView {
     let nav_menu = RwSignal::new(false);
     let user = expect_context::<Resource<Option<User>>>();
 
-    let logout_action = Action::new(|_: &()| async move { logout_user().await });
-
     view! {
         <header id="top" class="w3-container">
         <div class="topnav">
@@ -353,7 +363,12 @@ fn Nav() -> impl IntoView {
                                 match user_data {
                                     Some(_) => view! {
                                         <li class={move || if nav_menu.get() { "show" } else { "" } }>
-                                            <button on:click=move |_| { logout_action.dispatch(()); }>
+                                            <button on:click=move |_| {
+                                                        spawn_local(async {
+                                                            let _ = logout_user().await;
+                                                        });
+                                                        let _ = window().location().set_href("/");
+                                                    }>
                                                 "Logout"
                                             </button>
                                         </li>

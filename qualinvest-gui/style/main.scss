@@ -56,8 +56,9 @@ form {
 }
 
 body {
-    font-family: "Nimbus Sans", "Lucida Sans Unicode", Helvetica,
-        "Lucida Grande", sans-serif;
+    font-family:
+        "Nimbus Sans", "Lucida Sans Unicode", Helvetica, "Lucida Grande",
+        sans-serif;
     margin-top: 0px;
     margin-left: 20px;
     margin-right: 20px;
@@ -176,6 +177,26 @@ nav ul.nav {
 }
 
 .nav a {
+    display: inline-block;
+    padding: 10px;
+    width: 120px;
+    text-decoration: none;
+    font-weight: bold;
+    color: rgb(233, 217, 72);
+    font-family: arial, sans-serif;
+    font-size: 20px;
+    line-height: 30px;
+    height: 30px;
+    margin: 0px;
+    border-top: none;
+}
+
+.nav button {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    outline: inherit;
     display: inline-block;
     padding: 10px;
     width: 120px;
