@@ -168,6 +168,14 @@ fn Login() -> impl IntoView {
     let (username, set_username) = signal(String::new());
     let (password, set_password) = signal(String::new());
     let (should_navigate, set_should_navigate) = signal(false);
+    let username_input_ref = NodeRef::<leptos::html::Input>::new();
+
+    // Set focus on username input when component mounts
+    Effect::new(move |_| {
+        if let Some(input) = username_input_ref.get() {
+            let _ = input.focus();
+        }
+    });
 
     // Effect to handle navigation after successful login and user refetch
     Effect::new(move |_| {
@@ -197,6 +205,7 @@ fn Login() -> impl IntoView {
                         type="text"
                         id="username"
                         name="username"
+                        node_ref=username_input_ref
                         prop:value=username
                         on:input=move |ev| set_username.set(event_target_value(&ev))
                         required
@@ -364,11 +373,11 @@ fn Nav() -> impl IntoView {
                                     Some(_) => view! {
                                         <li class={move || if nav_menu.get() { "show" } else { "" } }>
                                             <button on:click=move |_| {
-                                                        spawn_local(async {
-                                                            let _ = logout_user().await;
-                                                        });
-                                                        let _ = window().location().set_href("/");
-                                                    }>
+                                                spawn_local(async {
+                                                    let _ = logout_user().await;
+                                                    let _ = window().location().set_href("/");
+                                                });
+                                            }>
                                                 "Logout"
                                             </button>
                                         </li>
