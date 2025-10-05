@@ -2,7 +2,11 @@ use crate::ticker::TickerView;
 use leptos::prelude::*;
 
 #[component]
-pub fn TickerTable(ticker_list: Vec<TickerView>) -> impl IntoView {
+pub fn TickersTable(
+    tickers: Vec<TickerView>,
+    selected_ticker_id: ReadSignal<Option<i32>>,
+    set_selected_ticker_id: WriteSignal<Option<i32>>,
+) -> impl IntoView {
     view! {
         <table class="table">
             <thead>
@@ -17,11 +21,18 @@ pub fn TickerTable(ticker_list: Vec<TickerView>) -> impl IntoView {
             </thead>
             <tbody>
                 <For
-                    each=move || ticker_list.clone()
+                    each=move || tickers.clone()
                     key=|ticker| ticker.id
                     children=move |ticker| {
+                        let ticker_id = ticker.id;
+                        let is_selected = move || selected_ticker_id.get() == Some(ticker_id);
                         view! {
-                            <tr>
+                            <tr
+                                class:selected=is_selected
+                                on:click=move |_| {
+                                    set_selected_ticker_id.set(Some(ticker_id));
+                                }
+                            >
                                 <td class="cell">{ticker.id}</td>
                                 <td class="cell">{ticker.name}</td>
                                 <td class="cell">{ticker.source}</td>
