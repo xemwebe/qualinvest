@@ -312,10 +312,59 @@ fn Position() -> impl IntoView {
 
 #[component]
 fn Assets() -> impl IntoView {
+    use crate::asset_view::AssetsTable;
+    use crate::assets;
+    let (selected_asset_id, set_selected_asset_id) = signal::<Option<i32>>(None);
+
     view! {
         <div class="center">
             <h1>Assets</h1>
-       </div>
+            <div>
+            <Suspense fallback=|| view! { <p>"Loading..."</p> }>
+                {move ||
+                    view! {
+                        <Await future=assets::get_assets()
+                        let:assets
+                        >
+                           <AssetsTable
+                               assets={assets.as_ref().unwrap().get()}
+                               selected_asset_id=selected_asset_id
+                               set_selected_asset_id=set_selected_asset_id
+                           />
+                        </Await>
+                    }
+                }
+            </Suspense>
+            </div>
+            <div>
+                {move || {
+                    selected_asset_id.get().map(|asset_id| {
+                        view!{
+                            <Tickers asset_id=asset_id />
+                        }
+                    })
+                }}
+            </div>
+        </div>
+    }
+}
+
+#[component]
+fn Tickers(asset_id: i32) -> impl IntoView {
+    use crate::ticker;
+    use crate::ticker_view::TickerTable;
+
+    view! {
+        <h2>"Tickers for Asset ID: " {asset_id}</h2>
+        <Suspense fallback=|| view! { <p>"Loading tickers..."</p> }>
+            <Await future=ticker::get_tickers(
+                ticker::TickerFilter { asset_id }
+            )
+            let:ticker
+            >
+                <TickerTable ticker_list={ticker.as_ref().unwrap().get()}/>
+            </Await>
+        </Suspense>
     }
 }
 

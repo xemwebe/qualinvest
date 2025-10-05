@@ -1,7 +1,11 @@
 pub mod app;
+pub mod asset_view;
+pub mod assets;
 pub mod auth;
 pub mod db;
 pub mod error_template;
+pub mod ticker;
+pub mod ticker_view;
 pub mod transaction_view;
 pub mod transactions;
 

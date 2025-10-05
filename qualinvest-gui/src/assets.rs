@@ -34,24 +34,17 @@ cfg_if! {
 }
 
 #[server(Assets, "/api")]
-pub async fn get_assets(filter: AssetFilter) -> Result<RwSignal<Vec<AssetView>>, ServerFnError> {
+pub async fn get_assets() -> Result<RwSignal<Vec<AssetView>>, ServerFnError> {
     use crate::auth::PostgresBackend;
     use axum_login::AuthSession;
     use log::debug;
 
-    debug!("get assets called with filter {filter:?}");
+    debug!("get assets called");
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
         .user
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
-
-    // Verify the authenticated user matches the requested user_id
-    if user.id != filter.user_id as i32 {
-        return Err(ServerFnError::new(
-            "Forbidden: Cannot access other user's assets",
-        ));
-    }
 
     let db = crate::db::get_db()?;
     Ok(RwSignal::new(get_assets_ssr(db).await))
