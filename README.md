@@ -23,6 +23,25 @@ qualinvest_core --init-database --config config.toml
 
 where the config file contains the credentials for the new, empty database.
 
+# Security Configuration for Production
+
+⚠️ **IMPORTANT**: Before deploying to production, you MUST configure the following security settings:
+
+## 1. Enable HTTPS
+
+The application uses secure session cookies that require HTTPS. For production deployments:
+
+- Deploy behind a reverse proxy (nginx, caddy, etc.) with TLS/SSL configured
+- Ensure all traffic is encrypted with HTTPS
+- The session cookies are configured with `secure`, `http_only`, and `same_site` flags for maximum security
+
+## 2. Database Security
+
+- Use strong, unique passwords for your PostgreSQL database
+- Restrict database access to localhost or specific IP addresses
+- Enable SSL mode for database connections in production
+- Regularly update the `pgcrypto` extension and PostgreSQL version
+
 # Other stuff
 
 We use pictograms from Entypo pictograms by Daniel Bruce — www.entypo.com, licensed under http://creativecommons.org/licenses/by-sa/4.0/.

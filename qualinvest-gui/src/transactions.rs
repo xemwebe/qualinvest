@@ -120,8 +120,8 @@ pub async fn get_transactions(
         .user
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
-    // Verify the authenticated user matches the requested user_id
-    if user.id != 0 && user.id != filter.user_id as i32 {
+    // Verify the authenticated user matches the requested user_id or is an admin
+    if !user.is_admin && user.id != filter.user_id as i32 {
         return Err(ServerFnError::new(
             "Forbidden: Cannot access other user's transactions",
         ));

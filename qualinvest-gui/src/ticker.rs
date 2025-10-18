@@ -54,6 +54,10 @@ pub async fn get_tickers(filter: TickerFilter) -> Result<RwSignal<Vec<TickerView
         .user
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
+    // Security Note: Tickers are reference/market data that all authenticated users
+    // have read-only access to. This is intentional - users need to view ticker
+    // information for available assets. Authorization is enforced at transaction/account level.
+
     let db = crate::db::get_db()?;
     Ok(RwSignal::new(get_tickers_ssr(filter.asset_id, db).await))
 }

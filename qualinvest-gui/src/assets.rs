@@ -42,9 +42,14 @@ pub async fn get_assets() -> Result<RwSignal<Vec<AssetView>>, ServerFnError> {
     debug!("get assets called");
 
     let auth: AuthSession<PostgresBackend> = expect_context();
-    let user = auth
+    let _user = auth
         .user
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
+
+    // Security Note: Assets are reference/master data (stocks, currencies) that all
+    // authenticated users have read-only access to. This is intentional - users need
+    // to browse available assets when creating transactions. Write access to assets
+    // is controlled separately. Authorization is enforced at transaction/account level.
 
     let db = crate::db::get_db()?;
     Ok(RwSignal::new(get_assets_ssr(db).await))

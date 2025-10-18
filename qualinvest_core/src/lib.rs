@@ -54,12 +54,11 @@ pub struct MarketDataProviders {
     pub eod_historical_data_token: Option<String>,
 }
 
-/// Market data provider settings
+/// Server settings
 #[derive(Debug, Deserialize)]
 pub struct ServerSettings {
     pub port: Option<u16>,
     pub relative_path: Option<String>,
-    pub secret_key: Option<String>,
 }
 
 fn add_provider(market: &finql::Market, token: &Option<String>, source: MarketDataSource) {

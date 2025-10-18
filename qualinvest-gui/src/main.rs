@@ -30,7 +30,7 @@ cfg_if! {
         use tower::ServiceExt;
         use tower_http::services::ServeDir;
         use axum_login::AuthManagerLayerBuilder;
-        use tower_sessions::{SessionManagerLayer, cookie::Key, Expiry, ExpiredDeletion};
+        use tower_sessions::{SessionManagerLayer, cookie::{Key, SameSite}, Expiry, ExpiredDeletion};
         use tokio::{signal, task::AbortHandle};
         use tower_sessions_sqlx_store::PostgresStore;
         use time::Duration;
@@ -164,10 +164,15 @@ cfg_if! {
                         );
 
                         // Generate a cryptographic key for session management
+                        // Note: Currently generates a random key on each startup. This means sessions
+                        // will be invalidated when the server restarts, which is acceptable for
+                        // development but may need to be loaded from config for production persistence.
                         let key = Key::generate();
-                        // Set up session management
+                        // Set up session management with secure cookie settings
                         let session_layer = SessionManagerLayer::new(session_store)
-                            .with_secure(false) // Set to true in production with HTTPS
+                            .with_secure(true)  // Only send cookies over HTTPS
+                            .with_http_only(true)  // Prevent JavaScript access to cookies
+                            .with_same_site(SameSite::Strict)  // CSRF protection
                             .with_expiry(Expiry::OnInactivity(Duration::minutes(10)))
                             .with_signed(key);
 

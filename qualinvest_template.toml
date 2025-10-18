@@ -1,10 +1,10 @@
 debug = false
 
-[db] 
+[db]
 # via http to localhost or remote server
-#url = 'postgresql://localhost/qlinvestdb?user=qualinvest&password=<password>&sslmode=disable' 
+#url = 'postgresql://localhost/qlinvestdb?user=qualinvest&password=<password>&sslmode=disable'
 # via web socket on localhost
-url = 'postgresql:///qlinvestdb?user=qualinvest&password=<password>&sslmode=disable' 
+url = 'postgresql:///qlinvestdb?user=qualinvest&password=<password>&sslmode=disable'
 
 [pdf]
 doc_path = '<directory path to store documents in>'
@@ -20,4 +20,3 @@ eod_historical_data_token = "<token>"
 [server]
 port = 8000
 relative_path = ""
-secret_key = "cUagfL6pfOZmSrn/3WTDef8tLTdaMSfIwjHCd/EaxPg="

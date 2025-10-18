@@ -50,6 +50,11 @@ pub async fn get_quotes(filter: QuoteFilter) -> Result<RwSignal<Vec<QuoteView>>,
         .user
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
+    // Security Note: Quotes are reference/market data that all authenticated users
+    // have read-only access to. This is intentional - users need access to market
+    // prices for portfolio valuation and analysis. Authorization is enforced at
+    // transaction/account level.
+
     let db = crate::db::get_db()?;
     Ok(RwSignal::new(get_quotes_ssr(filter.ticker_id, db).await))
 }
