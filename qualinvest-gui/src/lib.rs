@@ -4,6 +4,7 @@ pub mod assets;
 pub mod auth;
 pub mod db;
 pub mod error_template;
+pub mod quote_graph;
 pub mod quote_view;
 pub mod quotes;
 pub mod ticker;

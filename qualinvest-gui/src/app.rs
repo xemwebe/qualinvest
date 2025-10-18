@@ -384,11 +384,17 @@ fn Tickers(asset_id: i32) -> impl IntoView {
 
 #[component]
 fn Quotes(ticker_id: i32) -> impl IntoView {
+    use crate::quote_graph::QuotesGraph;
     use crate::quote_view::QuotesTable;
     use crate::quotes;
 
     view! {
         <h3>"Quotes for Ticker ID: " {ticker_id}</h3>
+
+        <h4>"Price History Graph"</h4>
+        <QuotesGraph ticker_id=ticker_id />
+
+        <h4>"Quote Data Table"</h4>
         <Suspense fallback=|| view! { <p>"Loading quotes..."</p> }>
             <Await future=quotes::get_quotes(
                 quotes::QuoteFilter { ticker_id }
