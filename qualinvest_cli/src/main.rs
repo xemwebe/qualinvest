@@ -26,8 +26,6 @@ use qualinvest_core::{
     accounts::AccountHandler, performance::calc_performance, setup_market, Config,
 };
 
-pub mod plot;
-
 #[derive(Parser)]
 #[clap(
     name = "qualinvest",

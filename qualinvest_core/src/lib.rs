@@ -16,6 +16,7 @@ use finql::{
 
 pub mod accounts;
 pub mod performance;
+pub mod plot;
 pub mod position;
 pub mod postgres_user;
 pub mod sanitization;

@@ -9,7 +9,8 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 finql =  {workspace = true, optional = true}
 time.workspace = true
-console_error_panic_hook = { version = "0.1", optional = true }
+console_error_panic_hook = { workspace = true, optional = true }
+console_log = {workspace = true, optional = true}
 log.workspace = true
 simple_logger.workspace = true
 
@@ -46,7 +47,6 @@ sqlx = { version = "0.8", features = [
     "json",
     "migrate",
 ], optional = true }
-console_log = {workspace = true, optional = true}
 
 [features]
 hydrate = ["leptos/hydrate", "dep:console_error_panic_hook", "dep:wasm-bindgen", "dep:console_log"]

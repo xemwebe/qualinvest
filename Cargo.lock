@@ -3004,10 +3004,12 @@ version = "0.2.0"
 dependencies = [
  "async-trait",
  "cal-calc",
+ "chrono",
  "data-encoding",
  "finql",
  "htmlescape",
  "lazy_static",
+ "plotters",
  "regex",
  "ring",
  "sanitize-filename",
@@ -5083,6 +5085,7 @@ name = "wasm-graph"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "console_error_panic_hook",
  "plotters",
  "plotters-backend",
  "plotters-bitmap",

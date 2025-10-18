@@ -1,6 +1,6 @@
 use crate::log;
 use crate::DrawResult;
-use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveDateTime};
+use chrono::{DateTime, Datelike, Local, NaiveDate};
 use plotters::prelude::*;
 #[cfg(not(target_family = "wasm"))]
 use plotters_bitmap::BitMapBackend;
@@ -58,11 +58,16 @@ impl GenericConst<f32> for f32 {
 
 fn calc_time_range(times: &[i64]) -> (DateTime<Local>, DateTime<Local>) {
     let (min_time, max_time) = min_max_val(times);
-    let min_date =
-        NaiveDateTime::from_timestamp(min_time / 1000, (min_time % 1000) as u32 * 1000).date();
-    let min_date = NaiveDate::from_ymd(min_date.year(), min_date.month(), 1).and_hms(0, 0, 0);
-    let max_date =
-        NaiveDateTime::from_timestamp(max_time / 1000, (max_time % 1000) as u32 * 1000).date();
+    let min_date = DateTime::from_timestamp(min_time / 1000, (min_time % 1000) as u32 * 1000)
+        .unwrap()
+        .date_naive();
+    let min_date = NaiveDate::from_ymd_opt(min_date.year(), min_date.month(), 1)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
+    let max_date = DateTime::from_timestamp(max_time / 1000, (max_time % 1000) as u32 * 1000)
+        .unwrap()
+        .date_naive();
     let (mut year, mut month) = (max_date.year(), max_date.month());
     if month == 12 {
         year += 1;
@@ -70,12 +75,15 @@ fn calc_time_range(times: &[i64]) -> (DateTime<Local>, DateTime<Local>) {
     } else {
         month += 1;
     }
-    let max_date = NaiveDate::from_ymd(year, month, 1).and_hms(0, 0, 0);
+    let max_date = NaiveDate::from_ymd_opt(year, month, 1)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
     let min_date = DateTime::<Local>::from(
-        UNIX_EPOCH + Duration::from_millis(min_date.timestamp_millis() as u64),
+        UNIX_EPOCH + Duration::from_millis(min_date.and_utc().timestamp_millis() as u64),
     );
     let max_date = DateTime::<Local>::from(
-        UNIX_EPOCH + Duration::from_millis(max_date.timestamp_millis() as u64),
+        UNIX_EPOCH + Duration::from_millis(max_date.and_utc().timestamp_millis() as u64),
     );
 
     (min_date, max_date)
