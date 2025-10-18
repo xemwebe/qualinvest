@@ -354,6 +354,7 @@ fn Tickers(asset_id: i32) -> impl IntoView {
     use crate::ticker;
     use crate::ticker_view::TickersTable;
     let (selected_ticker_id, set_selected_ticker_id) = signal::<Option<i32>>(None);
+    let (selected_ticker_name, set_selected_ticker_name) = signal::<Option<String>>(None);
 
     view! {
         <h2>"Tickers for Asset ID: " {asset_id}</h2>
@@ -367,29 +368,33 @@ fn Tickers(asset_id: i32) -> impl IntoView {
                     tickers={ticker.as_ref().unwrap().get()}
                     selected_ticker_id=selected_ticker_id
                     set_selected_ticker_id=set_selected_ticker_id
+                    set_selected_ticker_name=set_selected_ticker_name
                 />
             </Await>
         </Suspense>
         <div>
             {move || {
-                selected_ticker_id.get().map(|ticker_id| {
-                    view! {
-                        <Quotes ticker_id=ticker_id />
+                match (selected_ticker_id.get(), selected_ticker_name.get()) {
+                    (Some(ticker_id), Some(ticker_name)) => {
+                        Some(view! {
+                            <Quotes ticker_id=ticker_id ticker_name=ticker_name />
+                        })
                     }
-                })
+                    _ => None
+                }
             }}
         </div>
     }
 }
 
 #[component]
-fn Quotes(ticker_id: i32) -> impl IntoView {
+fn Quotes(ticker_id: i32, ticker_name: String) -> impl IntoView {
     use crate::quote_graph::QuotesGraph;
     use crate::quote_view::QuotesTable;
     use crate::quotes;
 
     view! {
-        <h3>"Quotes for Ticker ID: " {ticker_id}</h3>
+        <h3>"Quotes for Ticker: " {ticker_name}</h3>
 
         <h4>"Price History Graph"</h4>
         <QuotesGraph ticker_id=ticker_id />
