@@ -4,9 +4,8 @@ use leptos::prelude::*;
 #[component]
 pub fn TickersTable(
     tickers: Vec<TickerView>,
-    selected_ticker_id: ReadSignal<Option<i32>>,
-    set_selected_ticker_id: WriteSignal<Option<i32>>,
-    set_selected_ticker_name: WriteSignal<Option<String>>,
+    selected_ticker_info: ReadSignal<Option<(i32, String)>>,
+    set_selected_ticker_info: WriteSignal<Option<(i32, String)>>,
 ) -> impl IntoView {
     view! {
         <table class="table">
@@ -27,13 +26,12 @@ pub fn TickersTable(
                     children=move |ticker| {
                         let ticker_id = ticker.id;
                         let ticker_name = ticker.name.clone();
-                        let is_selected = move || selected_ticker_id.get() == Some(ticker_id);
+                        let is_selected = move || if let Some((id, _)) = selected_ticker_info.get() { id == ticker_id } else { false };
                         view! {
                             <tr
                                 class:selected=is_selected
                                 on:click=move |_| {
-                                    set_selected_ticker_id.set(Some(ticker_id));
-                                    set_selected_ticker_name.set(Some(ticker_name.clone()));
+                                    set_selected_ticker_info.set(Some((ticker_id, ticker_name.clone())));
                                 }
                             >
                                 <td class="cell">{ticker.id}</td>

@@ -4,8 +4,8 @@ use leptos::prelude::*;
 #[component]
 pub fn AssetsTable(
     assets: Vec<AssetView>,
-    selected_asset_id: ReadSignal<Option<i32>>,
-    set_selected_asset_id: WriteSignal<Option<i32>>,
+    selected_asset_info: ReadSignal<Option<(i32, String)>>,
+    set_selected_asset_info: WriteSignal<Option<(i32, String)>>,
 ) -> impl IntoView {
     view! {
         <table class="table">
@@ -22,12 +22,13 @@ pub fn AssetsTable(
                     key=|asset| asset.id
                     children=move |asset| {
                         let asset_id = asset.id;
-                        let is_selected = move || selected_asset_id.get() == Some(asset_id);
+                        let asset_name = asset.name.clone();
+                        let is_selected = move || if let Some((id, _)) = selected_asset_info.get() { id == asset_id } else { false };
                         view! {
                             <tr
                                 class:selected=is_selected
                                 on:click=move |_| {
-                                    set_selected_asset_id.set(Some(asset_id));
+                                    set_selected_asset_info.set(Some((asset_id, asset_name.clone())));
                                 }
                             >
                                 <td class="cell">{asset.id}</td>
