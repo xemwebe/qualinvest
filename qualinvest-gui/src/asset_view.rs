@@ -6,6 +6,7 @@ pub fn AssetsTable(
     assets: Vec<AssetView>,
     selected_asset_info: ReadSignal<Option<(i32, String)>>,
     set_selected_asset_info: WriteSignal<Option<(i32, String)>>,
+    set_selected_ticker_info: WriteSignal<Option<(i32, String)>>,
 ) -> impl IntoView {
     view! {
         <table class="table">
@@ -29,6 +30,7 @@ pub fn AssetsTable(
                                 class:selected=is_selected
                                 on:click=move |_| {
                                     set_selected_asset_info.set(Some((asset_id, asset_name.clone())));
+                                    set_selected_ticker_info.set(None);
                                 }
                             >
                                 <td class="cell">{asset.id}</td>

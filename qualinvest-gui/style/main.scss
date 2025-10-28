@@ -160,48 +160,22 @@
     #assetpage {
         display: grid;
         grid-template-areas:
-            "header header"
-            "assets quotes";
-        grid-template-columns: 1fr 1fr;
+            "header header header"
+            "assets graph quotes";
+        grid-template-columns: 1fr 1fr 1fr;
         grid-gap: 1rem;
     }
 
     #assetpage > header {
-        grid-column: span 2;
+        grid-column: span 3;
     }
 
     #asset-header {
         grid-area: header;
     }
 
-    #asset-table {
+    #assets {
         grid-area: assets;
-    }
-
-    #ticker-table {
-        grid-area: tickers;
-    }
-
-    #asset-table {
-        grid-area: assets;
-    }
-
-    #quotes {
-        display: grid;
-        grid-template-areas:
-            "header header"
-            "graph quotes";
-        grid-template-columns: 1fr 300px;
-        gap: 1rem;
-        grid-area: quotes;
-    }
-
-    #quotes > header {
-        grid-collumn: span 2;
-    }
-
-    #quotes-header {
-        grid-area: header;
     }
 
     #quote-graph {

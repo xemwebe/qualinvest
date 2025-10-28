@@ -1,4 +1,5 @@
 use crate::auth::User;
+use crate::quote_graph::QuotesGraph;
 use crate::transaction_view::TransactionsTable;
 use leptos::{prelude::*, task::spawn_local};
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
@@ -315,6 +316,7 @@ fn Assets() -> impl IntoView {
     use crate::asset_view::AssetsTable;
     use crate::assets;
     let (selected_asset_info, set_selected_asset_info) = signal::<Option<(i32, String)>>(None);
+    let (selected_ticker_info, set_selected_ticker_info) = signal::<Option<(i32, String)>>(None);
 
     view! {
         <div class="center" id="assetpage">
@@ -333,6 +335,7 @@ fn Assets() -> impl IntoView {
                                assets={assets.as_ref().unwrap().get()}
                                selected_asset_info=selected_asset_info
                                set_selected_asset_info=set_selected_asset_info
+                               set_selected_ticker_info=set_selected_ticker_info
                            />
                         </Await>
                     }
@@ -341,7 +344,27 @@ fn Assets() -> impl IntoView {
                 {move || {
                     selected_asset_info.get().map(|(asset_id, asset_name)| {
                         view!{
-                            <Tickers asset_id=asset_id asset_name=asset_name />
+                            <Tickers asset_id=asset_id asset_name=asset_name selected_ticker_info=selected_ticker_info set_selected_ticker_info=set_selected_ticker_info />
+                        }
+                    })
+                }}
+            </div>
+            <div id="quote-graph">
+                {move || {
+                    selected_ticker_info.get().map(|(ticker_id, ticker_name)| {
+                        view!{
+                            <h3>"Price History Graph for " {ticker_name}</h3>
+                            <QuotesGraph ticker_id=ticker_id />
+                        }
+                    })
+                }}
+            </div>
+            <div id="quote-table">
+                {move || {
+                    selected_ticker_info.get().map(|(ticker_id, ticker_name)| {
+                        view!{
+                            <h3>"Quote Data Table for ticker" {ticker_name}</h3>
+                            <Quotes ticker_id=ticker_id />
                         }
                     })
                 }}
@@ -351,10 +374,14 @@ fn Assets() -> impl IntoView {
 }
 
 #[component]
-fn Tickers(asset_id: i32, asset_name: String) -> impl IntoView {
+fn Tickers(
+    asset_id: i32,
+    asset_name: String,
+    selected_ticker_info: ReadSignal<Option<(i32, String)>>,
+    set_selected_ticker_info: WriteSignal<Option<(i32, String)>>,
+) -> impl IntoView {
     use crate::ticker;
     use crate::ticker_view::TickersTable;
-    let (selected_ticker_info, set_selected_ticker_info) = signal::<Option<(i32, String)>>(None);
 
     view! {
         <div id="ticker-table">
@@ -373,39 +400,16 @@ fn Tickers(asset_id: i32, asset_name: String) -> impl IntoView {
             </Await>
         </Suspense>
         </div>
-        <div>
-            {move || {
-                match selected_ticker_info.get() {
-                    Some((ticker_id,ticker_name)) => {
-                        Some(view! {
-                            <Quotes ticker_id=ticker_id ticker_name=ticker_name />
-                        })
-                    }
-                    _ => None
-                }
-            }}
-        </div>
     }
 }
 
 #[component]
-fn Quotes(ticker_id: i32, ticker_name: String) -> impl IntoView {
-    use crate::quote_graph::QuotesGraph;
+fn Quotes(ticker_id: i32) -> impl IntoView {
     use crate::quote_view::QuotesTable;
     use crate::quotes;
 
     view! {
-        <div id="quotes">
-        <div id="quuotes-header">
-            <h3>"Quotes for " {ticker_name.clone()}</h3>
-        </div>
-        <div id="quote-graph">
-        <h3>"Price History Graph for " {ticker_name.clone()}</h3>
-        <QuotesGraph ticker_id=ticker_id />
-        </div>
-
-        <div id="quote-table">
-        <h3>"Quote Data Table for ticker" {ticker_name}</h3>
+        <div class="quote-table">
         <Suspense fallback=|| view! { <p>"Loading quotes..."</p> }>
             <Await future=quotes::get_quotes(
                 quotes::QuoteFilter { ticker_id }
@@ -415,7 +419,6 @@ fn Quotes(ticker_id: i32, ticker_name: String) -> impl IntoView {
                 <QuotesTable quotes={quotes.as_ref().unwrap().get()}/>
             </Await>
         </Suspense>
-        </div>
         </div>
     }
 }

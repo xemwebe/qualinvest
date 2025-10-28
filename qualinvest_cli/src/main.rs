@@ -58,6 +58,8 @@ enum Command {
     Insert(Insert),
     FillGaps(FillGaps),
     Performance(Performance),
+    /// Create a bcrypt password hash
+    HashPassword,
 }
 
 #[derive(Args)]
@@ -315,6 +317,12 @@ async fn main() {
             .unwrap();
             let mut file = fs::File::create(file_name).unwrap();
             write!(file, "{:?}", total_performance).unwrap();
+        }
+        Command::HashPassword => {
+            let password = rpassword::prompt_password("Enter password: ").unwrap();
+            let hash = bcrypt::hash_with_result(password, bcrypt::DEFAULT_COST).unwrap();
+            let hash_2a = hash.format_for_version(bcrypt::Version::TwoA);
+            println!("Password hash: {}", hash_2a);
         }
     }
 }
