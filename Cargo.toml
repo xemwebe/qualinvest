@@ -13,7 +13,7 @@ lto = true
 
 [workspace.dependencies]
 finql = { version = "0.13", path = "finql" }
-time = { version = "0.3", features = ["local-offset", "serde"] }
+time = { version = "0.3", features = ["local-offset", "serde", "parsing", "macros"] }
 console_error_panic_hook = "0.1"
 simple_logger = "5.0"
 console_log = "1"

@@ -9,6 +9,7 @@ pub mod quote_view;
 pub mod quotes;
 pub mod ticker;
 pub mod ticker_view;
+pub mod time_range;
 pub mod transaction_view;
 pub mod transactions;
 
