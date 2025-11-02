@@ -3,7 +3,10 @@ use cfg_if::cfg_if;
 cfg_if! {
     if #[cfg(feature = "ssr")] {
 
-        use finql::postgres::PostgresDB;
+        use finql::{
+            postgres::PostgresDB,
+            datatypes::ObjectHandler,
+        };
         use leptos::prelude::LeptosOptions;
         use qualinvest_gui::app::*;
         use qualinvest_gui::auth::{PostgresBackend};
@@ -26,7 +29,10 @@ cfg_if! {
         use serde::{Deserialize, Serialize};
         use std::path::PathBuf;
         use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-        use qualinvest_gui::error_template::{AppError, ErrorTemplate};
+        use qualinvest_gui::{
+            error_template::{AppError, ErrorTemplate},
+            global_settings::GlobalSettings,
+        };
         use tower::ServiceExt;
         use tower_http::services::ServeDir;
         use axum_login::AuthManagerLayerBuilder;
@@ -94,6 +100,7 @@ cfg_if! {
         pub struct AppState {
             pub db: PostgresDB,
             pub leptos_options: LeptosOptions,
+            pub global_settings: GlobalSettings,
         }
 
         #[derive(Parser)]
@@ -152,6 +159,16 @@ cfg_if! {
                         let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), config.port);
                         leptos_options.site_addr = socket;
 
+                        // get global settings from database
+                        let global_settings = if let Ok(global_settings) = db.get_object("global_settings").await {
+                            global_settings
+                        } else {
+                            let global_settings = GlobalSettings::default();
+                            db.store_object("global_settings", &global_settings).await?;
+                            global_settings
+                        };
+                        info!("Global settings loaded: {:?}", global_settings);
+
                         // Session layer
                         //
                         // This uses `tower-sessions`to establish a layer that will provide the
@@ -186,6 +203,7 @@ cfg_if! {
                         let app_state = AppState {
                             db,
                             leptos_options,
+                            global_settings,
                         };
 
                         let routes = generate_route_list(|| view! { <App/> });

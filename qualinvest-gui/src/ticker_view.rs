@@ -1,7 +1,9 @@
 use crate::auth::User;
+use crate::quotes::{delete_quotes, update_quotes};
 use crate::ticker::TickerView;
 use crate::time_range::{TimeRange, TimeRangeSelector};
 use leptos::prelude::*;
+use leptos::task::spawn_local;
 
 #[component]
 pub fn TickersTable(
@@ -10,18 +12,40 @@ pub fn TickersTable(
     set_selected_ticker_info: WriteSignal<Option<(i32, String)>>,
 ) -> impl IntoView {
     let user = expect_context::<Resource<Option<User>>>();
-    let (selected_time_range, set_selected_time_range) = signal(TimeRange::All);
+    let (selected_time_range, set_selected_time_range) = signal(TimeRange::Latest);
 
     let on_update = move |_| {
         let time_range = selected_time_range.get();
-        log::info!("Update tickers in time range: {:?}", time_range);
-        // TODO: Implement update logic
+        if let Some((ticker_id, _)) = selected_ticker_info.get() {
+            log::info!(
+                "Update quotes for ticker {} in time range: {:?}",
+                ticker_id,
+                time_range
+            );
+            spawn_local(async move {
+                match update_quotes(ticker_id, time_range).await {
+                    Ok(_) => log::info!("Quotes updated successfully"),
+                    Err(e) => log::error!("Failed to update quotes: {}", e),
+                }
+            });
+        }
     };
 
     let on_delete = move |_| {
         let time_range = selected_time_range.get();
-        log::info!("Delete tickers in time range: {:?}", time_range);
-        // TODO: Implement delete logic
+        if let Some((ticker_id, _)) = selected_ticker_info.get() {
+            log::info!(
+                "Delete quotes for ticker {} in time range: {:?}",
+                ticker_id,
+                time_range
+            );
+            spawn_local(async move {
+                match delete_quotes(ticker_id, time_range).await {
+                    Ok(_) => log::info!("Quotes deleted successfully"),
+                    Err(e) => log::error!("Failed to delete quotes: {}", e),
+                }
+            });
+        }
     };
 
     view! {
@@ -34,7 +58,6 @@ pub fn TickersTable(
                                 Some(view! {
                                     <div class="ticker-update">
                                         <TimeRangeSelector
-                                            selected=selected_time_range
                                             set_selected=set_selected_time_range
                                         />
                                         <div class="action-buttons">

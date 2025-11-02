@@ -2,6 +2,8 @@ use cfg_if::cfg_if;
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::time_range::TimeRange;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuoteFilter {
     pub ticker_id: i32,
@@ -22,6 +24,10 @@ cfg_if! {
         use finql::datatypes::QuoteHandler;
         use finql::time_series::{TimeSeries, TimeValue};
         use qualinvest_core::plot::make_plot;
+        use time::{OffsetDateTime, UtcOffset};
+        use crate::time_range::TimeRangePoint;
+        use crate::global_settings::GlobalSettings;
+        use crate::error::Error;
 
         pub async fn get_quotes_ssr(ticker_id: i32, db: PostgresDB) -> Vec<QuoteView> {
             if let Ok(quotes) = db.get_all_quotes_for_ticker(ticker_id).await {
@@ -37,12 +43,11 @@ cfg_if! {
             }
         }
 
-        pub async fn get_quotes_graph_ssr(ticker_id: i32, db: PostgresDB) -> Result<String, String> {
-            let quotes = db.get_all_quotes_for_ticker(ticker_id).await
-                .map_err(|e| format!("Failed to fetch quotes: {}", e))?;
+        pub async fn get_quotes_graph_ssr(ticker_id: i32, db: PostgresDB) -> std::result::Result<String, Error> {
+            let quotes = db.get_all_quotes_for_ticker(ticker_id).await.map_err(|_| Error::DatabaseAccessFailed)?;
 
             if quotes.is_empty() {
-                return Err("No quotes available".to_string());
+                return Err(Error::NoQuotesAvailable);
             }
 
             // Convert quotes to TimeSeries
@@ -61,8 +66,43 @@ cfg_if! {
 
             // Generate the plot
             make_plot("Price History", &[time_series])
-                .map_err(|e| format!("Failed to generate plot: {}", e))
+                .map_err(|e| Error::PlotGenerationFailed(format!("{}", e)))
         }
+
+        fn get_inception_date() -> Result<OffsetDateTime, Error> {
+            use_context::<GlobalSettings>()
+                .map(|settings| settings.inception_date)
+                .ok_or(Error::MissingGlobalSettings)
+        }
+
+        async fn get_start(tr: &TimeRange, db: &PostgresDB, ticker_id: i32) -> Result<OffsetDateTime> {
+            Ok(match tr {
+                TimeRange::All => get_inception_date()?,
+                TimeRange::Latest => if let Some(latest) = db.get_latest_quote_date_for_ticker(ticker_id).await? {
+                    latest
+                } else {
+                    get_inception_date()?
+                },
+                TimeRange::Custom(range) => match range.start {
+                    TimeRangePoint::Inception => get_inception_date()?,
+                    TimeRangePoint::Today => OffsetDateTime::now_utc(),
+                    TimeRangePoint::Custom(date) => date.midnight().assume_offset(UtcOffset::UTC),
+                },
+            })
+        }
+
+        fn get_end(tr: &TimeRange) -> Result<OffsetDateTime> {
+            Ok(match tr {
+                TimeRange::All => OffsetDateTime::now_utc(),
+                TimeRange::Latest => OffsetDateTime::now_utc(),
+                TimeRange::Custom(range) => match range.end {
+                    TimeRangePoint::Inception => get_inception_date()?,
+                    TimeRangePoint::Today => OffsetDateTime::now_utc(),
+                    TimeRangePoint::Custom(date) => date.midnight().assume_offset(UtcOffset::UTC),
+                },
+            })
+        }
+
     }
 }
 
@@ -110,4 +150,81 @@ pub async fn get_quotes_graph(filter: QuoteFilter) -> Result<String, ServerFnErr
     get_quotes_graph_ssr(filter.ticker_id, db)
         .await
         .map_err(|e| ServerFnError::new(e))
+}
+
+#[server(UpdateQuotes, "/api")]
+pub async fn update_quotes(ticker_id: i32, time_range: TimeRange) -> Result<(), ServerFnError> {
+    use crate::auth::PostgresBackend;
+    use axum_login::AuthSession;
+    use finql::Market;
+    use log::debug;
+    use std::sync::Arc;
+
+    debug!(
+        "update quotes called for ticker {} with time range {:?}",
+        ticker_id, time_range
+    );
+
+    let auth: AuthSession<PostgresBackend> = expect_context();
+    let user = auth
+        .user
+        .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
+
+    // Security Note: Only admin users can update quotes
+    if !user.is_admin {
+        return Err(ServerFnError::new("Forbidden: Admin access required"));
+    }
+
+    let db = Arc::new(crate::db::get_db().map_err(|e| ServerFnError::new(e))?);
+    debug!("db created");
+    let start = get_start(&time_range, &db, ticker_id)
+        .await
+        .map_err(|e| ServerFnError::new(e))?;
+    debug!("start is {start:?}");
+    let end = get_end(&time_range).map_err(|e| ServerFnError::new(e))?;
+    debug!("end is {end:?}");
+    let market = Market::new(db.clone()).await;
+    debug!("market created");
+    market
+        .update_quote_history(ticker_id, start, end)
+        .await
+        .map_err(|e| ServerFnError::new(e))?;
+    debug!("quotes updated");
+    Ok(())
+}
+
+#[server(DeleteQuotes, "/api")]
+pub async fn delete_quotes(ticker_id: i32, time_range: TimeRange) -> Result<(), ServerFnError> {
+    use crate::auth::PostgresBackend;
+    use axum_login::AuthSession;
+    use log::debug;
+
+    debug!(
+        "delete quotes called for ticker {} with time range {:?}",
+        ticker_id, time_range
+    );
+
+    let auth: AuthSession<PostgresBackend> = expect_context();
+    let user = auth
+        .user
+        .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
+
+    // Security Note: Only admin users can delete quotes
+    if !user.is_admin {
+        return Err(ServerFnError::new("Forbidden: Admin access required"));
+    }
+
+    let db = crate::db::get_db().map_err(|e| ServerFnError::new(e))?;
+    debug!("db created");
+    let start = get_start(&time_range, &db, ticker_id)
+        .await
+        .map_err(|e| ServerFnError::new(e))?;
+    debug!("start is {start:?}");
+    let end = get_end(&time_range).map_err(|e| ServerFnError::new(e))?;
+    debug!("end is {end:?}");
+    db.delete_quotes_for_ticker_id_in_range(ticker_id, start, end)
+        .await
+        .map_err(|e| ServerFnError::new(e))?;
+    debug!("quotes deleted successfully");
+    Ok(())
 }

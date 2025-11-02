@@ -1,20 +1,21 @@
 use leptos::prelude::*;
+use serde::{Deserialize, Serialize};
 use time::{macros::format_description, Date};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TimeRange {
     All,
     Latest,
     Custom(CustomTimeRange),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CustomTimeRange {
     pub start: TimeRangePoint,
     pub end: TimeRangePoint,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TimeRangePoint {
     Inception,
     Today,
@@ -22,10 +23,7 @@ pub enum TimeRangePoint {
 }
 
 #[component]
-pub fn TimeRangeSelector(
-    selected: ReadSignal<TimeRange>,
-    set_selected: WriteSignal<TimeRange>,
-) -> impl IntoView {
+pub fn TimeRangeSelector(set_selected: WriteSignal<TimeRange>) -> impl IntoView {
     let (range_type, set_range_type) = signal("All".to_string());
     let (start_point, set_start_point) = signal("Inception".to_string());
     let (end_point, set_end_point) = signal("Today".to_string());
