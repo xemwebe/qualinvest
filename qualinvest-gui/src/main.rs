@@ -6,6 +6,8 @@ cfg_if! {
         use finql::{
             postgres::PostgresDB,
             datatypes::ObjectHandler,
+            market::Market,
+            market_quotes::MarketDataSource,
         };
         use leptos::prelude::LeptosOptions;
         use qualinvest_gui::app::*;
@@ -88,7 +90,6 @@ cfg_if! {
         ) -> AxumResponse {
             let handler = leptos_axum::render_app_to_stream_with_context(
                 move || {
-                    provide_context(app_state.db.clone());
                     provide_context(auth_session.clone());
                 },
                 move || shell(app_state.leptos_options.clone()),
@@ -99,6 +100,7 @@ cfg_if! {
         #[derive(Clone, FromRef)]
         pub struct AppState {
             pub db: PostgresDB,
+            pub market: Market,
             pub leptos_options: LeptosOptions,
             pub global_settings: GlobalSettings,
         }
@@ -129,11 +131,26 @@ cfg_if! {
             handle_server_fns_with_context(
                 move || {
                     provide_context(app_state.db.clone());
+                    provide_context(app_state.market.clone());
+                    provide_context(app_state.global_settings.clone());
                     provide_context(auth_session.clone());
                 },
                 request,
             )
             .await
+        }
+
+        async fn create_market(db: &PostgresDB, inception_date: time::Date) -> Result<Market> {
+            let db = std::sync::Arc::new(db.clone());
+            let end_date = time::Date::from_calendar_date(inception_date.year() + 100, inception_date.month(), inception_date.day())?;
+            let market = Market::new_with_date_range(db, inception_date.into(), end_date).await?;
+            let yahoo = MarketDataSource::Yahoo;
+            market.add_provider(
+                yahoo.to_string(),
+                yahoo.get_provider(String::new()).unwrap(),
+            );
+            info!("Market created.");
+            Ok(market)
         }
 
         #[tokio::main]
@@ -169,6 +186,8 @@ cfg_if! {
                         };
                         info!("Global settings loaded: {:?}", global_settings);
 
+                        let market = create_market(&db, global_settings.inception_date.date()).await?;
+
                         // Session layer
                         //
                         // This uses `tower-sessions`to establish a layer that will provide the
@@ -202,6 +221,7 @@ cfg_if! {
 
                         let app_state = AppState {
                             db,
+                            market,
                             leptos_options,
                             global_settings,
                         };

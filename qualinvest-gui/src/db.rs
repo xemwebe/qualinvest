@@ -15,5 +15,15 @@ cfg_if! {
                     ServerFnError::ServerError("Database is missing.".into())
                 })
         }
+
+        pub fn get_market() -> Result<finql::market::Market, ServerFnError> {
+            debug!("Request market access from context.");
+            use_context::<finql::market::Market>()
+                .ok_or_else(|| {
+                    error!("Market is missing in context.");
+                    ServerFnError::ServerError("Market is missing.".into())
+                })
+        }
+
     }
 }

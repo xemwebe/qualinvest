@@ -54,3 +54,116 @@ pub async fn get_assets() -> Result<RwSignal<Vec<AssetView>>, ServerFnError> {
     let db = crate::db::get_db()?;
     Ok(RwSignal::new(get_assets_ssr(db).await))
 }
+
+#[server(InsertAsset, "/api")]
+pub async fn insert_asset(asset: AssetView) -> Result<i32, ServerFnError> {
+    use crate::auth::PostgresBackend;
+    use axum_login::AuthSession;
+    use finql::datatypes::{Asset, AssetHandler, Currency, CurrencyISOCode, Stock};
+    use log::debug;
+
+    debug!("insert asset called with asset {asset:?}");
+
+    let auth: AuthSession<PostgresBackend> = expect_context();
+    let user = auth
+        .user
+        .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
+
+    if !user.is_admin {
+        return Err(ServerFnError::new("Admin access required"));
+    }
+
+    let db = crate::db::get_db()?;
+
+    let new_asset = if asset.class == "stock" {
+        Asset::Stock(Stock {
+            id: None,
+            name: asset.name,
+            wkn: None,
+            isin: None,
+            note: None,
+        })
+    } else if asset.class == "currency" {
+        Asset::Currency(Currency {
+            id: None,
+            iso_code: CurrencyISOCode::new(&asset.name)
+                .map_err(|_| ServerFnError::new("Invalid currency code"))?,
+            rounding_digits: 4,
+        })
+    } else {
+        return Err(ServerFnError::new("Invalid asset class"));
+    };
+
+    db.insert_asset(&new_asset)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to insert asset: {}", e)))
+}
+
+#[server(UpdateAsset, "/api")]
+pub async fn update_asset(asset: AssetView) -> Result<(), ServerFnError> {
+    use crate::auth::PostgresBackend;
+    use axum_login::AuthSession;
+    use finql::datatypes::{Asset, AssetHandler, Currency, CurrencyISOCode, Stock};
+    use log::debug;
+
+    debug!("update asset called with asset {asset:?}");
+
+    let auth: AuthSession<PostgresBackend> = expect_context();
+    let user = auth
+        .user
+        .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
+
+    if !user.is_admin {
+        return Err(ServerFnError::new("Admin access required"));
+    }
+
+    let db = crate::db::get_db()?;
+
+    let updated_asset = if asset.class == "stock" {
+        Asset::Stock(Stock {
+            id: Some(asset.id),
+            name: asset.name,
+            wkn: None,
+            isin: None,
+            note: None,
+        })
+    } else if asset.class == "currency" {
+        Asset::Currency(Currency {
+            id: Some(asset.id),
+            iso_code: CurrencyISOCode::new(&asset.name)
+                .map_err(|_| ServerFnError::new("Invalid currency code"))?,
+            rounding_digits: 4,
+        })
+    } else {
+        return Err(ServerFnError::new("Invalid asset class"));
+    };
+
+    db.update_asset(&updated_asset)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to update asset: {}", e)))
+}
+
+#[server(DeleteAsset, "/api")]
+pub async fn delete_asset(asset_id: i32) -> Result<(), ServerFnError> {
+    use crate::auth::PostgresBackend;
+    use axum_login::AuthSession;
+    use finql::datatypes::AssetHandler;
+    use log::debug;
+
+    debug!("delete asset called with id {asset_id}");
+
+    let auth: AuthSession<PostgresBackend> = expect_context();
+    let user = auth
+        .user
+        .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
+
+    if !user.is_admin {
+        return Err(ServerFnError::new("Admin access required"));
+    }
+
+    let db = crate::db::get_db()?;
+
+    db.delete_asset(asset_id)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to delete asset: {}", e)))
+}

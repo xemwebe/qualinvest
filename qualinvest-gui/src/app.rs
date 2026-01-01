@@ -344,7 +344,7 @@ fn Assets() -> impl IntoView {
                 {move || {
                     selected_asset_info.get().map(|(asset_id, asset_name)| {
                         view!{
-                            <Tickers asset_id=asset_id asset_name=asset_name selected_ticker_info=selected_ticker_info set_selected_ticker_info=set_selected_ticker_info />
+                            <Tickers asset_id=asset_id asset_name=asset_name selected_ticker_info=selected_ticker_info set_selected_ticker_info=set_selected_ticker_info selected_asset_info=selected_asset_info />
                         }
                     })
                 }}
@@ -379,6 +379,7 @@ fn Tickers(
     asset_name: String,
     selected_ticker_info: ReadSignal<Option<(i32, String)>>,
     set_selected_ticker_info: WriteSignal<Option<(i32, String)>>,
+    selected_asset_info: ReadSignal<Option<(i32, String)>>,
 ) -> impl IntoView {
     use crate::ticker;
     use crate::ticker_view::TickersTable;
@@ -396,6 +397,7 @@ fn Tickers(
                     tickers={ticker.as_ref().unwrap().get()}
                     selected_ticker_info=selected_ticker_info
                     set_selected_ticker_info=set_selected_ticker_info
+                    selected_asset_info=selected_asset_info
                 />
             </Await>
         </Suspense>

@@ -2935,6 +2935,7 @@ dependencies = [
  "async-trait",
  "axum",
  "axum-login",
+ "cal-calc",
  "cfg-if",
  "clap",
  "confy",

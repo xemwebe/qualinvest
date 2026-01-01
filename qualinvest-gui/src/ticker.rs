@@ -61,3 +61,108 @@ pub async fn get_tickers(filter: TickerFilter) -> Result<RwSignal<Vec<TickerView
     let db = crate::db::get_db()?;
     Ok(RwSignal::new(get_tickers_ssr(filter.asset_id, db).await))
 }
+
+#[server(InsertTicker, "/api")]
+pub async fn insert_ticker(ticker: TickerView) -> Result<i32, ServerFnError> {
+    use crate::auth::PostgresBackend;
+    use axum_login::AuthSession;
+    use finql::datatypes::{CurrencyISOCode, QuoteHandler, Ticker};
+    use log::debug;
+
+    debug!("insert ticker called with ticker {ticker:?}");
+
+    let auth: AuthSession<PostgresBackend> = expect_context();
+    let user = auth
+        .user
+        .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
+
+    if !user.is_admin {
+        return Err(ServerFnError::new("Admin access required"));
+    }
+
+    let db = crate::db::get_db()?;
+    let market = crate::db::get_market()?;
+    let currency = market
+        .get_currency(CurrencyISOCode::new(&ticker.currency_iso_code)?)
+        .await?;
+    let new_ticker = Ticker {
+        id: None,
+        name: ticker.name,
+        asset: ticker.asset,
+        currency,
+        source: ticker.source,
+        priority: ticker.priority,
+        factor: ticker.factor,
+        cal: Some("target".to_string()),
+        tz: None,
+    };
+
+    db.insert_ticker(&new_ticker)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to insert ticker: {}", e)))
+}
+
+#[server(UpdateTicker, "/api")]
+pub async fn update_ticker(ticker: TickerView) -> Result<(), ServerFnError> {
+    use crate::auth::PostgresBackend;
+    use axum_login::AuthSession;
+    use finql::datatypes::{CurrencyISOCode, QuoteHandler, Ticker};
+    use log::debug;
+
+    debug!("update ticker called with ticker {ticker:?}");
+
+    let auth: AuthSession<PostgresBackend> = expect_context();
+    let user = auth
+        .user
+        .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
+
+    if !user.is_admin {
+        return Err(ServerFnError::new("Admin access required"));
+    }
+
+    let db = crate::db::get_db()?;
+    let market = crate::db::get_market()?;
+    let currency = market
+        .get_currency(CurrencyISOCode::new(&ticker.currency_iso_code)?)
+        .await?;
+    let updated_ticker = Ticker {
+        id: Some(ticker.id),
+        name: ticker.name,
+        asset: ticker.asset,
+        currency,
+        source: ticker.source,
+        priority: ticker.priority,
+        factor: ticker.factor,
+        cal: Some("target".to_string()),
+        tz: None,
+    };
+
+    db.update_ticker(&updated_ticker)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to update ticker: {}", e)))
+}
+
+#[server(DeleteTicker, "/api")]
+pub async fn delete_ticker(ticker_id: i32) -> Result<(), ServerFnError> {
+    use crate::auth::PostgresBackend;
+    use axum_login::AuthSession;
+    use finql::datatypes::QuoteHandler;
+    use log::debug;
+
+    debug!("delete ticker called with id {ticker_id}");
+
+    let auth: AuthSession<PostgresBackend> = expect_context();
+    let user = auth
+        .user
+        .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
+
+    if !user.is_admin {
+        return Err(ServerFnError::new("Admin access required"));
+    }
+
+    let db = crate::db::get_db()?;
+
+    db.delete_ticker(ticker_id)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to delete ticker: {}", e)))
+}

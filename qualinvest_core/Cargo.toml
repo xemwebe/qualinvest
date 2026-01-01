@@ -10,6 +10,7 @@ keywords = ["finance", "investment", "quantitative", "analysis"]
 
 [dependencies]
 finql.workspace = true
+cal-calc.workspace = true
 serde = { version = "1.0.*", features = ["derive"] }
 serde_json = "1.0"
 lazy_static = "1.4"
@@ -29,7 +30,6 @@ sanitize-filename = "0.6"
 unic-ucd = "0.9"
 htmlescape = "0.3"
 thiserror = "2.0"
-cal-calc = "0.2"
 data-encoding = "2.3"
 plotters = "0.3"
 chrono = "0.4"

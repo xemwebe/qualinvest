@@ -13,6 +13,7 @@ console_error_panic_hook = { workspace = true, optional = true }
 console_log = {workspace = true, optional = true}
 log.workspace = true
 simple_logger.workspace = true
+cal-calc = { workspace = true, optional = true }
 
 leptos = { version = "0.7.0" }
 leptos_router = { version = "0.7.0" }
@@ -67,6 +68,7 @@ ssr = [
     "dep:async-trait",
     "dep:rand",
     "dep:sqlx",
+    "dep:cal-calc",
 ]
 
 #[target.wasm32-unknown-unknown]

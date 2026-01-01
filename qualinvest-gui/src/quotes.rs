@@ -156,7 +156,6 @@ pub async fn get_quotes_graph(filter: QuoteFilter) -> Result<String, ServerFnErr
 pub async fn update_quotes(ticker_id: i32, time_range: TimeRange) -> Result<(), ServerFnError> {
     use crate::auth::PostgresBackend;
     use axum_login::AuthSession;
-    use finql::{market_quotes::MarketDataSource, Market};
     use log::debug;
     use std::sync::Arc;
 
@@ -183,13 +182,7 @@ pub async fn update_quotes(ticker_id: i32, time_range: TimeRange) -> Result<(), 
     debug!("start is {start:?}");
     let end = get_end(&time_range).map_err(|e| ServerFnError::new(e))?;
     debug!("end is {end:?}");
-    let yahoo = MarketDataSource::Yahoo;
-    let market = Market::new(db.clone()).await;
-    market.add_provider(
-        yahoo.to_string(),
-        yahoo.get_provider(String::new()).unwrap(),
-    );
-    debug!("market created");
+    let market = crate::db::get_market().map_err(|e| ServerFnError::new(e))?;
     market
         .update_quote_history(ticker_id, start, end)
         .await
