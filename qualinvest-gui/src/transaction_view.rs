@@ -1,5 +1,4 @@
 use crate::account::{get_accounts, AccountOption};
-use crate::auth::User;
 use crate::transactions::{
     delete_transaction, get_transactions, insert_transaction, update_transaction,
     TransactionDisplay, TransactionFilter, TransactionView,
@@ -15,11 +14,12 @@ pub fn TransactionsTable(
 ) -> impl IntoView {
     let (editing_id, set_editing_id) = signal::<Option<i32>>(None);
     let (next_id, set_next_id) = signal(-1);
+    let (reload_trigger, set_reload_trigger) = signal(0);
 
-    // Create a resource that reloads when selected_account_id changes
+    // Create a resource that reloads when selected_account_id or reload_trigger changes
     let transactions_resource = Resource::new(
-        move || selected_account_id.get(),
-        move |account_id| async move {
+        move || (selected_account_id.get(), reload_trigger.get()),
+        move |(account_id, _)| async move {
             if let Some(account_id) = account_id {
                 get_transactions(TransactionFilter {
                     user_id: user_id as u32,
@@ -40,11 +40,8 @@ pub fn TransactionsTable(
             .unwrap_or_default()
     };
 
-    let set_table_data_wrapper = move |updater: Box<dyn FnOnce(&mut Vec<TransactionView>)>| {
-        if let Some(Ok(signal)) = transactions_resource.get() {
-            signal.update(updater);
-        }
-    };
+    // Local state for managing new rows before they're saved
+    let (pending_new_rows, set_pending_new_rows) = signal::<Vec<TransactionView>>(Vec::new());
 
     let add_new_row = move |_| {
         let new_id = next_id.get();
@@ -64,12 +61,16 @@ pub fn TransactionsTable(
             state: TransactionDisplay::Edit,
         };
 
-        set_table_data_wrapper(Box::new(move |data| {
-            data.push(new_row);
-        }));
-
+        set_pending_new_rows.update(|rows| rows.push(new_row));
         set_editing_id.set(Some(new_id));
         set_next_id.set(new_id - 1);
+    };
+
+    // Combine persisted data with pending new rows
+    let combined_data = move || {
+        let mut data = table_data();
+        data.extend(pending_new_rows.get());
+        data
     };
 
     view! {
@@ -128,7 +129,7 @@ pub fn TransactionsTable(
             </thead>
             <tbody>
                 <For
-                    each=table_data
+                    each=combined_data
                     key=|row| row.id
                     children=move |row| {
                         view! {
@@ -136,7 +137,8 @@ pub fn TransactionsTable(
                                 row=row
                                 editing_id=editing_id
                                 set_editing_id=set_editing_id
-                                set_table_data_wrapper=set_table_data_wrapper
+                                set_reload_trigger=set_reload_trigger
+                                set_pending_new_rows=set_pending_new_rows
                                 user_id=user_id
                             />
                         }
@@ -148,16 +150,14 @@ pub fn TransactionsTable(
 }
 
 #[component]
-fn EditableTransactionRow<F>(
+fn EditableTransactionRow(
     row: TransactionView,
     editing_id: ReadSignal<Option<i32>>,
     set_editing_id: WriteSignal<Option<i32>>,
-    set_table_data_wrapper: F,
+    set_reload_trigger: WriteSignal<i32>,
+    set_pending_new_rows: WriteSignal<Vec<TransactionView>>,
     user_id: i32,
-) -> impl IntoView
-where
-    F: Fn(Box<dyn FnOnce(&mut Vec<TransactionView>)>) + 'static + Copy + Send + Sync,
-{
+) -> impl IntoView {
     let row_id = row.id;
     let (edit_group_id, set_edit_group_id) = signal(row.group_id);
     let (edit_asset_name, set_edit_asset_name) = signal(row.asset_name.clone());
@@ -200,21 +200,21 @@ where
                                     on:click=move |_| {
                                         let transaction_id = row_id;
                                         if transaction_id > 0 {
+                                            // Delete persisted transaction
                                             spawn_local(async move {
                                                 match delete_transaction(transaction_id, user_id).await {
                                                     Ok(_) => {
                                                         log::info!("Transaction deleted successfully");
-                                                        set_table_data_wrapper(Box::new(move |data| {
-                                                            data.retain(|r| r.id != transaction_id);
-                                                        }));
+                                                        set_reload_trigger.update(|v| *v += 1);
                                                     }
                                                     Err(e) => log::error!("Failed to delete transaction: {}", e),
                                                 }
                                             });
                                         } else {
-                                            set_table_data_wrapper(Box::new(move |data| {
-                                                data.retain(|r| r.id != transaction_id);
-                                            }));
+                                            // Delete pending new row
+                                            set_pending_new_rows.update(|rows| {
+                                                rows.retain(|r| r.id != transaction_id);
+                                            });
                                         }
                                         set_editing_id.set(None);
                                     }
@@ -333,11 +333,7 @@ where
                                     match update_transaction(transaction_to_update, user_id).await {
                                         Ok(_) => {
                                             log::info!("Transaction updated successfully");
-                                            set_table_data_wrapper(Box::new(move |data| {
-                                                if let Some(existing_row) = data.iter_mut().find(|r| r.id == row_id) {
-                                                    *existing_row = updated_row;
-                                                }
-                                            }));
+                                            set_reload_trigger.update(|v| *v += 1);
                                         }
                                         Err(e) => log::error!("Failed to update transaction: {}", e),
                                     }
@@ -347,17 +343,13 @@ where
                                 let transaction_to_insert = updated_row.clone();
                                 spawn_local(async move {
                                     match insert_transaction(transaction_to_insert, user_id).await {
-                                        Ok(new_id) => {
-                                            log::info!("Transaction inserted successfully with id {}", new_id);
-                                            set_table_data_wrapper(Box::new(move |data| {
-                                                if let Some(existing_row) = data.iter_mut().find(|r| r.id == row_id) {
-                                                    existing_row.id = new_id;
-                                                    *existing_row = TransactionView {
-                                                        id: new_id,
-                                                        ..updated_row
-                                                    };
-                                                }
-                                            }));
+                                        Ok(_new_id) => {
+                                            log::info!("Transaction inserted successfully with id {}", _new_id);
+                                            // Remove from pending and reload persisted data
+                                            set_pending_new_rows.update(|rows| {
+                                                rows.retain(|r| r.id != row_id);
+                                            });
+                                            set_reload_trigger.update(|v| *v += 1);
                                         }
                                         Err(e) => log::error!("Failed to insert transaction: {}", e),
                                     }
