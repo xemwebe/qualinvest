@@ -369,4 +369,15 @@
         color: var(--row-selected-color);
         border-color: var(--row-selected-background-color);
     }
+
+    .button-cell {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .button-cell img {
+        display: inline-block;
+    }
 }

@@ -219,13 +219,13 @@ async fn main() {
                 let ticker_id = args
                     .ticker_id
                     .expect("Ticker id must be given for history update.");
-                let end = if args.end.is_some() {
-                    offset_date_time_from_str_standard(&args.end.unwrap(), 18, None).unwrap()
+                let end = if let Some(ref end) = args.end {
+                    offset_date_time_from_str_standard(end, 18, None).unwrap()
                 } else {
                     OffsetDateTime::now_local().expect("Indeterminate local time zone offset")
                 };
-                let start = if args.start.is_some() {
-                    offset_date_time_from_str_standard(&args.start.unwrap(), 9, None).unwrap()
+                let start = if let Some(ref start) = args.start {
+                    offset_date_time_from_str_standard(start, 9, None).unwrap()
                 } else {
                     offset_date_time_from_str_standard("2014-01-01", 9, None).unwrap()
                 };
@@ -294,8 +294,8 @@ async fn main() {
                     .await
                     .expect("Currency not found")
             };
-            let file_name = if args.output.is_some() {
-                args.output.unwrap().to_string()
+            let file_name = if let Some(ref output) = args.output {
+                output.to_string()
             } else {
                 "total_performance.json".to_string()
             };

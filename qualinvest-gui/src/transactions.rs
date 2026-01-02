@@ -295,12 +295,20 @@ pub async fn update_transaction(
         .get_transactions_account_id(transaction.id)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to get transaction account: {}", e)))?;
-
-    let user_settings = db.get_user_settings(user_id).await;
-    if !user_settings.account_ids.contains(&transaction_account_id) {
-        return Err(ServerFnError::new(
-            "Forbidden: Transaction does not belong to your accounts",
-        ));
+    if transaction_account_id != transaction.account_id {
+        return Err(ServerFnError::new(format!("Account ID missmatch. Existing account ID {transaction_account_id} differs from new account ID {}", transaction.account_id)));
+    }
+    debug!(
+        "Verified transaction account ID: {}",
+        transaction_account_id
+    );
+    if !user.is_admin {
+        let user_settings = db.get_user_settings(user_id).await;
+        if !user_settings.account_ids.contains(&transaction_account_id) {
+            return Err(ServerFnError::new(
+                "Forbidden: Transaction does not belong to your accounts",
+            ));
+        }
     }
 
     // Parse date

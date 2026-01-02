@@ -120,7 +120,7 @@ pub fn TimeRangeSelector(set_selected: WriteSignal<TimeRange>) -> impl IntoView 
                                             />
                                         }.into_any()
                                     } else {
-                                        view! { <></> }.into_any()
+                                        ().into_any()
                                     }
                                 }}
                             </div>
@@ -152,14 +152,14 @@ pub fn TimeRangeSelector(set_selected: WriteSignal<TimeRange>) -> impl IntoView 
                                             />
                                         }.into_any()
                                     } else {
-                                        view! { <></> }.into_any()
+                                        ().into_any()
                                     }
                                 }}
                             </div>
                         </div>
                     }.into_any()
                 } else {
-                    view! { <></> }.into_any()
+                    ().into_any()
                 }
             }}
         </div>

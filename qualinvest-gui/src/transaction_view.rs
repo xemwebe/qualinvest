@@ -13,8 +13,6 @@ pub fn TransactionsTable(
     selected_account_id: ReadSignal<Option<i32>>,
     set_selected_account_id: WriteSignal<Option<i32>>,
 ) -> impl IntoView {
-    let user = expect_context::<Resource<Option<User>>>();
-
     let (editing_id, set_editing_id) = signal::<Option<i32>>(None);
     let (next_id, set_next_id) = signal(-1);
 
@@ -139,7 +137,7 @@ pub fn TransactionsTable(
                                 editing_id=editing_id
                                 set_editing_id=set_editing_id
                                 set_table_data_wrapper=set_table_data_wrapper
-                                user=user
+                                user_id=user_id
                             />
                         }
                     }
@@ -155,7 +153,7 @@ fn EditableTransactionRow<F>(
     editing_id: ReadSignal<Option<i32>>,
     set_editing_id: WriteSignal<Option<i32>>,
     set_table_data_wrapper: F,
-    user: Resource<Option<User>>,
+    user_id: i32,
 ) -> impl IntoView
 where
     F: Fn(Box<dyn FnOnce(&mut Vec<TransactionView>)>) + 'static + Copy + Send + Sync,
@@ -202,21 +200,17 @@ where
                                     on:click=move |_| {
                                         let transaction_id = row_id;
                                         if transaction_id > 0 {
-                                            // Get user_id from context
-                                            if let Some(Some(u)) = user.get() {
-                                                let user_id = u.id;
-                                                spawn_local(async move {
-                                                    match delete_transaction(transaction_id, user_id).await {
-                                                        Ok(_) => {
-                                                            log::info!("Transaction deleted successfully");
-                                                            set_table_data_wrapper(Box::new(move |data| {
-                                                                data.retain(|r| r.id != transaction_id);
-                                                            }));
-                                                        }
-                                                        Err(e) => log::error!("Failed to delete transaction: {}", e),
+                                            spawn_local(async move {
+                                                match delete_transaction(transaction_id, user_id).await {
+                                                    Ok(_) => {
+                                                        log::info!("Transaction deleted successfully");
+                                                        set_table_data_wrapper(Box::new(move |data| {
+                                                            data.retain(|r| r.id != transaction_id);
+                                                        }));
                                                     }
-                                                });
-                                            }
+                                                    Err(e) => log::error!("Failed to delete transaction: {}", e),
+                                                }
+                                            });
                                         } else {
                                             set_table_data_wrapper(Box::new(move |data| {
                                                 data.retain(|r| r.id != transaction_id);
@@ -332,46 +326,42 @@ where
                                 state: TransactionDisplay::View,
                             };
 
-                            if let Some(Some(u)) = user.get() {
-                                let user_id = u.id;
-
-                                if row_id > 0 {
-                                    // Update existing transaction
-                                    let transaction_to_update = updated_row.clone();
-                                    spawn_local(async move {
-                                        match update_transaction(transaction_to_update, user_id).await {
-                                            Ok(_) => {
-                                                log::info!("Transaction updated successfully");
-                                                set_table_data_wrapper(Box::new(move |data| {
-                                                    if let Some(existing_row) = data.iter_mut().find(|r| r.id == row_id) {
-                                                        *existing_row = updated_row;
-                                                    }
-                                                }));
-                                            }
-                                            Err(e) => log::error!("Failed to update transaction: {}", e),
+                            if row_id > 0 {
+                                // Update existing transaction
+                                let transaction_to_update = updated_row.clone();
+                                spawn_local(async move {
+                                    match update_transaction(transaction_to_update, user_id).await {
+                                        Ok(_) => {
+                                            log::info!("Transaction updated successfully");
+                                            set_table_data_wrapper(Box::new(move |data| {
+                                                if let Some(existing_row) = data.iter_mut().find(|r| r.id == row_id) {
+                                                    *existing_row = updated_row;
+                                                }
+                                            }));
                                         }
-                                    });
-                                } else {
-                                    // Insert new transaction
-                                    let transaction_to_insert = updated_row.clone();
-                                    spawn_local(async move {
-                                        match insert_transaction(transaction_to_insert, user_id).await {
-                                            Ok(new_id) => {
-                                                log::info!("Transaction inserted successfully with id {}", new_id);
-                                                set_table_data_wrapper(Box::new(move |data| {
-                                                    if let Some(existing_row) = data.iter_mut().find(|r| r.id == row_id) {
-                                                        existing_row.id = new_id;
-                                                        *existing_row = TransactionView {
-                                                            id: new_id,
-                                                            ..updated_row
-                                                        };
-                                                    }
-                                                }));
-                                            }
-                                            Err(e) => log::error!("Failed to insert transaction: {}", e),
+                                        Err(e) => log::error!("Failed to update transaction: {}", e),
+                                    }
+                                });
+                            } else {
+                                // Insert new transaction
+                                let transaction_to_insert = updated_row.clone();
+                                spawn_local(async move {
+                                    match insert_transaction(transaction_to_insert, user_id).await {
+                                        Ok(new_id) => {
+                                            log::info!("Transaction inserted successfully with id {}", new_id);
+                                            set_table_data_wrapper(Box::new(move |data| {
+                                                if let Some(existing_row) = data.iter_mut().find(|r| r.id == row_id) {
+                                                    existing_row.id = new_id;
+                                                    *existing_row = TransactionView {
+                                                        id: new_id,
+                                                        ..updated_row
+                                                    };
+                                                }
+                                            }));
                                         }
-                                    });
-                                }
+                                        Err(e) => log::error!("Failed to insert transaction: {}", e),
+                                    }
+                                });
                             }
                             set_editing_id.set(None);
                         }

@@ -15,7 +15,7 @@ pub struct Source {
 }
 
 fn sample_data() -> (Vec<i64>, Vec<f32>, String) {
-    let dates = vec![
+    let dates = [
         Local.with_ymd_and_hms(2022, 1, 1, 0, 0, 0).unwrap(),
         Local.with_ymd_and_hms(2022, 2, 1, 0, 0, 0).unwrap(),
         Local.with_ymd_and_hms(2022, 3, 1, 0, 0, 0).unwrap(),

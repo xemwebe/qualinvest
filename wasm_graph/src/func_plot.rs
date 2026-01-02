@@ -172,15 +172,15 @@ pub fn draw(
             ))?
             .label(sources[idx].name.clone())
             .legend(move |(x, y)| {
-                Rectangle::new([(x, y - 5), (x + 10, y + 5)], &COLORS[color_index])
+                Rectangle::new([(x, y - 5), (x + 10, y + 5)], COLORS[color_index])
             });
         color_index = (color_index + 1) % COLORS.len();
     }
 
     chart
         .configure_series_labels()
-        .background_style(&WHITE.mix(0.8))
-        .border_style(&BLACK)
+        .background_style(WHITE.mix(0.8))
+        .border_style(BLACK)
         .draw()?;
 
     root.present()?;
