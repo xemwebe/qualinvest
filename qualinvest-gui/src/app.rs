@@ -273,8 +273,8 @@ fn ProtectedRoute(children: ChildrenFn) -> impl IntoView {
 
 #[component]
 fn Transactions() -> impl IntoView {
-    use crate::transactions;
     let user = expect_context::<Resource<Option<User>>>();
+    let (selected_account_id, set_selected_account_id) = signal::<Option<i32>>(None);
 
     view! {
         <div class="center">
@@ -284,14 +284,11 @@ fn Transactions() -> impl IntoView {
                     user.get().and_then(|user_data| {
                         user_data.map(|u| {
                             view! {
-                                <Await future=transactions::get_transactions(
-                                    transactions::TransactionFilter {
-                                       user_id: u.id as u32,
-                                    })
-                                let:transactions
-                                >
-                                   <TransactionsTable transactions={transactions.as_ref().unwrap().get()}/>
-                                </Await>
+                                <TransactionsTable
+                                    user_id=u.id
+                                    selected_account_id=selected_account_id
+                                    set_selected_account_id=set_selected_account_id
+                                />
                             }
                         })
                     })

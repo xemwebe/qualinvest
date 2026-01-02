@@ -90,3 +90,70 @@ pub trait UserHandler: AccountHandler {
         settings: &UserSettings,
     ) -> Result<(), DataError>;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use time::macros::date;
+
+    #[test]
+    fn test_user_settings_serialize_to_value() {
+        let settings = UserSettings {
+            period_start: PeriodDate::FixedDate(date!(2025 - 02 - 04)),
+            period_end: PeriodDate::Today,
+            account_ids: vec![1],
+        };
+        let serialized_settings = serde_json::to_value(&settings).unwrap();
+        assert_eq!(
+            serialized_settings,
+            json!(
+                {"period_start":{"FixedDate":[2025,35]},"period_end":"Today","account_ids":[1]}
+            )
+        )
+    }
+
+    #[test]
+    fn test_user_settings_serialize() {
+        let settings = UserSettings {
+            period_start: PeriodDate::FixedDate(date!(2025 - 02 - 04)),
+            period_end: PeriodDate::Today,
+            account_ids: vec![1],
+        };
+        let serialized_settings = serde_json::to_string(&settings).unwrap();
+        assert_eq!(
+            serialized_settings,
+            r#"{"period_start":{"FixedDate":[2025,35]},"period_end":"Today","account_ids":[1]}"#
+        );
+    }
+
+    #[test]
+    fn test_user_settings_deserialize() {
+        let settings = r#"{"period_end": "Today", "account_ids": [1], "period_start": {"FixedDate": [2025,35]}}"#;
+        let deserialized_settings: UserSettings = serde_json::from_str(&settings).unwrap();
+        assert_eq!(
+            format!("{:?}", deserialized_settings.period_end),
+            format!("{:?}", PeriodDate::Today)
+        );
+        assert_eq!(deserialized_settings.account_ids, vec![1]);
+        assert_eq!(
+            format!("{:?}", deserialized_settings.period_start),
+            format!("{:?}", PeriodDate::FixedDate(date!(2025 - 02 - 04)))
+        );
+    }
+
+    #[test]
+    fn test_user_settings_deserialize_value() {
+        let settings = json!({"period_end": "Today", "account_ids": [1], "period_start": {"FixedDate": [2025,35]}});
+        let deserialized_settings: UserSettings = serde_json::from_value(settings).unwrap();
+        assert_eq!(
+            format!("{:?}", deserialized_settings.period_end),
+            format!("{:?}", PeriodDate::Today)
+        );
+        assert_eq!(deserialized_settings.account_ids, vec![1]);
+        assert_eq!(
+            format!("{:?}", deserialized_settings.period_start),
+            format!("{:?}", PeriodDate::FixedDate(date!(2025 - 02 - 04)))
+        );
+    }
+}

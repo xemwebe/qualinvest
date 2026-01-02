@@ -1,15 +1,56 @@
-use crate::transactions::{TransactionDisplay, TransactionView};
+use crate::account::{get_accounts, AccountOption};
+use crate::auth::User;
+use crate::transactions::{
+    delete_transaction, get_transactions, insert_transaction, update_transaction,
+    TransactionDisplay, TransactionFilter, TransactionView,
+};
 use leptos::prelude::*;
+use leptos::task::spawn_local;
 
 #[component]
-pub fn TransactionsTable(transactions: Vec<TransactionView>) -> impl IntoView {
-    let (table_data, set_table_data) = signal(transactions);
+pub fn TransactionsTable(
+    user_id: i32,
+    selected_account_id: ReadSignal<Option<i32>>,
+    set_selected_account_id: WriteSignal<Option<i32>>,
+) -> impl IntoView {
+    let user = expect_context::<Resource<Option<User>>>();
 
     let (editing_id, set_editing_id) = signal::<Option<i32>>(None);
     let (next_id, set_next_id) = signal(-1);
 
+    // Create a resource that reloads when selected_account_id changes
+    let transactions_resource = Resource::new(
+        move || selected_account_id.get(),
+        move |account_id| async move {
+            if let Some(account_id) = account_id {
+                get_transactions(TransactionFilter {
+                    user_id: user_id as u32,
+                    account_id,
+                })
+                .await
+            } else {
+                Err(ServerFnError::new("No Account selected".to_string()))
+            }
+        },
+    );
+
+    let table_data = move || {
+        transactions_resource
+            .get()
+            .and_then(|result| result.ok())
+            .map(|signal| signal.get())
+            .unwrap_or_default()
+    };
+
+    let set_table_data_wrapper = move |updater: Box<dyn FnOnce(&mut Vec<TransactionView>)>| {
+        if let Some(Ok(signal)) = transactions_resource.get() {
+            signal.update(updater);
+        }
+    };
+
     let add_new_row = move |_| {
         let new_id = next_id.get();
+        let account_id = selected_account_id.get().unwrap_or(-1);
         let new_row = TransactionView {
             id: new_id,
             group_id: None,
@@ -21,19 +62,55 @@ pub fn TransactionsTable(transactions: Vec<TransactionView>) -> impl IntoView {
             cash_currency: "EUR".to_string(),
             cash_date: String::new(),
             note: None,
-            account_id: -1,
+            account_id,
             state: TransactionDisplay::Edit,
         };
 
-        set_table_data.update(|data| {
+        set_table_data_wrapper(Box::new(move |data| {
             data.push(new_row);
-        });
+        }));
 
         set_editing_id.set(Some(new_id));
         set_next_id.set(new_id - 1);
     };
 
     view! {
+        <div class="account-selector">
+            <label for="account-select">"Select Account: "</label>
+            <Suspense fallback=|| view! { <p>"Loading accounts..."</p> }>
+                <Await future=get_accounts()
+                    let:accounts
+                >
+                    {
+                        let account_list = accounts.clone();
+                        view! {
+                            <select
+                                id="account-select"
+                                on:change=move |ev| {
+                                    let value = event_target_value(&ev);
+                                    if let Ok(account_id) = value.parse::<i32>() {
+                                        set_selected_account_id.set(Some(account_id));
+                                    } else {
+                                        set_selected_account_id.set(None);
+                                    }
+                                }
+                            >
+                                <option value="">"-- Select an account --"</option>
+                                <For
+                                    each=move || account_list.clone().unwrap_or_default()
+                                    key=|account| account.id
+                                    children=move |account: AccountOption| {
+                                        view! {
+                                            <option value=account.id>{account.display_name()}</option>
+                                        }
+                                    }
+                                />
+                            </select>
+                        }
+                    }
+                </Await>
+            </Suspense>
+        </div>
         <div class="top-button">
             <img class="icon" width=25 src="plus.svg" on:click=add_new_row />
         </div>
@@ -53,7 +130,7 @@ pub fn TransactionsTable(transactions: Vec<TransactionView>) -> impl IntoView {
             </thead>
             <tbody>
                 <For
-                    each=move || table_data.get()
+                    each=table_data
                     key=|row| row.id
                     children=move |row| {
                         view! {
@@ -61,7 +138,8 @@ pub fn TransactionsTable(transactions: Vec<TransactionView>) -> impl IntoView {
                                 row=row
                                 editing_id=editing_id
                                 set_editing_id=set_editing_id
-                                set_table_data=set_table_data
+                                set_table_data_wrapper=set_table_data_wrapper
+                                user=user
                             />
                         }
                     }
@@ -72,12 +150,16 @@ pub fn TransactionsTable(transactions: Vec<TransactionView>) -> impl IntoView {
 }
 
 #[component]
-fn EditableTransactionRow(
+fn EditableTransactionRow<F>(
     row: TransactionView,
     editing_id: ReadSignal<Option<i32>>,
     set_editing_id: WriteSignal<Option<i32>>,
-    set_table_data: WriteSignal<Vec<TransactionView>>,
-) -> impl IntoView {
+    set_table_data_wrapper: F,
+    user: Resource<Option<User>>,
+) -> impl IntoView
+where
+    F: Fn(Box<dyn FnOnce(&mut Vec<TransactionView>)>) + 'static + Copy + Send + Sync,
+{
     let row_id = row.id;
     let (edit_group_id, set_edit_group_id) = signal(row.group_id);
     let (edit_asset_name, set_edit_asset_name) = signal(row.asset_name.clone());
@@ -87,6 +169,7 @@ fn EditableTransactionRow(
     let (edit_cash_currency, set_edit_cash_currency) = signal(row.cash_currency.clone());
     let (edit_cash_date, set_edit_cash_date) = signal(row.cash_date.clone());
     let (edit_note, set_edit_note) = signal(row.note.clone());
+    let (edit_account_id, _set_edit_account_id) = signal(row.account_id);
 
     let is_editing = move || editing_id.get() == Some(row_id);
     view! {
@@ -117,9 +200,28 @@ fn EditableTransactionRow(
                                     width=25
                                     src="cross.svg"
                                     on:click=move |_| {
-                                        set_table_data.update(|data| {
-                                            data.retain(|r| r.id != row_id);
-                                        });
+                                        let transaction_id = row_id;
+                                        if transaction_id > 0 {
+                                            // Get user_id from context
+                                            if let Some(Some(u)) = user.get() {
+                                                let user_id = u.id;
+                                                spawn_local(async move {
+                                                    match delete_transaction(transaction_id, user_id).await {
+                                                        Ok(_) => {
+                                                            log::info!("Transaction deleted successfully");
+                                                            set_table_data_wrapper(Box::new(move |data| {
+                                                                data.retain(|r| r.id != transaction_id);
+                                                            }));
+                                                        }
+                                                        Err(e) => log::error!("Failed to delete transaction: {}", e),
+                                                    }
+                                                });
+                                            }
+                                        } else {
+                                            set_table_data_wrapper(Box::new(move |data| {
+                                                data.retain(|r| r.id != transaction_id);
+                                            }));
+                                        }
                                         set_editing_id.set(None);
                                     }
                                 />
@@ -226,14 +328,51 @@ fn EditableTransactionRow(
                                 cash_currency: edit_cash_currency.get(),
                                 cash_date: edit_cash_date.get(),
                                 note: edit_note.get(),
-                                account_id: 0,
+                                account_id: edit_account_id.get(),
                                 state: TransactionDisplay::View,
                             };
-                            set_table_data.update(|data| {
-                                if let Some(existing_row) = data.iter_mut().find(|r| r.id == row_id) {
-                                    *existing_row = updated_row;
+
+                            if let Some(Some(u)) = user.get() {
+                                let user_id = u.id;
+
+                                if row_id > 0 {
+                                    // Update existing transaction
+                                    let transaction_to_update = updated_row.clone();
+                                    spawn_local(async move {
+                                        match update_transaction(transaction_to_update, user_id).await {
+                                            Ok(_) => {
+                                                log::info!("Transaction updated successfully");
+                                                set_table_data_wrapper(Box::new(move |data| {
+                                                    if let Some(existing_row) = data.iter_mut().find(|r| r.id == row_id) {
+                                                        *existing_row = updated_row;
+                                                    }
+                                                }));
+                                            }
+                                            Err(e) => log::error!("Failed to update transaction: {}", e),
+                                        }
+                                    });
+                                } else {
+                                    // Insert new transaction
+                                    let transaction_to_insert = updated_row.clone();
+                                    spawn_local(async move {
+                                        match insert_transaction(transaction_to_insert, user_id).await {
+                                            Ok(new_id) => {
+                                                log::info!("Transaction inserted successfully with id {}", new_id);
+                                                set_table_data_wrapper(Box::new(move |data| {
+                                                    if let Some(existing_row) = data.iter_mut().find(|r| r.id == row_id) {
+                                                        existing_row.id = new_id;
+                                                        *existing_row = TransactionView {
+                                                            id: new_id,
+                                                            ..updated_row
+                                                        };
+                                                    }
+                                                }));
+                                            }
+                                            Err(e) => log::error!("Failed to insert transaction: {}", e),
+                                        }
+                                    });
                                 }
-                            });
+                            }
                             set_editing_id.set(None);
                         }
                     />

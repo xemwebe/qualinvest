@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransactionFilter {
     pub user_id: u32,
+    pub account_id: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -78,10 +79,11 @@ cfg_if! {
             user::UserHandler,
         };
 
-        pub async fn get_transactions_ssr(user_id: u32, db: PostgresDB) -> Vec<TransactionView> {
-            let user_settings = db.get_user_settings(user_id as i32).await;
+        pub async fn get_transactions_ssr(account_id: i32, db: PostgresDB) -> Vec<TransactionView> {
+            let accounts_to_query = vec![account_id];
+
             if let Ok(transactions) = db
-                .get_transaction_view_for_accounts(&user_settings.account_ids)
+                .get_transaction_view_for_accounts(&accounts_to_query)
                 .await
             {
                 transactions.into_iter().map(|t| TransactionView {
@@ -121,14 +123,273 @@ pub async fn get_transactions(
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     // Verify the authenticated user matches the requested user_id or is an admin
-    if !user.is_admin && user.id != filter.user_id as i32 {
+    let db = crate::db::get_db()?;
+    if !user.is_admin {
+        if user.id != filter.user_id as i32 {
+            return Err(ServerFnError::new(
+                "Forbidden: Cannot access other user's transactions",
+            ));
+        }
+        let user_settings = db.get_user_settings(user.id).await;
+        if !user_settings.account_ids.contains(&filter.account_id) {
+            debug!(
+                "User {} does not have access to account {}",
+                user.id, filter.account_id
+            );
+            debug!("User settings: {:?}", user_settings);
+            return Err(ServerFnError::new("Forbidden: Cannot access account"));
+        }
+    }
+
+    Ok(RwSignal::new(
+        get_transactions_ssr(filter.account_id, db).await,
+    ))
+}
+
+#[server(InsertTransaction, "/api")]
+pub async fn insert_transaction(
+    transaction: TransactionView,
+    user_id: i32,
+) -> Result<i32, ServerFnError> {
+    use crate::auth::PostgresBackend;
+    use axum_login::AuthSession;
+    use finql::datatypes::{
+        Asset, AssetHandler, CashAmount, CashFlow, CurrencyISOCode, Stock, Transaction,
+        TransactionHandler, TransactionType,
+    };
+    use log::debug;
+    use qualinvest_core::accounts::AccountHandler;
+    use time::Date;
+
+    debug!("insert transaction called with transaction {transaction:?}");
+
+    let auth: AuthSession<PostgresBackend> = expect_context();
+    let user = auth
+        .user
+        .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
+
+    // Verify the authenticated user matches the requested user_id or is an admin
+    if !user.is_admin && user.id != user_id {
         return Err(ServerFnError::new(
-            "Forbidden: Cannot access other user's transactions",
+            "Forbidden: Cannot insert transactions for other users",
         ));
     }
 
     let db = crate::db::get_db()?;
-    Ok(RwSignal::new(
-        get_transactions_ssr(filter.user_id, db).await,
-    ))
+
+    // Parse date
+    let date = Date::parse(
+        &transaction.cash_date,
+        &time::format_description::well_known::Iso8601::DEFAULT,
+    )
+    .map_err(|e| ServerFnError::new(format!("Invalid date format: {}", e)))?;
+
+    let market = crate::db::get_market()?;
+    let currency = market
+        .get_currency(CurrencyISOCode::new(&transaction.cash_currency)?)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to get currency: {}", e)))?;
+    debug!("Currency: {currency:?}");
+
+    // Determine transaction type
+    let transaction_type = match transaction.trans_type.as_str() {
+        "a" => {
+            let asset_id = if let Some(asset_id) = transaction.asset_id {
+                asset_id
+            } else {
+                db.get_asset_id(&Asset::Stock(Stock {
+                    id: None,
+                    name: transaction
+                        .asset_name
+                        .ok_or_else(|| {
+                            ServerFnError::new("Asset transaction requires existing asset")
+                        })?
+                        .clone(),
+                    wkn: None,
+                    isin: None,
+                    note: None,
+                }))
+                .await
+                .ok_or_else(|| ServerFnError::new("Asset transaction requires existing asset"))?
+            };
+            let position = transaction
+                .position
+                .ok_or_else(|| ServerFnError::new("Asset transaction requires position"))?;
+            TransactionType::Asset { asset_id, position }
+        }
+        "c" => TransactionType::Cash,
+        _ => return Err(ServerFnError::new("Invalid transaction type")),
+    };
+    debug!("Transaction Type: {transaction_type:?}");
+
+    // Create transaction
+    let new_transaction = Transaction {
+        id: None,
+        transaction_type,
+        cash_flow: CashFlow {
+            amount: CashAmount {
+                amount: transaction.cash_amount,
+                currency,
+            },
+            date,
+        },
+        note: transaction.note,
+    };
+    debug!("New Transaction: {new_transaction:?}");
+
+    // Insert transaction
+    let transaction_id = db
+        .insert_transaction(&new_transaction)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to insert transaction: {}", e)))?;
+    debug!("Transaction ID: {transaction_id:?}");
+
+    // Link transaction to account
+    debug!(
+        "Try linking transaction {transaction_id} to account {}",
+        transaction.account_id
+    );
+    db.add_transaction_to_account(transaction.account_id, transaction_id)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to link transaction to account: {}", e)))?;
+    debug!(
+        "Transaction {transaction_id} linked to account {}",
+        transaction.account_id
+    );
+
+    Ok(transaction_id)
+}
+
+#[server(UpdateTransaction, "/api")]
+pub async fn update_transaction(
+    transaction: TransactionView,
+    user_id: i32,
+) -> Result<(), ServerFnError> {
+    use crate::auth::PostgresBackend;
+    use axum_login::AuthSession;
+    use finql::datatypes::{
+        CashAmount, CashFlow, CurrencyISOCode, Transaction, TransactionHandler, TransactionType,
+    };
+    use log::debug;
+    use qualinvest_core::accounts::AccountHandler;
+    use time::Date;
+
+    debug!("update transaction called with transaction {transaction:?}");
+
+    let auth: AuthSession<PostgresBackend> = expect_context();
+    let user = auth
+        .user
+        .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
+
+    // Verify the authenticated user matches the requested user_id or is an admin
+    if !user.is_admin && user.id != user_id {
+        return Err(ServerFnError::new(
+            "Forbidden: Cannot update transactions for other users",
+        ));
+    }
+
+    let db = crate::db::get_db()?;
+
+    // Verify the transaction belongs to one of the user's accounts
+    let transaction_account_id = db
+        .get_transactions_account_id(transaction.id)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to get transaction account: {}", e)))?;
+
+    let user_settings = db.get_user_settings(user_id).await;
+    if !user_settings.account_ids.contains(&transaction_account_id) {
+        return Err(ServerFnError::new(
+            "Forbidden: Transaction does not belong to your accounts",
+        ));
+    }
+
+    // Parse date
+    let date = Date::parse(
+        &transaction.cash_date,
+        &time::format_description::well_known::Iso8601::DEFAULT,
+    )
+    .map_err(|e| ServerFnError::new(format!("Invalid date format: {}", e)))?;
+
+    let market = crate::db::get_market()?;
+    let currency = market
+        .get_currency(CurrencyISOCode::new(&transaction.cash_currency)?)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to get currency: {}", e)))?;
+
+    // Determine transaction type
+    let transaction_type = match transaction.trans_type.as_str() {
+        "a" => {
+            let asset_id = transaction
+                .asset_id
+                .ok_or_else(|| ServerFnError::new("Asset transaction requires asset_id"))?;
+            let position = transaction
+                .position
+                .ok_or_else(|| ServerFnError::new("Asset transaction requires position"))?;
+            TransactionType::Asset { asset_id, position }
+        }
+        "c" => TransactionType::Cash,
+        _ => return Err(ServerFnError::new("Invalid transaction type")),
+    };
+
+    // Create updated transaction
+    let updated_transaction = Transaction {
+        id: Some(transaction.id),
+        transaction_type,
+        cash_flow: CashFlow {
+            amount: CashAmount {
+                amount: transaction.cash_amount,
+                currency,
+            },
+            date,
+        },
+        note: transaction.note,
+    };
+
+    // Update transaction
+    db.update_transaction(&updated_transaction)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to update transaction: {}", e)))
+}
+
+#[server(DeleteTransaction, "/api")]
+pub async fn delete_transaction(transaction_id: i32, user_id: i32) -> Result<(), ServerFnError> {
+    use crate::auth::PostgresBackend;
+    use axum_login::AuthSession;
+    use finql::datatypes::TransactionHandler;
+    use log::debug;
+    use qualinvest_core::accounts::AccountHandler;
+
+    debug!("delete transaction called with id {transaction_id}");
+
+    let auth: AuthSession<PostgresBackend> = expect_context();
+    let user = auth
+        .user
+        .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
+
+    // Verify the authenticated user matches the requested user_id or is an admin
+    if !user.is_admin && user.id != user_id {
+        return Err(ServerFnError::new(
+            "Forbidden: Cannot delete transactions for other users",
+        ));
+    }
+
+    let db = crate::db::get_db()?;
+
+    // Verify the transaction belongs to one of the user's accounts
+    let transaction_account_id = db
+        .get_transactions_account_id(transaction_id)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to get transaction account: {}", e)))?;
+
+    let user_settings = db.get_user_settings(user_id).await;
+    if !user_settings.account_ids.contains(&transaction_account_id) {
+        return Err(ServerFnError::new(
+            "Forbidden: Transaction does not belong to your accounts",
+        ));
+    }
+
+    // Delete transaction
+    db.delete_transaction(transaction_id)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to delete transaction: {}", e)))
 }
