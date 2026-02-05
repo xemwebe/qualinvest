@@ -149,7 +149,7 @@ pub async fn get_quotes_graph(filter: QuoteFilter) -> Result<String, ServerFnErr
     let db = crate::db::get_db()?;
     get_quotes_graph_ssr(filter.ticker_id, db)
         .await
-        .map_err(|e| ServerFnError::new(e))
+        .map_err(ServerFnError::new)
 }
 
 #[server(UpdateQuotes, "/api")]
@@ -174,19 +174,19 @@ pub async fn update_quotes(ticker_id: i32, time_range: TimeRange) -> Result<(), 
         return Err(ServerFnError::new("Forbidden: Admin access required"));
     }
 
-    let db = Arc::new(crate::db::get_db().map_err(|e| ServerFnError::new(e))?);
+    let db = Arc::new(crate::db::get_db().map_err(ServerFnError::new)?);
     debug!("db created");
     let start = get_start(&time_range, &db, ticker_id)
         .await
-        .map_err(|e| ServerFnError::new(e))?;
+        .map_err(ServerFnError::new)?;
     debug!("start is {start:?}");
-    let end = get_end(&time_range).map_err(|e| ServerFnError::new(e))?;
+    let end = get_end(&time_range).map_err(ServerFnError::new)?;
     debug!("end is {end:?}");
-    let market = crate::db::get_market().map_err(|e| ServerFnError::new(e))?;
+    let market = crate::db::get_market().map_err(ServerFnError::new)?;
     market
         .update_quote_history(ticker_id, start, end)
         .await
-        .map_err(|e| ServerFnError::new(e))?;
+        .map_err(ServerFnError::new)?;
     debug!("quotes updated");
     Ok(())
 }
@@ -212,17 +212,17 @@ pub async fn delete_quotes(ticker_id: i32, time_range: TimeRange) -> Result<(), 
         return Err(ServerFnError::new("Forbidden: Admin access required"));
     }
 
-    let db = crate::db::get_db().map_err(|e| ServerFnError::new(e))?;
+    let db = crate::db::get_db().map_err(ServerFnError::new)?;
     debug!("db created");
     let start = get_start(&time_range, &db, ticker_id)
         .await
-        .map_err(|e| ServerFnError::new(e))?;
+        .map_err(ServerFnError::new)?;
     debug!("start is {start:?}");
-    let end = get_end(&time_range).map_err(|e| ServerFnError::new(e))?;
+    let end = get_end(&time_range).map_err(ServerFnError::new)?;
     debug!("end is {end:?}");
     db.delete_quotes_for_ticker_id_in_range(ticker_id, start, end)
         .await
-        .map_err(|e| ServerFnError::new(e))?;
+        .map_err(ServerFnError::new)?;
     debug!("quotes deleted successfully");
     Ok(())
 }

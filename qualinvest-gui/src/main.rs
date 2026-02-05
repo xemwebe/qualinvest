@@ -143,7 +143,7 @@ cfg_if! {
         async fn create_market(db: &PostgresDB, inception_date: time::Date) -> Result<Market> {
             let db = std::sync::Arc::new(db.clone());
             let end_date = time::Date::from_calendar_date(inception_date.year() + 100, inception_date.month(), inception_date.day())?;
-            let market = Market::new_with_date_range(db, inception_date.into(), end_date).await?;
+            let market = Market::new_with_date_range(db, inception_date, end_date).await?;
             let yahoo = MarketDataSource::Yahoo;
             market.add_provider(
                 yahoo.to_string(),
