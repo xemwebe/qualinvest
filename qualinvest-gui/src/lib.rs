@@ -7,6 +7,8 @@ pub mod db;
 pub mod error;
 pub mod error_template;
 pub mod global_settings;
+pub mod position;
+pub mod position_view;
 pub mod quote_graph;
 pub mod quote_view;
 pub mod quotes;

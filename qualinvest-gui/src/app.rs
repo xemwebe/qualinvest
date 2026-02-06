@@ -1,4 +1,5 @@
 use crate::auth::User;
+use crate::position_view::PositionTable;
 use crate::quote_graph::QuotesGraph;
 use crate::transaction_view::TransactionsTable;
 use leptos::{prelude::*, task::spawn_local};
@@ -303,7 +304,7 @@ fn Position() -> impl IntoView {
     view! {
         <div class="center">
             <h1>Position</h1>
-            <p>Here you can see your positions.</p>
+            <PositionTable />
         </div>
     }
 }
