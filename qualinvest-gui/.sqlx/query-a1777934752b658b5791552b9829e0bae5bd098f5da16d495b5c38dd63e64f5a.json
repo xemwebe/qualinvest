@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT DISTINCT a.id, a.broker, a.account_name\n            FROM\n                accounts a,\n                account_rights ar,\n                account_transactions at,\n                users u\n            WHERE\n                at.account_id = a.id\n                AND at.transaction_id = $1\n                AND u.id = $2\n                AND ar.account_id = a.id\n                AND (ar.user_id = u.id\n                    OR u.is_admin\n                    );\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "broker",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "account_name",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "a1777934752b658b5791552b9829e0bae5bd098f5da16d495b5c38dd63e64f5a"
+}
