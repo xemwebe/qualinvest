@@ -60,7 +60,6 @@ pub fn App() -> impl IntoView {
                     }/>
                     <Route path=StaticSegment("position") view=|| { view!{ <ProtectedRoute><Position/></ProtectedRoute> } }/>
                     <Route path=StaticSegment("assets") view=|| { view!{ <ProtectedRoute><Assets/></ProtectedRoute> } }/>
-                    <Route path=StaticSegment("performance") view=|| { view!{ <ProtectedRoute><Performance/></ProtectedRoute> } }/>
                     <Route path=StaticSegment("settings") view=|| { view!{ <ProtectedRoute><Settings/></ProtectedRoute> } }/>
                     <Route path=StaticSegment("accounts") view=|| { view!{ <ProtectedRoute><Accounts/></ProtectedRoute> } }/>
                 </Routes>
@@ -424,16 +423,6 @@ fn Quotes(ticker_id: i32) -> impl IntoView {
 }
 
 #[component]
-fn Performance() -> impl IntoView {
-    view! {
-        <div class="center">
-            <h1>Performance</h1>
-            <p>Here you can see your performance.</p>
-        </div>
-    }
-}
-
-#[component]
 fn Settings() -> impl IntoView {
     view! {
         <div class="center">
@@ -467,7 +456,6 @@ fn Nav() -> impl IntoView {
                     <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/transactions">Transactions</A></li>
                     <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/position">Position</A></li>
                     <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/assets">Assets</A></li>
-                    <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/performance">Performance</A></li>
                     <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/settings">Settings</A></li>
                     <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/accounts">Accounts</A></li>
                     <Suspense fallback=|| view! { <li></li> }>
