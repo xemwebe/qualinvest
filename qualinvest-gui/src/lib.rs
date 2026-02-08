@@ -1,4 +1,5 @@
 pub mod account;
+pub mod account_view;
 pub mod app;
 pub mod asset_view;
 pub mod assets;

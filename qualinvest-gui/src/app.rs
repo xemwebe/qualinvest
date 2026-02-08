@@ -1,3 +1,4 @@
+use crate::account_view::AccountsTable;
 use crate::auth::User;
 use crate::position_view::PositionTable;
 use crate::quote_graph::QuotesGraph;
@@ -461,7 +462,7 @@ fn Accounts() -> impl IntoView {
     view! {
         <div class="center">
             <h1>Accounts</h1>
-            <p>Here you can see your accounts.</p>
+            <AccountsTable />
         </div>
     }
 }

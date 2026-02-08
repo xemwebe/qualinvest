@@ -66,6 +66,9 @@ pub trait AccountHandler: TransactionHandler {
         transaction: i32,
     ) -> Result<(), DataError>;
 
+    /// Remove transaction from all accounts
+    async fn remove_transaction_from_accounts(&self, transaction: i32) -> Result<(), DataError>;
+
     /// Get id of account a transaction belongs to
     async fn get_transactions_account_id(&self, transaction_id: i32) -> Result<i32, DataError>;
 
@@ -293,6 +296,17 @@ impl AccountHandler for PostgresDB {
         sqlx::query!(
             "INSERT INTO account_transactions (account_id, transaction_id) VALUES ($1, $2)",
             account,
+            transaction,
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Remove transaction from all accounts
+    async fn remove_transaction_from_accounts(&self, transaction: i32) -> Result<(), DataError> {
+        sqlx::query!(
+            "DELETE FROM account_transactions WHERE transaction_id = $1",
             transaction,
         )
         .execute(&self.pool)

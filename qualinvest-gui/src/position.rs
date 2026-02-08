@@ -87,9 +87,13 @@ pub async fn get_positions(
 
     // Verify user has access to requested accounts
     if !user.is_admin {
-        let user_settings = db.get_user_settings(user.id).await;
+        let user_accounts = db
+            .get_user_accounts(user.id)
+            .await
+            .map_err(|e| ServerFnError::new(format!("Failed to get user accounts: {}", e)))?;
+        let user_account_ids: Vec<i32> = user_accounts.iter().filter_map(|a| a.id).collect();
         for account_id in &account_ids {
-            if !user_settings.account_ids.contains(account_id) {
+            if !user_account_ids.contains(account_id) {
                 return Err(ServerFnError::new(format!(
                     "Forbidden: Cannot access account {}",
                     account_id
@@ -204,9 +208,13 @@ pub async fn get_performance_graph(
     let db = crate::db::get_db()?;
 
     if !user.is_admin {
-        let user_settings = db.get_user_settings(user.id).await;
+        let user_accounts = db
+            .get_user_accounts(user.id)
+            .await
+            .map_err(|e| ServerFnError::new(format!("Failed to get user accounts: {}", e)))?;
+        let user_account_ids: Vec<i32> = user_accounts.iter().filter_map(|a| a.id).collect();
         for account_id in &account_ids {
-            if !user_settings.account_ids.contains(account_id) {
+            if !user_account_ids.contains(account_id) {
                 return Err(ServerFnError::new(format!(
                     "Forbidden: Cannot access account {}",
                     account_id

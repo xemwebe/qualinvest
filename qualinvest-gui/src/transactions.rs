@@ -130,14 +130,20 @@ pub async fn get_transactions(
                 "Forbidden: Cannot access other user's transactions",
             ));
         }
-        let user_settings = db.get_user_settings(user.id).await;
-        if !user_settings.account_ids.contains(&filter.account_id) {
+        let user_accounts = db
+            .get_user_accounts(user.id)
+            .await
+            .map_err(|e| ServerFnError::new(format!("Failed to get user accounts: {}", e)))?;
+        let user_account_ids: Vec<i32> = user_accounts.iter().filter_map(|a| a.id).collect();
+        if !user_account_ids.contains(&filter.account_id) {
             debug!(
                 "User {} does not have access to account {}",
                 user.id, filter.account_id
             );
-            debug!("User settings: {:?}", user_settings);
-            return Err(ServerFnError::new("Forbidden: Cannot access account"));
+            return Err(ServerFnError::new(format!(
+                "Forbidden: Cannot access account {}",
+                filter.account_id
+            )));
         }
     }
 
@@ -303,11 +309,16 @@ pub async fn update_transaction(
         transaction_account_id
     );
     if !user.is_admin {
-        let user_settings = db.get_user_settings(user_id).await;
-        if !user_settings.account_ids.contains(&transaction_account_id) {
-            return Err(ServerFnError::new(
-                "Forbidden: Transaction does not belong to your accounts",
-            ));
+        let user_accounts = db
+            .get_user_accounts(user_id)
+            .await
+            .map_err(|e| ServerFnError::new(format!("Failed to get user accounts: {}", e)))?;
+        let user_account_ids: Vec<i32> = user_accounts.iter().filter_map(|a| a.id).collect();
+        if !user_account_ids.contains(&transaction_account_id) {
+            return Err(ServerFnError::new(format!(
+                "Forbidden: Cannot access account {}",
+                transaction_account_id
+            )));
         }
     }
 
@@ -389,14 +400,27 @@ pub async fn delete_transaction(transaction_id: i32, user_id: i32) -> Result<(),
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to get transaction account: {}", e)))?;
 
-    let user_settings = db.get_user_settings(user_id).await;
-    if !user_settings.account_ids.contains(&transaction_account_id) {
-        return Err(ServerFnError::new(
-            "Forbidden: Transaction does not belong to your accounts",
-        ));
+    let user_accounts = db
+        .get_user_accounts(user_id)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to get user accounts: {}", e)))?;
+    let user_account_ids: Vec<i32> = user_accounts.iter().filter_map(|a| a.id).collect();
+    if !user_account_ids.contains(&transaction_account_id) {
+        return Err(ServerFnError::new(format!(
+            "Forbidden: Cannot access account {}",
+            transaction_account_id
+        )));
     }
 
     // Delete transaction
+    db.remove_transaction_from_accounts(transaction_id)
+        .await
+        .map_err(|e| {
+            ServerFnError::new(format!(
+                "Failed to remmove transaction from accounts: {}",
+                e
+            ))
+        })?;
     db.delete_transaction(transaction_id)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to delete transaction: {}", e)))
