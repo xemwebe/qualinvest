@@ -1,5 +1,5 @@
 use crate::account::{get_accounts, AccountOption};
-use crate::position::{get_positions, PositionData, PositionRow};
+use crate::position::{get_performance_graph, get_positions, PositionData, PositionRow};
 use crate::time_range::{TimeRange, TimeRangeSelector};
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
@@ -16,6 +16,17 @@ pub fn PositionTable() -> impl IntoView {
                 Err(ServerFnError::new("No account selected".to_string()))
             } else {
                 get_positions(account_ids, time_range).await
+            }
+        },
+    );
+
+    let performance_graph = Resource::new(
+        move || (selected_account_ids.get(), selected_time_range.get()),
+        move |(account_ids, time_range)| async move {
+            if account_ids.is_empty() {
+                None
+            } else {
+                get_performance_graph(account_ids, time_range).await.ok()
             }
         },
     );
@@ -67,6 +78,13 @@ pub fn PositionTable() -> impl IntoView {
         <div class="time-range-wrapper">
             <TimeRangeSelector set_selected=set_selected_time_range />
         </div>
+        <Suspense fallback=|| view! { <p>"Loading performance graph..."</p> }>
+            {move || {
+                performance_graph.get().flatten().map(|svg| {
+                    view! { <div class="performance-graph" inner_html=svg></div> }
+                })
+            }}
+        </Suspense>
         <Suspense fallback=|| view! { <p>"Loading positions..."</p> }>
             {move || {
                 position_resource.get().map(|result| {

@@ -41,6 +41,7 @@ cfg_if! {
         use std::sync::Arc;
         use finql::datatypes::CurrencyISOCode;
         use finql::period_date::PeriodDate;
+        use finql::time_series::TimeSeries;
         use crate::time_range::{TimeRangePoint, CustomTimeRange};
 
         fn time_range_to_period_dates(time_range: TimeRange) -> (PeriodDate, PeriodDate) {
@@ -177,4 +178,74 @@ pub async fn get_positions(
         assets,
         totals: totals_view,
     })
+}
+
+#[server(GetPerformanceGraph, "/api")]
+pub async fn get_performance_graph(
+    account_ids: Vec<i32>,
+    time_range: TimeRange,
+) -> Result<String, ServerFnError> {
+    use crate::auth::PostgresBackend;
+    use axum_login::AuthSession;
+    use finql::Market;
+    use log::debug;
+    use qualinvest_core::accounts::AccountHandler;
+    use qualinvest_core::performance::calc_performance;
+    use qualinvest_core::plot::make_plot;
+    use qualinvest_core::user::UserHandler;
+
+    debug!("get performance graph called for accounts {account_ids:?}");
+
+    let auth: AuthSession<PostgresBackend> = expect_context();
+    let user = auth
+        .user
+        .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
+
+    let db = crate::db::get_db()?;
+
+    if !user.is_admin {
+        let user_settings = db.get_user_settings(user.id).await;
+        for account_id in &account_ids {
+            if !user_settings.account_ids.contains(account_id) {
+                return Err(ServerFnError::new(format!(
+                    "Forbidden: Cannot access account {}",
+                    account_id
+                )));
+            }
+        }
+    }
+
+    let (start_pd, end_pd) = time_range_to_period_dates(time_range);
+
+    let end = end_pd
+        .date(None)
+        .map_err(|e| ServerFnError::new(format!("Failed to resolve end date: {}", e)))?;
+    let transactions = db
+        .get_transactions_before_time(&account_ids, end)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to get transactions: {}", e)))?;
+    let start = start_pd
+        .date_from_trades(&transactions)
+        .map_err(|e| ServerFnError::new(format!("Failed to resolve start date: {}", e)))?;
+
+    let market = Market::new_with_date_range(Arc::new(db), start, end)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to create market: {}", e)))?;
+
+    let currency = market
+        .get_currency(CurrencyISOCode::new("EUR")?)
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to get currency: {}", e)))?;
+
+    let performance = calc_performance(currency, &transactions, start, end, &market, "TARGET")
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to calculate performance: {}", e)))?;
+
+    let time_series = TimeSeries {
+        title: "Portfolio Value".to_string(),
+        series: performance,
+    };
+
+    make_plot("Performance", &[time_series])
+        .map_err(|e| ServerFnError::new(format!("Failed to generate plot: {}", e)))
 }
