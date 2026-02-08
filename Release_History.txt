@@ -7,6 +7,7 @@ Version 0.4.0
    - Simulating investment strategies
    - Visualizing performance metrics
    - Analyzing investment portfolios
+ * Implement new transactions, positions and assets views with leptos
 
 Version 0.3.3
  * Don't panic if updating all tickers but return a list of those that failed

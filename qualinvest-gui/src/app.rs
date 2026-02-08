@@ -1,6 +1,7 @@
 use crate::auth::User;
 use crate::position_view::PositionTable;
 use crate::quote_graph::QuotesGraph;
+use crate::settings_view::UsersTable;
 use crate::transaction_view::TransactionsTable;
 use leptos::{prelude::*, task::spawn_local};
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
@@ -60,7 +61,7 @@ pub fn App() -> impl IntoView {
                     }/>
                     <Route path=StaticSegment("position") view=|| { view!{ <ProtectedRoute><Position/></ProtectedRoute> } }/>
                     <Route path=StaticSegment("assets") view=|| { view!{ <ProtectedRoute><Assets/></ProtectedRoute> } }/>
-                    <Route path=StaticSegment("settings") view=|| { view!{ <ProtectedRoute><Settings/></ProtectedRoute> } }/>
+                    <Route path=StaticSegment("settings") view=|| { view!{ <AdminRoute><Settings/></AdminRoute> } }/>
                     <Route path=StaticSegment("accounts") view=|| { view!{ <ProtectedRoute><Accounts/></ProtectedRoute> } }/>
                 </Routes>
             </main>
@@ -272,6 +273,29 @@ fn ProtectedRoute(children: ChildrenFn) -> impl IntoView {
 }
 
 #[component]
+fn AdminRoute(children: ChildrenFn) -> impl IntoView {
+    let user = expect_context::<Resource<Option<User>>>();
+    view! {
+        <Suspense fallback=|| view! { <p>"Loading..."</p> }>
+            {move || {
+                user.get().map(|user_data| {
+                    match user_data {
+                        Some(u) if u.is_admin => children().into_any(),
+                        Some(_) => view! { <p class="error">"Access denied: Admin privileges required."</p> }.into_any(),
+                        None => {
+                            use leptos_router::hooks::use_navigate;
+                            let navigate = use_navigate();
+                            navigate("/login", Default::default());
+                            view! { <p>"Redirecting to login..."</p> }.into_any()
+                        }
+                    }
+                })
+            }}
+        </Suspense>
+    }
+}
+
+#[component]
 fn Transactions() -> impl IntoView {
     let user = expect_context::<Resource<Option<User>>>();
     let (selected_account_id, set_selected_account_id) = signal::<Option<i32>>(None);
@@ -427,7 +451,7 @@ fn Settings() -> impl IntoView {
     view! {
         <div class="center">
             <h1>Settings</h1>
-            <p>Here you can see your settings.</p>
+            <UsersTable />
         </div>
     }
 }
@@ -456,13 +480,19 @@ fn Nav() -> impl IntoView {
                     <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/transactions">Transactions</A></li>
                     <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/position">Position</A></li>
                     <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/assets">Assets</A></li>
-                    <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/settings">Settings</A></li>
                     <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/accounts">Accounts</A></li>
                     <Suspense fallback=|| view! { <li></li> }>
                         {move || {
                             user.get().map(|user_data| {
                                 match user_data {
-                                    Some(_) => view! {
+                                    Some(u) => view! {
+                                        {if u.is_admin {
+                                            Some(view! {
+                                                <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/settings">Settings</A></li>
+                                            })
+                                        } else {
+                                            None
+                                        }}
                                         <li class={move || if nav_menu.get() { "show" } else { "" } }>
                                             <button on:click=move |_| {
                                                 spawn_local(async {
