@@ -22,7 +22,7 @@ pub fn QuotesTable(quotes: Vec<QuoteView>) -> impl IntoView {
                             <tr>
                                 <td class="cell">{quote.id}</td>
                                 <td class="cell">{quote.price}</td>
-                                <td class="cell">{quote.time}</td>
+                                <td class="cell">{quote.time.split_once(' ').map(|(date, _)| date.to_string()).unwrap_or(quote.time)}</td>
                                 <td class="cell">{quote.volume.map(|v| v.to_string()).unwrap_or_else(|| "N/A".to_string())}</td>
                             </tr>
                         }
