@@ -2942,6 +2942,7 @@ dependencies = [
  "console_error_panic_hook",
  "console_log",
  "finql",
+ "futures",
  "http",
  "leptos",
  "leptos_axum",

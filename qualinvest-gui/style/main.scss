@@ -682,6 +682,144 @@
         white-space: nowrap;
     }
 
+    /* ── Simulation page ── */
+    .simulation-strategies {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        text-align: left;
+        max-width: 860px;
+        margin: 0 auto;
+    }
+
+    .strategy-card {
+        background: white;
+        border: 1px solid var(--table-border-color);
+        border-radius: 10px;
+        padding: 1.25rem 1.5rem;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .strategy-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--table-border-color);
+    }
+
+    .strategy-card-header .form-group {
+        margin-bottom: 0;
+        flex: 1;
+    }
+
+    .strategy-remove-btn {
+        flex-shrink: 0;
+        border-color: var(--error-color);
+        color: var(--error-color);
+    }
+
+    .strategy-remove-btn:hover {
+        background: var(--error-color);
+        color: white;
+    }
+
+    .strategy-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1.5rem;
+        align-items: flex-end;
+    }
+
+    .strategy-row .form-group {
+        flex: 1;
+        min-width: 160px;
+        margin-bottom: 0;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .strategy-row .form-group label {
+        min-width: unset;
+        text-align: left;
+        margin-bottom: 0.2rem;
+    }
+
+    .strategy-row .form-group input,
+    .strategy-row .form-group select {
+        max-width: unset;
+        width: 100%;
+    }
+
+    .strategy-fieldset {
+        border: 1px solid var(--table-border-color);
+        border-radius: 8px;
+        padding: 0.75rem 1rem 1rem;
+        margin: 0;
+    }
+
+    .strategy-fieldset legend {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: var(--foreground-color-2);
+        padding: 0 0.4rem;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .strategy-fieldset .strategy-row {
+        margin-top: 0.5rem;
+    }
+
+    .dividends-header {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0.25rem;
+        padding: 0 0.25rem;
+    }
+
+    .dividend-col-label {
+        flex: 1;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .dividend-row {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        margin-bottom: 0.4rem;
+    }
+
+    .dividend-row input {
+        flex: 1;
+    }
+
+    .dividend-row input[type="date"] {
+        min-width: 140px;
+    }
+
+    .dividend-row .button {
+        flex-shrink: 0;
+        padding: 4px 10px;
+        font-size: 1rem;
+        line-height: 1;
+    }
+
+    .disabled-note {
+        font-size: 0.85rem;
+        color: #999;
+        font-style: italic;
+        margin-left: 0.5rem;
+    }
+
     /* ── Responsive nav ── */
     @media (max-width: 600px) {
         nav ul.nav {

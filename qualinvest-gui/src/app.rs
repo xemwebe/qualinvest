@@ -3,6 +3,7 @@ use crate::auth::User;
 use crate::position_view::PositionTable;
 use crate::quote_graph::QuotesGraph;
 use crate::settings_view::UsersTable;
+use crate::simulation_view::SimulationPage;
 use crate::transaction_view::TransactionsTable;
 use leptos::{prelude::*, task::spawn_local};
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
@@ -61,6 +62,7 @@ pub fn App() -> impl IntoView {
                         view!{ <ProtectedRoute><Transactions/></ProtectedRoute> }
                     }/>
                     <Route path=StaticSegment("position") view=|| { view!{ <ProtectedRoute><Position/></ProtectedRoute> } }/>
+                    <Route path=StaticSegment("simulation") view=|| { view!{ <ProtectedRoute><Simulation/></ProtectedRoute> } }/>
                     <Route path=StaticSegment("assets") view=|| { view!{ <ProtectedRoute><Assets/></ProtectedRoute> } }/>
                     <Route path=StaticSegment("settings") view=|| { view!{ <AdminRoute><Settings/></AdminRoute> } }/>
                     <Route path=StaticSegment("accounts") view=|| { view!{ <ProtectedRoute><Accounts/></ProtectedRoute> } }/>
@@ -334,6 +336,16 @@ fn Position() -> impl IntoView {
 }
 
 #[component]
+fn Simulation() -> impl IntoView {
+    view! {
+        <div class="center">
+            <h1>Simulation</h1>
+            <SimulationPage />
+        </div>
+    }
+}
+
+#[component]
 fn Assets() -> impl IntoView {
     use crate::asset_view::AssetsTable;
     use crate::assets;
@@ -480,6 +492,7 @@ fn Nav() -> impl IntoView {
                     <li class="logo"><A href="/">QuantInvest</A></li>
                     <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/transactions">Transactions</A></li>
                     <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/position">Position</A></li>
+                    <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/simulation">Simulation</A></li>
                     <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/assets">Assets</A></li>
                     <li class={move || if nav_menu.get() { "show" } else { "" } }><A href="/accounts">Accounts</A></li>
                     <Suspense fallback=|| view! { <li></li> }>

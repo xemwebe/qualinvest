@@ -15,6 +15,8 @@ pub mod quote_view;
 pub mod quotes;
 pub mod settings;
 pub mod settings_view;
+pub mod simulation;
+pub mod simulation_view;
 pub mod ticker;
 pub mod ticker_view;
 pub mod time_range;
