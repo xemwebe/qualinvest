@@ -263,7 +263,7 @@ where
                 if let Some(id) = aid {
                     return get_tickers(TickerFilter { asset_id: id })
                         .await
-                        .map(|s| s.get())
+                        .map(|s| s.get_untracked())
                         .unwrap_or_default();
                 }
             }
