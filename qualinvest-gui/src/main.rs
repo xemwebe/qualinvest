@@ -167,7 +167,8 @@ cfg_if! {
                             confy::load("qualinvest", None)?
                         };
 
-                       let db = PostgresDB::new(&config.database_url)
+                        debug!("connect to database with url '{}'", config.database_url);
+                        let db = PostgresDB::new(&config.database_url)
                             .await
                             .expect("failed to open database");
                         let mut leptos_options = get_configuration(None)
@@ -209,7 +210,7 @@ cfg_if! {
                             .with_secure(true)  // Only send cookies over HTTPS
                             .with_http_only(true)  // Prevent JavaScript access to cookies
                             .with_same_site(SameSite::Strict)  // CSRF protection
-                            .with_expiry(Expiry::OnInactivity(Duration::minutes(10)))
+                            .with_expiry(Expiry::OnInactivity(Duration::days(1)))
                             .with_signed(key);
 
                         // Auth service
