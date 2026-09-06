@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE objects SET object=$1 WHERE id=$2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Json",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "55954601125a946199320a1a1af600fadac8f2742de7012d8c395ade5a92aa60"
+}

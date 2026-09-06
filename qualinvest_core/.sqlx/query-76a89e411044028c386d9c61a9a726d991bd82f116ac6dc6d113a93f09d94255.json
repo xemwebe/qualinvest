@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM quotes WHERE ticker_id=$1 AND time > $2 AND time <= $3;",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "76a89e411044028c386d9c61a9a726d991bd82f116ac6dc6d113a93f09d94255"
+}
