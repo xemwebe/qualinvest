@@ -1,10 +1,11 @@
 use crate::account::{get_accounts, AccountOption};
 use crate::transactions::{
     delete_transaction, get_transactions, insert_transaction, update_transaction,
-    TransactionDisplay, TransactionFilter, TransactionView,
+    upload_transaction_files, TransactionDisplay, TransactionFilter, TransactionView,
 };
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use leptos::wasm_bindgen::JsCast;
 
 #[component]
 pub fn TransactionsTable(
@@ -15,6 +16,8 @@ pub fn TransactionsTable(
     let (editing_id, set_editing_id) = signal::<Option<i32>>(None);
     let (next_id, set_next_id) = signal(-1);
     let (reload_trigger, set_reload_trigger) = signal(0);
+    let (upload_status, set_upload_status) = signal::<Option<String>>(None);
+    let file_input_ref = NodeRef::<leptos::html::Input>::new();
 
     // Create a resource that reloads when selected_account_id or reload_trigger changes
     let transactions_resource = Resource::new(
@@ -73,6 +76,42 @@ pub fn TransactionsTable(
         data
     };
 
+    let trigger_file_select = move |_| {
+        if let Some(input) = file_input_ref.get() {
+            input.click();
+        }
+    };
+
+    let on_files_selected = move |ev: leptos::ev::Event| {
+        let input = ev
+            .target()
+            .and_then(|t| t.dyn_into::<web_sys::HtmlInputElement>().ok());
+        if let Some(input) = input {
+            let mut file_names = Vec::new();
+            if let Some(files) = input.files() {
+                for i in 0..files.length() {
+                    if let Some(file) = files.item(i) {
+                        file_names.push(file.name());
+                    }
+                }
+            }
+            // Reset the input so selecting the same file(s) again still triggers change
+            input.set_value("");
+
+            if file_names.is_empty() {
+                return;
+            }
+
+            set_upload_status.set(Some("Uploading…".to_string()));
+            spawn_local(async move {
+                match upload_transaction_files(file_names).await {
+                    Ok(msg) => set_upload_status.set(Some(msg)),
+                    Err(e) => set_upload_status.set(Some(format!("Upload failed: {}", e))),
+                }
+            });
+        }
+    };
+
     view! {
         <div class="account-selector">
             <label for="account-select">"Select Account: "</label>
@@ -111,8 +150,24 @@ pub fn TransactionsTable(
             </Suspense>
         </div>
         <div class="top-button">
+            <button class="button" on:click=trigger_file_select>
+                "Upload"
+            </button>
+            <input
+                type="file"
+                multiple
+                accept=".pdf"
+                style="display: none"
+                node_ref=file_input_ref
+                on:change=on_files_selected
+            />
             <img class="icon" width=25 src="plus.svg" on:click=add_new_row />
         </div>
+        {move || {
+            upload_status.get().map(|msg| view! {
+                <p class="upload-status">{msg}</p>
+            })
+        }}
         <table class="table">
             <thead>
                 <tr>

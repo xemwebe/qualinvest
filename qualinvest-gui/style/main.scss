@@ -617,7 +617,16 @@
     .top-button {
         display: flex;
         justify-content: flex-end;
+        align-items: center;
+        gap: 0.6rem;
         margin-bottom: 0.5rem;
+    }
+
+    .upload-status {
+        text-align: right;
+        font-size: 0.85rem;
+        color: var(--foreground-color-2);
+        margin: 0 0 0.5rem 0;
     }
 
     .button-cell {

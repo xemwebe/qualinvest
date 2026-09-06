@@ -32,7 +32,7 @@ http = "1.3.1"
 tower = "0.5.2"
 tower-http = "0.6.2"
 thiserror = "2.0.12"
-web-sys = "0.3"
+web-sys = { version = "0.3", features = ["File", "FileList", "HtmlInputElement"] }
 axum-login = { version = "0.16", optional = true }
 tower-sessions = { version = "0.13", features = ["memory-store", "signed"], optional = true }
 tower-sessions-sqlx-store = { version = "0.14", features = ["postgres"], optional = true }

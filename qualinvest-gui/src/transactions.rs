@@ -425,3 +425,33 @@ pub async fn delete_transaction(transaction_id: i32, user_id: i32) -> Result<(),
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to delete transaction: {}", e)))
 }
+
+#[server(UploadTransactionFiles, "/api")]
+pub async fn upload_transaction_files(file_names: Vec<String>) -> Result<String, ServerFnError> {
+    use crate::auth::PostgresBackend;
+    use axum_login::AuthSession;
+    use log::info;
+
+    let auth: AuthSession<PostgresBackend> = expect_context();
+    let _user = auth
+        .user
+        .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
+
+    // TODO: actually process the uploaded files (e.g. parse PDF statements into
+    // transactions). For now we just acknowledge which files were received.
+    info!(
+        "Received {} file(s) for upload: {:?}",
+        file_names.len(),
+        file_names
+    );
+
+    if file_names.is_empty() {
+        return Ok("No files were uploaded.".to_string());
+    }
+
+    Ok(format!(
+        "Received {} file(s): {}",
+        file_names.len(),
+        file_names.join(", ")
+    ))
+}
