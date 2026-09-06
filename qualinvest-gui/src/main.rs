@@ -10,8 +10,13 @@ cfg_if! {
             market_quotes::MarketDataSource,
         };
         use leptos::prelude::LeptosOptions;
-        use qualinvest_gui::app::*;
-        use qualinvest_gui::auth::{PostgresBackend};
+        use qualinvest_gui::{
+            app::*,
+            auth::PostgresBackend,
+            error_template::{AppError, ErrorTemplate},
+            global_settings::GlobalSettings,
+        };
+        use qualinvest_core::Config;
         use axum_login::{AuthSession};
 
         use anyhow::Result;
@@ -28,13 +33,8 @@ cfg_if! {
         use leptos::prelude::*;
         use leptos_axum::{generate_route_list, handle_server_fns_with_context, LeptosRoutes};
         use log::{debug, info, error};
-        use serde::{Deserialize, Serialize};
         use std::path::PathBuf;
         use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-        use qualinvest_gui::{
-            error_template::{AppError, ErrorTemplate},
-            global_settings::GlobalSettings,
-        };
         use tower::ServiceExt;
         use tower_http::services::ServeDir;
         use axum_login::AuthManagerLayerBuilder;
@@ -112,12 +112,6 @@ cfg_if! {
             config: Option<PathBuf>,
         }
 
-        #[derive(Default, Debug, Serialize, Deserialize)]
-        pub struct Configuration {
-            pub port: u16,
-            pub database_url: String,
-        }
-
         async fn server_fn_handler(
             State(app_state): State<AppState>,
             auth_session: AuthSession<PostgresBackend>,
@@ -157,7 +151,7 @@ cfg_if! {
         async fn main() -> Result<()> {
             simple_logger::init_with_level(log::Level::Debug)?;
             let cli = Cli::parse();
-                        let config: Configuration = if let Some(config_path) = cli.config.as_deref() {
+                        let config: Config = if let Some(config_path) = cli.config.as_deref() {
                             confy::load_path(config_path)?
                         } else {
                             debug!(
@@ -167,14 +161,14 @@ cfg_if! {
                             confy::load("qualinvest", None)?
                         };
 
-                        debug!("connect to database with url '{}'", config.database_url);
-                        let db = PostgresDB::new(&config.database_url)
+                        debug!("connect to database with url '{}'", config.db.url);
+                        let db = PostgresDB::new(&config.db.url)
                             .await
                             .expect("failed to open database");
                         let mut leptos_options = get_configuration(None)
                             .expect("failed to load leptos options")
                             .leptos_options;
-                        let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), config.port);
+                        let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), config.server.port.unwrap_or(8000));
                         leptos_options.site_addr = socket;
 
                         // get global settings from database

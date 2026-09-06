@@ -3,7 +3,7 @@
 //! This library is part of a set of tools for quantitative investments.
 //! For mor information, see [qualinvest on github](https://github.com/xemwebe/qualinvest)
 //!
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use time::OffsetDateTime;
 
@@ -24,7 +24,7 @@ pub mod sanitization;
 pub mod user;
 
 /// Configuration parameters
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default, Serialize)]
 pub struct Config {
     pub db: DbParams,
     pub market_data: MarketDataProviders,
@@ -33,13 +33,13 @@ pub struct Config {
 }
 
 /// Database parameters
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default, Serialize)]
 pub struct DbParams {
     pub url: String,
 }
 
 /// Parameters for PDF file parsing
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default, Serialize)]
 pub struct PdfParseParams {
     pub doc_path: String,
     pub warn_old: bool,
@@ -49,7 +49,7 @@ pub struct PdfParseParams {
 }
 
 /// Market data provider settings
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default, Serialize)]
 pub struct MarketDataProviders {
     pub alpha_vantage_token: Option<String>,
     pub gurufocus_token: Option<String>,
@@ -57,7 +57,7 @@ pub struct MarketDataProviders {
 }
 
 /// Server settings
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default, Serialize)]
 pub struct ServerSettings {
     pub port: Option<u16>,
     pub relative_path: Option<String>,
