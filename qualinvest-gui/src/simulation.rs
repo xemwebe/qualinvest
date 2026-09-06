@@ -192,12 +192,8 @@ cfg_if! {
                             .await
                     }
                     "ReInvestInSingleStock" => {
-                        let ticker_id = params.ticker_id.ok_or_else(|| {
-                            ServerFnError::new("ReInvestInSingleStock requires a ticker_id")
-                        })?;
                         let strategy = ReInvestInSingleStock::new(
                             params.asset_id,
-                            ticker_id,
                             market.clone(),
                             dividends,
                             costs,

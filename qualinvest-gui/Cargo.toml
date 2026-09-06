@@ -22,7 +22,7 @@ leptos_axum = { version = "0.7.0", optional = true }
 leptos_meta = { version = "0.7.0" }
 tokio = { version = "1", features = ["rt-multi-thread", "signal"], optional = true }
 wasm-bindgen = { version = "=0.2.100", optional = true }
-qualinvest_core = { version = "0.2", path = "../qualinvest_core", optional = true }
+qualinvest-core = { version = "0.2", path = "../qualinvest-core", optional = true }
 cfg-if = { version = "1.0" }
 serde = { version = "1.0", features = ["derive"] }
 anyhow = "1.0"
@@ -63,7 +63,7 @@ ssr = [
     "dep:tower-sessions",
     "dep:tower-sessions-sqlx-store",
     "dep:finql",
-    "dep:qualinvest_core",
+    "dep:qualinvest-core",
     "dep:uuid",
     "dep:argon2",
     "dep:async-trait",

@@ -1,5 +1,5 @@
 [package]
-name = "qualinvest_cli"
+name = "qualinvest-cli"
 version = "0.1.4"
 authors = ["Mark Beinker <mwb@quantlink.de>"]
 edition = "2018"
@@ -11,7 +11,7 @@ keywords = ["finance", "investment", "quantitative", "analysis"]
 [dependencies]
 finql.workspace = true
 time.workspace = true
-qualinvest_core = { version = "0.2", path = "../qualinvest_core" }
+qualinvest-core = { version = "0.2", path = "../qualinvest-core" }
 serde = { version = "1.0.*", features = ["derive"] }
 serde_json = "1.0"
 clap = { version = "4.5", features = ["derive"] }

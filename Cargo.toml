@@ -1,7 +1,7 @@
 [workspace]
 members = [
-    "qualinvest_core",
-    "qualinvest_cli",
+    "qualinvest-core",
+    "qualinvest-cli",
     "qualinvest-gui",
     "wasm_graph",
 ]

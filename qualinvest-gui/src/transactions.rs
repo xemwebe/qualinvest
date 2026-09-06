@@ -449,9 +449,10 @@ pub async fn upload_transaction_files(file_names: Vec<String>) -> Result<String,
         return Ok("No files were uploaded.".to_string());
     }
 
-    Ok(format!(
+    let mut upload_log = format!(
         "Received {} file(s): {}",
         file_names.len(),
         file_names.join(", ")
-    ))
+    );
+    Ok(upload_log)
 }
