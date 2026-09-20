@@ -80,7 +80,8 @@ pub async fn get_positions(
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     let db = crate::db::get_db()?;
@@ -202,7 +203,8 @@ pub async fn get_performance_graph(
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     let db = crate::db::get_db()?;

@@ -67,7 +67,6 @@ cfg_if! {
             }
         }
 
-        #[async_trait::async_trait]
         impl AuthnBackend for PostgresBackend {
             type User = User;
             type Credentials = Credentials;

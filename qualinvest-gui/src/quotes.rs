@@ -43,8 +43,8 @@ cfg_if! {
             }
         }
 
-        pub async fn get_quotes_graph_ssr(ticker_id: i32, db: PostgresDB) -> std::result::Result<String, Error> {
-            let quotes = db.get_all_quotes_for_ticker(ticker_id).await.map_err(|_| Error::DatabaseAccessFailed)?;
+        pub async fn get_quotes_graph_ssr(ticker_id: i32, db: PostgresDB) -> Result<String, Error> {
+            let quotes = db.get_all_quotes_for_ticker(ticker_id).await.map_err(|e| Error::DatabaseRequestFailed(e.to_string()))?;
 
             if quotes.is_empty() {
                 return Err(Error::NoQuotesAvailable);
@@ -75,10 +75,10 @@ cfg_if! {
                 .ok_or(Error::MissingGlobalSettings)
         }
 
-        async fn get_start(tr: &TimeRange, db: &PostgresDB, ticker_id: i32) -> Result<OffsetDateTime> {
+        async fn get_start(tr: &TimeRange, db: &PostgresDB, ticker_id: i32) -> Result<OffsetDateTime, Error> {
             Ok(match tr {
                 TimeRange::All => get_inception_date()?,
-                TimeRange::Latest => if let Some(latest) = db.get_latest_quote_date_for_ticker(ticker_id).await? {
+                TimeRange::Latest => if let Some(latest) = db.get_latest_quote_date_for_ticker(ticker_id).await.map_err(|e| Error::DatabaseRequestFailed(e.to_string()))? {
                     latest
                 } else {
                     get_inception_date()?
@@ -91,7 +91,7 @@ cfg_if! {
             })
         }
 
-        fn get_end(tr: &TimeRange) -> Result<OffsetDateTime> {
+        fn get_end(tr: &TimeRange) -> Result<OffsetDateTime, Error> {
             Ok(match tr {
                 TimeRange::All => OffsetDateTime::now_utc(),
                 TimeRange::Latest => OffsetDateTime::now_utc(),
@@ -116,7 +116,8 @@ pub async fn get_quotes(filter: QuoteFilter) -> Result<RwSignal<Vec<QuoteView>>,
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let _user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     // Security Note: Quotes are reference/market data that all authenticated users
@@ -138,7 +139,8 @@ pub async fn get_quotes_graph(filter: QuoteFilter) -> Result<String, ServerFnErr
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let _user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     // Security Note: Quotes are reference/market data that all authenticated users
@@ -166,7 +168,8 @@ pub async fn update_quotes(ticker_id: i32, time_range: TimeRange) -> Result<(), 
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     // Security Note: Only admin users can update quotes
@@ -204,7 +207,8 @@ pub async fn delete_quotes(ticker_id: i32, time_range: TimeRange) -> Result<(), 
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     // Security Note: Only admin users can delete quotes

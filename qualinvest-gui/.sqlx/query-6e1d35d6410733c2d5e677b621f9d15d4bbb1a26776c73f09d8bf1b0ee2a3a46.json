@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "CREATE TABLE IF NOT EXISTS user_settings (\n                id SERIAL PRIMARY KEY,\n                user_id INTEGER UNIQUE,\n                settings JSON,\n                FOREIGN KEY(user_id) REFERENCES users(id))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "6e1d35d6410733c2d5e677b621f9d15d4bbb1a26776c73f09d8bf1b0ee2a3a46"
+}

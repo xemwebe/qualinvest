@@ -119,7 +119,8 @@ pub async fn get_transactions(
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     // Verify the authenticated user matches the requested user_id or is an admin
@@ -171,7 +172,8 @@ pub async fn insert_transaction(
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     // Verify the authenticated user matches the requested user_id or is an admin
@@ -284,7 +286,8 @@ pub async fn update_transaction(
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     // Verify the authenticated user matches the requested user_id or is an admin
@@ -382,7 +385,8 @@ pub async fn delete_transaction(transaction_id: i32, user_id: i32) -> Result<(),
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     // Verify the authenticated user matches the requested user_id or is an admin
@@ -434,7 +438,8 @@ pub async fn upload_transaction_files(file_names: Vec<String>) -> Result<String,
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let _user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     // TODO: actually process the uploaded files (e.g. parse PDF statements into
@@ -449,7 +454,7 @@ pub async fn upload_transaction_files(file_names: Vec<String>) -> Result<String,
         return Ok("No files were uploaded.".to_string());
     }
 
-    let mut upload_log = format!(
+    let upload_log = format!(
         "Received {} file(s): {}",
         file_names.len(),
         file_names.join(", ")

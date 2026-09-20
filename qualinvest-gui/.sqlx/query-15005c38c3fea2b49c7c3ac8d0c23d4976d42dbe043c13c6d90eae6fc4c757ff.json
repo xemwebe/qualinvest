@@ -1,0 +1,149 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n                    t.id,\n                    t.trans_type,\n                    t.asset_id,\n                    t.cash_amount,\n                    t.cash_currency_id,\n                    t.cash_date,\n                    t.related_trans,\n                    t.position,\n                    t.note,\n                    c.iso_code,\n                    c.rounding_digits\n                FROM\n                    transactions t,\n                    account_transactions a,\n                    currencies c\n                WHERE\n                    a.account_id = $1\n                    AND a.transaction_id = t.id\n                    AND t.cash_date < $2\n                    AND c.id = t.cash_currency_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "transactions",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "trans_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "transactions",
+            "name": "trans_type"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "asset_id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "transactions",
+            "name": "asset_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "cash_amount",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "transactions",
+            "name": "cash_amount"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "cash_currency_id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "transactions",
+            "name": "cash_currency_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "cash_date",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "transactions",
+            "name": "cash_date"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "related_trans",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "transactions",
+            "name": "related_trans"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "position",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "transactions",
+            "name": "position"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "transactions",
+            "name": "note"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "iso_code",
+        "type_info": "Bpchar",
+        "origin": {
+          "Table": {
+            "table": "currencies",
+            "name": "iso_code"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "rounding_digits",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "currencies",
+            "name": "rounding_digits"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "15005c38c3fea2b49c7c3ac8d0c23d4976d42dbe043c13c6d90eae6fc4c757ff"
+}

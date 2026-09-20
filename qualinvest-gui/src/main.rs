@@ -225,7 +225,7 @@ cfg_if! {
             // build our application with a route
             let app = Router::new()
                 .nest_service("/public", ServeDir::new("public"))
-                .route("/api/*fn_name", post(server_fn_handler))
+                .route("/api/{*fn_name}", post(server_fn_handler))
                 .leptos_routes_with_handler(routes, get(leptos_routes_handler))
                 .fallback(file_and_error_handler)
                 .layer(auth_layer)

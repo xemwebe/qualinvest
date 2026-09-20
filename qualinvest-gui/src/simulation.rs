@@ -241,7 +241,8 @@ pub async fn run_strategies(
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let _user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     if strategies.is_empty() {

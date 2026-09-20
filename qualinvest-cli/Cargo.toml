@@ -1,22 +1,21 @@
 [package]
 name = "qualinvest-cli"
-version = "0.1.4"
-authors = ["Mark Beinker <mwb@quantlink.de>"]
-edition = "2018"
 description = "Command line executable of the qualinvest project"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/xemwebe/qualinvest"
-keywords = ["finance", "investment", "quantitative", "analysis"]
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
 
 [dependencies]
 finql.workspace = true
 time.workspace = true
-qualinvest-core = { version = "0.2", path = "../qualinvest-core" }
-serde = { version = "1.0.*", features = ["derive"] }
+qualinvest-core = { path = "../qualinvest-core" }
+serde.workspace = true
 serde_json = "1.0"
 clap = { version = "4.5", features = ["derive"] }
 csv = "1.1"
-toml = "0.8"
 chrono = "0.4"
 tokio = "1.3"
 async-trait = "0.1"
@@ -25,7 +24,7 @@ thiserror = "2.0"
 cal-calc = "0.2"
 log.workspace = true
 pretty_env_logger.workspace = true
-bcrypt = "0.15"
+bcrypt = "0.19"
 rpassword = "7.3"
 confy.workspace = true
 anyhow.workspace = true

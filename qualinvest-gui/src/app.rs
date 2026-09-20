@@ -117,7 +117,7 @@ pub async fn login_user(username: String, password: String) -> Result<(), Server
     use log::debug;
 
     debug!("Logging in user");
-    let mut auth: AuthSession<PostgresBackend> = expect_context();
+    let auth: AuthSession<PostgresBackend> = expect_context();
     let credentials = Credentials { username, password };
 
     match auth.authenticate(credentials).await {
@@ -146,7 +146,7 @@ pub async fn logout_user() -> Result<(), ServerFnError> {
     use crate::auth::PostgresBackend;
     use axum_login::AuthSession;
     debug!("logging out user");
-    let mut auth: AuthSession<PostgresBackend> = expect_context();
+    let auth: AuthSession<PostgresBackend> = expect_context();
     let _ = auth.logout().await;
     Ok(())
 }
@@ -156,8 +156,8 @@ pub async fn get_user() -> Result<Option<User>, ServerFnError> {
     use crate::auth::PostgresBackend;
     use axum_login::AuthSession;
     let auth: AuthSession<PostgresBackend> = expect_context();
-    debug!("got user: {:?}", auth.user);
-    Ok(auth.user.clone())
+    debug!("got user: {:?}", auth.user().await);
+    Ok(auth.user().await.clone())
 }
 
 #[component]

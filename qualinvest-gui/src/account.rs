@@ -97,7 +97,8 @@ pub async fn get_accounts() -> Result<Vec<AccountOption>, ServerFnError> {
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     let db = crate::db::get_db()?;
@@ -116,7 +117,8 @@ pub async fn get_user_accounts() -> Result<(bool, Vec<AccountView>), ServerFnErr
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     let db = crate::db::get_db()?;
@@ -168,7 +170,8 @@ pub async fn insert_account(account: AccountView) -> Result<i32, ServerFnError> 
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     let db = crate::db::get_db()?;
@@ -220,7 +223,8 @@ pub async fn update_account(account: AccountView) -> Result<(), ServerFnError> {
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     let db = crate::db::get_db()?;
@@ -293,7 +297,8 @@ pub async fn delete_account(account_id: i32) -> Result<(), ServerFnError> {
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     let db = crate::db::get_db()?;

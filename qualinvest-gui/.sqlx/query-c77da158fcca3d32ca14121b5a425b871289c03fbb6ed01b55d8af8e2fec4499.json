@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "CREATE TABLE IF NOT EXISTS accounts (\n                id SERIAL PRIMARY KEY,\n                broker TEXT NOT NULL,\n                account_name TEXT NOT NULL,\n                UNIQUE (broker, account_name))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "c77da158fcca3d32ca14121b5a425b871289c03fbb6ed01b55d8af8e2fec4499"
+}

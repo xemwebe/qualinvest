@@ -21,7 +21,8 @@ pub async fn get_all_users() -> Result<Vec<UserView>, ServerFnError> {
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     if !user.is_admin {
@@ -54,7 +55,8 @@ pub async fn insert_user(user: UserView) -> Result<i32, ServerFnError> {
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let current_user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     if !current_user.is_admin {
@@ -93,7 +95,8 @@ pub async fn update_user(user: UserView) -> Result<(), ServerFnError> {
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let current_user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     if !current_user.is_admin {
@@ -136,7 +139,8 @@ pub async fn delete_user(user_id: i32) -> Result<(), ServerFnError> {
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let current_user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     if !current_user.is_admin {

@@ -43,7 +43,8 @@ pub async fn get_assets() -> Result<RwSignal<Vec<AssetView>>, ServerFnError> {
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let _user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     // Security Note: Assets are reference/master data (stocks, currencies) that all
@@ -66,7 +67,8 @@ pub async fn insert_asset(asset: AssetView) -> Result<i32, ServerFnError> {
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     if !user.is_admin {
@@ -110,7 +112,8 @@ pub async fn update_asset(asset: AssetView) -> Result<(), ServerFnError> {
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     if !user.is_admin {
@@ -154,7 +157,8 @@ pub async fn delete_asset(asset_id: i32) -> Result<(), ServerFnError> {
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     if !user.is_admin {

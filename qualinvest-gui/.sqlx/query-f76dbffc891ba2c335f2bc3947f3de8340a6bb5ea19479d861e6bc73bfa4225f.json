@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM account_transactions WHERE transaction_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f76dbffc891ba2c335f2bc3947f3de8340a6bb5ea19479d861e6bc73bfa4225f"
+}

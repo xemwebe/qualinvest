@@ -1,17 +1,17 @@
 [package]
 name = "qualinvest-core"
-version = "0.2.0"
-authors = ["Mark Beinker <mwb@quantlink.de>"]
-edition = "2018"
 description = "Core library of the qualinvest project"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/xemwebe/qualinvest"
-keywords = ["finance", "investment", "quantitative", "analysis"]
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
 
 [dependencies]
 finql.workspace = true
 cal-calc.workspace = true
-serde = { version = "1.0", features = ["derive"] }
+serde.workspace = true
 serde_json = "1.0"
 lazy_static = "1.4"
 time = "0.3"

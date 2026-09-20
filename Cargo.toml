@@ -8,6 +8,14 @@ members = [
 exclude = ["finql"]
 resolver = "3"
 
+[workspace.package]
+version = "0.3.0"
+authors = ["Mark Beinker <mwb@quantlink.de>"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/xemwebe/qualinvest"
+keywords = ["finance", "investment", "quantitative", "analysis"]
+
 [profile.release]
 lto = true
 
@@ -19,8 +27,9 @@ pretty_env_logger = "0.5"
 console_log = "1"
 log = "0.4"
 cal-calc = "0.2"
-confy = "0.6.1"
+confy = "2.0.0"
 anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
 sqlx = { version = "0.9", features = [
     "runtime-tokio",
     "tls-rustls",

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM account_rights WHERE user_id=$1 AND account_id=$2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b19d379a18c3166783e90ebabec4cbd831ac791290ae1f2b795d022f165d1b8a"
+}

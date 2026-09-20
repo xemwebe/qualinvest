@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE account_transactions SET account_id=$3 WHERE transaction_id=$1 AND account_id=$2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f1fe1f80a7fa01b7aa12318f6bfd164ec72d4f730792aad71cfc2b4892533eaa"
+}

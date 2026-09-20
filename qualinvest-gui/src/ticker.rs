@@ -51,7 +51,8 @@ pub async fn get_tickers(filter: TickerFilter) -> Result<RwSignal<Vec<TickerView
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let _user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     // Security Note: Tickers are reference/market data that all authenticated users
@@ -73,7 +74,8 @@ pub async fn insert_ticker(ticker: TickerView) -> Result<i32, ServerFnError> {
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     if !user.is_admin {
@@ -113,7 +115,8 @@ pub async fn update_ticker(ticker: TickerView) -> Result<(), ServerFnError> {
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     if !user.is_admin {
@@ -153,7 +156,8 @@ pub async fn delete_ticker(ticker_id: i32) -> Result<(), ServerFnError> {
 
     let auth: AuthSession<PostgresBackend> = expect_context();
     let user = auth
-        .user
+        .user()
+        .await
         .ok_or_else(|| ServerFnError::new("Unauthorized"))?;
 
     if !user.is_admin {
