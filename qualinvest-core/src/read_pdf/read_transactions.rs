@@ -16,9 +16,9 @@ use time::Date;
 struct AssetInfo {
     asset: Asset,
     // reserved for later use; could also be ex-interest date
-    ex_div_day: Option<Date>,
+    _ex_div_day: Option<Date>,
     // interest rate of a bond, for later use
-    interest_rate: Option<f64>,
+    _interest_rate: Option<f64>,
     position: Option<f64>,
 }
 
@@ -41,13 +41,14 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
         )
         .unwrap();
         // Search for asset in tax documents
-        static ref WKN_ISIN_TAX: Regex = Regex::new(r"WKN\s*/\s*ISIN:\s+([A-Z0-9]{6})\s*/\s*([A-Z0-9]{12})").unwrap();
+        static ref NAME_WKN_ISIN_TAX: Regex = Regex::new(r"Stk\.\s+([.,0-9]*)\s+([A-Za-z0-9. ]*),\s*WKN\s*/\s*ISIN:\s+([A-Z0-9]{6})\s*/\s*([A-Z0-9]{12})").unwrap();
     }
 
     match doc_type {
         DocumentType::Interest | DocumentType::BondPayBack => {
             match NAME_WKN_ISIN_INT.captures(text) {
                 Some(cap) => {
+                    trace!("captures: {cap:?}");
                     let wkn = Some(cap[4].to_string());
                     let isin = Some(cap[7].to_string());
                     let name = format!("{} {}", cap[3].trim(), cap[6].trim());
@@ -58,8 +59,8 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
                             wkn, isin, name, ex_div_day, position, interest_rate);
                     Ok(AssetInfo {
                         asset: Asset::Stock(Stock::new(None, name, isin, wkn, None)),
-                        ex_div_day: ex_div_day,
-                        interest_rate: interest_rate,
+                        _ex_div_day: ex_div_day,
+                        _interest_rate: interest_rate,
                         position,
                     })
                 }
@@ -67,20 +68,23 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
             }
         }
         DocumentType::Tax => {
-            match WKN_ISIN_TAX.captures(text) {
+            match NAME_WKN_ISIN_TAX.captures(text) {
                 // The document does not provide the full name, leave name empty and search in database by ISIN/WKN
                 Some(cap) => {
-                    let wkn = Some(cap[1].to_string());
-                    let isin = Some(cap[2].to_string());
+                    trace!("captures: {cap:?}");
+                    let position = Some(german_string_to_float(&cap[1])?);
+                    let name = cap[2].trim().to_string();
+                    let wkn = Some(cap[3].to_string());
+                    let isin = Some(cap[4].to_string());
                     debug!(
                         "Debug: Found asset in Tax info with wkn: {:?}, isin: {:?}",
                         wkn, isin
                     );
                     Ok(AssetInfo {
-                        asset: Asset::Stock(Stock::new(None, String::new(), isin, wkn, None)),
-                        ex_div_day: None,
-                        interest_rate: None,
-                        position: None,
+                        asset: Asset::Stock(Stock::new(None, name, isin, wkn, None)),
+                        _ex_div_day: None,
+                        _interest_rate: None,
+                        position,
                     })
                 }
                 None => Err(ReadPDFError::NotFound("asset")),
@@ -98,8 +102,8 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
                         wkn, isin, name, ex_div_day, position);
                 Ok(AssetInfo {
                     asset: Asset::Stock(Stock::new(None, name, isin, wkn, None)),
-                    ex_div_day: ex_div_day,
-                    interest_rate: None,
+                    _ex_div_day: ex_div_day,
+                    _interest_rate: None,
                     position,
                 })
             }
@@ -112,8 +116,8 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
                 let name = format!("{} {}", cap[1].trim(), cap[3].trim());
                 Ok(AssetInfo {
                     asset: Asset::Stock(Stock::new(None, name, isin, wkn, None)),
-                    ex_div_day: None,
-                    interest_rate: None,
+                    _ex_div_day: None,
+                    _interest_rate: None,
                     position: None,
                 })
             }
@@ -228,11 +232,12 @@ async fn parse_pre_tax(
 ) -> Result<(CashAmount, Date), ReadPDFError> {
     lazy_static! {
         static ref PRE_TAX_AMOUNT: Regex = Regex::new(
-            r"(?m)Zu Ihren (?:Gunsten|Lasten) vor Steuern\s*\n.*\s*([0-9.]{10})\s*([A-Z]{3})\s*([-0-9.,]+)"
+            r"Zu Ihren (?:Gunsten|Lasten) vor Steuern:\*\*\n*\*\*([A-Z]{3})\s*([-0-9.,]+)"
         )
         .unwrap();
         static ref PRE_TAX_AMOUNT_TAX: Regex =
-            Regex::new(r"Zu Ihren Gunsten vor Steuern:\s*([A-Z]{3})\s*([-0-9.,]+)").unwrap();
+            Regex::new(r"Zu Ihren Gunsten vor Steuern:\*\*\s*\*\*([A-Z]{3})\s*([-0-9.,]+)")
+                .unwrap();
         static ref VALUTA: Regex = Regex::new(r"erfolgt mit Valuta\s*([0-9.]{10})").unwrap();
         static ref VALUTA_ALT: Regex = Regex::new(r"Datum:\s+([0-9.]{10})").unwrap();
     }
@@ -241,7 +246,7 @@ async fn parse_pre_tax(
         return match PRE_TAX_AMOUNT_TAX.captures(text) {
             None => Err(ReadPDFError::NotFound("pre-tax amount")),
             Some(cap) => {
-                println!("Debug: Pre Tax amount: {} {}", &cap[2], &cap[1]);
+                trace!("captures: {cap:?}");
                 let amount = german_string_to_float(&cap[2])?;
                 let currency = market
                     .get_currency(
@@ -263,10 +268,7 @@ async fn parse_pre_tax(
     match PRE_TAX_AMOUNT.captures(text) {
         None => Err(ReadPDFError::NotFound("pre-tax amount")),
         Some(cap) => {
-            println!(
-                "Debug: Pre Tax amount: {} {} at {}",
-                &cap[3], &cap[2], &cap[1]
-            );
+            trace!("captures: {cap:?}");
             let amount = german_string_to_float(&cap[3])?;
             let currency = market
                 .get_currency(CurrencyISOCode::new(&cap[2]).map_err(ReadPDFError::ParseCurrency)?)
@@ -336,10 +338,9 @@ pub async fn parse_transactions(
                 .unwrap();
         static ref BOND_PAYBACK: Regex =
             Regex::new(r"Kurswert Einlösung\s+([A-Z]{3}) *([-0-9.,]+)").unwrap();
-        static ref PAID_TAX: Regex = Regex::new(
-            r"(?m)(?:abgeführte|erstattete) Steuern\s+([A-Z]{3}).*\n.*\n\s+([-0-9,.]+ ?-?)$"
-        )
-        .unwrap();
+        static ref PAID_TAX: Regex =
+            Regex::new(r"(?:abgeführte|erstattete) Steuern\*\*\s+\*\*([A-Z]{3})\s+([-0-9,.]+)\s+")
+                .unwrap();
         static ref COMDIRECT_FEES: Vec<Regex> = vec![
             Regex::new(r"(?:Gesamtprovision|Provision)\s*:\s+([A-Z]{3})\s+([-0-9,.]*)").unwrap(),
             Regex::new(r"Börsenplatzabhäng. Entgelt\s*:\s+([A-Z]{3})\s+([-0-9,.]*)").unwrap(),
@@ -394,6 +395,7 @@ pub async fn parse_transactions(
     }
 
     let (pre_tax, valuta) = parse_pre_tax(text, doc_type, market).await?;
+    trace!("pre_tax: {pre_tax}, valuta: {valuta}");
 
     if pre_tax_fee_value.is_none() {
         pre_tax_fee_value = match doc_type {

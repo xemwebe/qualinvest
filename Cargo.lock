@@ -1815,12 +1815,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "glob"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
-
-[[package]]
 name = "gloo-net"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3717,7 +3711,6 @@ dependencies = [
  "confy",
  "csv",
  "finql",
- "glob",
  "log",
  "plotters",
  "pretty_env_logger",

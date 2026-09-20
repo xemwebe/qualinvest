@@ -6,7 +6,7 @@
 //!
 
 use std::fs;
-use std::io::{stdout, BufReader, Write};
+use std::io::{stdout, Write};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
