@@ -12,7 +12,7 @@ resolver = "3"
 lto = true
 
 [workspace.dependencies]
-finql = { version = "0.13", path = "finql" }
+finql = { version = "0.14", path = "finql" }
 time = { version = "0.3", features = ["local-offset", "serde", "parsing", "macros"] }
 console_error_panic_hook = "0.1"
 pretty_env_logger = "0.5"
@@ -21,6 +21,15 @@ log = "0.4"
 cal-calc = "0.2"
 confy = "0.6.1"
 anyhow = "1.0"
+sqlx = { version = "0.9", features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "postgres",
+    "macros",
+    "time",
+    "json",
+    "migrate"
+] }
 
 # Defines a size-optimized profile for the WASM bundle in release mode
 [profile.wasm-release]
