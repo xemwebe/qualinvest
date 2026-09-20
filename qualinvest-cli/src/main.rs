@@ -11,8 +11,9 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
-use log::info;
+use log::{debug, info};
 use time::OffsetDateTime;
 
 use finql::datatypes::{
@@ -37,9 +38,6 @@ struct Cli {
     /// Sets a custom config file
     #[arg(short, long, value_name = "file")]
     config: Option<String>,
-    /// Set config file format to JSON (default is TOML)
-    #[arg(short = 'J', long)]
-    json_config: bool,
     /// Prints additional information for debugging purposes
     #[arg(short, long)]
     debug: bool,
@@ -60,6 +58,7 @@ enum Command {
     Performance(Performance),
     /// Create a bcrypt password hash
     HashPassword,
+    ParsePdf(Pdf),
 }
 
 #[derive(Args)]
@@ -136,41 +135,40 @@ struct Performance {
     output: Option<String>,
 }
 
-/// Upload missing pdf to database
+/// Parse a pdf file to extract content
 #[derive(Args)]
-struct PdfUpload {
-    /// Source directory, if missing use the standard pdf file directory configured in config file
+struct Pdf {
+    /// pdf file to parse
     #[arg(short, long)]
-    source: Option<String>,
+    input_file: PathBuf,
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     pretty_env_logger::init();
     info!("Entering main function.");
 
-    let args = Cli::parse();
-    let config = args.config.unwrap_or("qualinvest.toml".to_string());
-
-    let mut config: Config = if args.json_config {
-        let config_file = fs::File::open(config).unwrap();
-        let config_reader = BufReader::new(config_file);
-        serde_json::from_reader(config_reader).unwrap()
+    let cli = Cli::parse();
+    let mut config: Config = if let Some(config_path) = cli.config.as_deref() {
+        confy::load_path(config_path)?
     } else {
-        let config_file = fs::read_to_string(config).unwrap();
-        toml::from_str(&config_file).unwrap()
+        debug!(
+            "Reading default configuration file {}",
+            confy::get_configuration_file_path("qualinvest", None)?.display()
+        );
+        confy::load("qualinvest", None)?
     };
 
     let db = PostgresDB::new(&config.db.url).await.unwrap();
 
-    if args.debug {
+    if cli.debug {
         config.debug = true;
     }
 
     let db = Arc::new(db);
     let market = Market::new(db.clone()).await;
 
-    match args.command {
+    match cli.command {
         Command::CleanDb => {
             print!("Cleaning database...");
             db.clean_accounts().await.unwrap();
@@ -324,5 +322,15 @@ async fn main() {
             let hash_2a = hash.format_for_version(bcrypt::Version::TwoA);
             println!("Password hash: {}", hash_2a);
         }
+        Command::ParsePdf(args) => {
+            let transactions = qualinvest_core::read_pdf::parse(&args.input_file, &market)
+                .await
+                .unwrap();
+            println!("PDF parse results:");
+            for transaction in transactions {
+                println!("{transaction:?}");
+            }
+        }
     }
+    Ok(())
 }

@@ -149,87 +149,87 @@ cfg_if! {
 
         #[tokio::main]
         async fn main() -> Result<()> {
-            simple_logger::init_with_level(log::Level::Debug)?;
+            pretty_env_logger::init();
             let cli = Cli::parse();
-                        let config: Config = if let Some(config_path) = cli.config.as_deref() {
-                            confy::load_path(config_path)?
-                        } else {
-                            debug!(
-                                "Reading default configuration file {}",
-                                confy::get_configuration_file_path("qualinvest", None)?.display()
-                            );
-                            confy::load("qualinvest", None)?
-                        };
+            let config: Config = if let Some(config_path) = cli.config.as_deref() {
+                confy::load_path(config_path)?
+            } else {
+                debug!(
+                    "Reading default configuration file {}",
+                    confy::get_configuration_file_path("qualinvest", None)?.display()
+                );
+                confy::load("qualinvest", None)?
+            };
 
-                        debug!("connect to database with url '{}'", config.db.url);
-                        let db = PostgresDB::new(&config.db.url)
-                            .await
-                            .expect("failed to open database");
-                        let mut leptos_options = get_configuration(None)
-                            .expect("failed to load leptos options")
-                            .leptos_options;
-                        let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), config.server.port.unwrap_or(8000));
-                        leptos_options.site_addr = socket;
+            debug!("connect to database with url '{}'", config.db.url);
+            let db = PostgresDB::new(&config.db.url)
+                .await
+                .expect("failed to open database");
+            let mut leptos_options = get_configuration(None)
+                .expect("failed to load leptos options")
+                .leptos_options;
+            let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), config.server.port.unwrap_or(8000));
+            leptos_options.site_addr = socket;
 
-                        // get global settings from database
-                        let global_settings = if let Ok(global_settings) = db.get_object("global_settings").await {
-                            global_settings
-                        } else {
-                            let global_settings = GlobalSettings::default();
-                            db.store_object("global_settings", &global_settings).await?;
-                            global_settings
-                        };
-                        info!("Global settings loaded: {:?}", global_settings);
+            // get global settings from database
+            let global_settings = if let Ok(global_settings) = db.get_object("global_settings").await {
+                global_settings
+            } else {
+                let global_settings = GlobalSettings::default();
+                db.store_object("global_settings", &global_settings).await?;
+                global_settings
+            };
+            info!("Global settings loaded: {:?}", global_settings);
 
-                        let market = create_market(&db, global_settings.inception_date.date()).await?;
+            let market = create_market(&db, global_settings.inception_date.date()).await?;
 
-                        // Session layer
-                        //
-                        // This uses `tower-sessions`to establish a layer that will provide the
-                        // session as a request service
-                        let session_store = PostgresStore::new(db.pool.clone());
-                        session_store.migrate().await?;
+            // Session layer
+            //
+            // This uses `tower-sessions`to establish a layer that will provide the
+            // session as a request service
+            let session_store = PostgresStore::new(db.pool.clone());
+            session_store.migrate().await?;
 
-                        let deletion_task = tokio::task::spawn(
-                            session_store.clone().continuously_delete_expired(tokio::time::Duration::from_secs(600)),
-                        );
+            let deletion_task = tokio::task::spawn(
+                session_store.clone().continuously_delete_expired(tokio::time::Duration::from_secs(600)),
+            );
 
-                        // Generate a cryptographic key for session management
-                        // Note: Currently generates a random key on each startup. This means sessions
-                        // will be invalidated when the server restarts, which is acceptable for
-                        // development but may need to be loaded from config for production persistence.
-                        let key = Key::generate();
-                        // Set up session management with secure cookie settings
-                        let session_layer = SessionManagerLayer::new(session_store)
-                            .with_secure(true)  // Only send cookies over HTTPS
-                            .with_http_only(true)  // Prevent JavaScript access to cookies
-                            .with_same_site(SameSite::Strict)  // CSRF protection
-                            .with_expiry(Expiry::OnInactivity(Duration::days(1)))
-                            .with_signed(key);
+            // Generate a cryptographic key for session management
+            // Note: Currently generates a random key on each startup. This means sessions
+            // will be invalidated when the server restarts, which is acceptable for
+            // development but may need to be loaded from config for production persistence.
+            let key = Key::generate();
+            // Set up session management with secure cookie settings
+            let session_layer = SessionManagerLayer::new(session_store)
+                .with_secure(true)  // Only send cookies over HTTPS
+                .with_http_only(true)  // Prevent JavaScript access to cookies
+                .with_same_site(SameSite::Strict)  // CSRF protection
+                .with_expiry(Expiry::OnInactivity(Duration::days(1)))
+                .with_signed(key);
 
-                        // Auth service
-                        //
-                        // This combines the session layer with our backend to establish the auth
-                        // service which will provide the auth session as a request extension
-                        let backend = PostgresBackend::new(db.pool.clone());
-                        let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
+            // Auth service
+            //
+            // This combines the session layer with our backend to establish the auth
+            // service which will provide the auth session as a request extension
+            let backend = PostgresBackend::new(db.pool.clone());
+            let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
-                        let app_state = AppState {
-                            db,
-                            market,
-                            leptos_options,
-                            global_settings,
-                        };
+            let app_state = AppState {
+                db,
+                market,
+                leptos_options,
+                global_settings,
+            };
 
-                        let routes = generate_route_list(|| view! { <App/> });
-                        // build our application with a route
-                        let app = Router::new()
-                            .nest_service("/public", ServeDir::new("public"))
-                            .route("/api/*fn_name", post(server_fn_handler))
-                            .leptos_routes_with_handler(routes, get(leptos_routes_handler))
-                            .fallback(file_and_error_handler)
-                            .layer(auth_layer)
-                            .with_state(app_state);
+            let routes = generate_route_list(|| view! { <App/> });
+            // build our application with a route
+            let app = Router::new()
+                .nest_service("/public", ServeDir::new("public"))
+                .route("/api/*fn_name", post(server_fn_handler))
+                .leptos_routes_with_handler(routes, get(leptos_routes_handler))
+                .fallback(file_and_error_handler)
+                .layer(auth_layer)
+                .with_state(app_state);
 
             // run our app with hyper
             // `axum::Server` is a re-export of `hyper::Server`

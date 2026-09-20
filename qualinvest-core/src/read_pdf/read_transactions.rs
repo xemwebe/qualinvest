@@ -8,15 +8,17 @@ use finql::{
     Market,
 };
 use lazy_static::lazy_static;
+use log::{debug, trace};
 use regex::{Regex, RegexSet};
 use time::Date;
 
+#[derive(Debug)]
 struct AssetInfo {
     asset: Asset,
     // reserved for later use; could also be ex-interest date
-    _ex_div_day: Option<Date>,
+    ex_div_day: Option<Date>,
     // interest rate of a bond, for later use
-    _interest_rate: Option<f64>,
+    interest_rate: Option<f64>,
     position: Option<f64>,
 }
 
@@ -28,8 +30,9 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
         )
         .unwrap();
         // Search for asset in dividend documents
+        // r"(?m)WKN/ISIN\n\s*per\s+([.0-9]{10})\s+(.*)\s+([A-Z0-9]{6})\s*\n\s*STK\s+([.,0-9]*)\s+(.*)\s\s\s*([A-Z0-9]{12})"        )
         static ref NAME_WKN_ISIN_DIV: Regex = Regex::new(
-            r"(?m)WKN/ISIN\n\s*per\s+([.0-9]{10})\s+(.*)\s+([A-Z0-9]{6})\s*\n\s*STK\s+([.,0-9]*)\s+(.*)\s\s\s*([A-Z0-9]{12})"
+            r"(?m)WKN/ISIN\n\s*per\s+([.0-9]{10})\s+([A-Z0-9]{6})\s*\*\*(.*)\*\*\n\s*STK\s+([.,0-9]*)\s+([A-Z0-9]{12})"
         )
         .unwrap();
         // Search for asset in interest documents
@@ -51,14 +54,12 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
                     let ex_div_day = Some(german_string_to_date(&cap[1])?);
                     let position = Some(german_string_to_float(&cap[5])?);
                     let interest_rate = Some(german_string_to_float(&cap[2])?);
-                    if true {
-                        println!("Debug: Found asset in Interest or BondPayBack with wkn: {:?}, isin: {:?}, name: '{:?}', ex_div_day: {:?}, position: {:?}, inerest rate: {:?}",
+                    debug!("Debug: Found asset in Interest or BondPayBack with wkn: {:?}, isin: {:?}, name: '{:?}', ex_div_day: {:?}, position: {:?}, inerest rate: {:?}",
                             wkn, isin, name, ex_div_day, position, interest_rate);
-                    }
                     Ok(AssetInfo {
                         asset: Asset::Stock(Stock::new(None, name, isin, wkn, None)),
-                        _ex_div_day: ex_div_day,
-                        _interest_rate: interest_rate,
+                        ex_div_day: ex_div_day,
+                        interest_rate: interest_rate,
                         position,
                     })
                 }
@@ -71,16 +72,14 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
                 Some(cap) => {
                     let wkn = Some(cap[1].to_string());
                     let isin = Some(cap[2].to_string());
-                    if true {
-                        println!(
-                            "Debug: Found asset in Tax info with wkn: {:?}, isin: {:?}",
-                            wkn, isin
-                        );
-                    }
+                    debug!(
+                        "Debug: Found asset in Tax info with wkn: {:?}, isin: {:?}",
+                        wkn, isin
+                    );
                     Ok(AssetInfo {
                         asset: Asset::Stock(Stock::new(None, String::new(), isin, wkn, None)),
-                        _ex_div_day: None,
-                        _interest_rate: None,
+                        ex_div_day: None,
+                        interest_rate: None,
                         position: None,
                     })
                 }
@@ -89,19 +88,18 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
         }
         DocumentType::Dividend => match NAME_WKN_ISIN_DIV.captures(text) {
             Some(cap) => {
-                let wkn = Some(cap[3].to_string());
-                let isin = Some(cap[6].to_string());
-                let name = format!("{} {}", cap[2].trim(), cap[5].trim());
+                trace!("captures: {cap:?}");
+                let wkn = Some(cap[2].to_string());
+                let isin = Some(cap[5].to_string());
+                let name = cap[3].trim().to_string();
                 let ex_div_day = Some(german_string_to_date(&cap[1])?);
                 let position = Some(german_string_to_float(&cap[4])?);
-                if true {
-                    println!("Debug: Found asset in Dividend note with wkn: {:?}, isin: {:?}, name: '{:?}', ex_div_day: {:?}, position: {:?}",
+                debug!("Found asset in Dividend note with wkn: {:?}, isin: {:?}, name: '{:?}', ex_div_day: {:?}, position: {:?}",
                         wkn, isin, name, ex_div_day, position);
-                }
                 Ok(AssetInfo {
                     asset: Asset::Stock(Stock::new(None, name, isin, wkn, None)),
-                    _ex_div_day: ex_div_day,
-                    _interest_rate: None,
+                    ex_div_day: ex_div_day,
+                    interest_rate: None,
                     position,
                 })
             }
@@ -114,8 +112,8 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
                 let name = format!("{} {}", cap[1].trim(), cap[3].trim());
                 Ok(AssetInfo {
                     asset: Asset::Stock(Stock::new(None, name, isin, wkn, None)),
-                    _ex_div_day: None,
-                    _interest_rate: None,
+                    ex_div_day: None,
+                    interest_rate: None,
                     position: None,
                 })
             }
@@ -369,8 +367,11 @@ pub async fn parse_transactions(
     }
 
     let doc_type = parse_doc_type(text)?;
+    trace!("DocType: {doc_type:?}");
     let mut asset_info = parse_asset(doc_type, text)?;
+    trace!("AssetInfo: {asset_info:?}");
     let is_amendment = AMENDMENT.is_match(text);
+    trace!("is_amendment: {is_amendment:?}");
 
     let mut pre_tax_fee_value = None;
     if asset_info.position.is_none() {

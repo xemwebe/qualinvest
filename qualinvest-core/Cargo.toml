@@ -33,3 +33,5 @@ thiserror = "2.0"
 data-encoding = "2.3"
 plotters = "0.3"
 chrono = "0.4"
+pdf_oxide = "0.3"
+log.workspace = true

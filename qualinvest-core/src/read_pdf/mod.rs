@@ -8,6 +8,7 @@ use std::{io, num, string};
 
 use thiserror::Error;
 
+use log::{debug, info, trace};
 use sanitize_filename::sanitize;
 use time::{macros::format_description, Date};
 
@@ -20,12 +21,15 @@ use finql::{
     Market,
 };
 
+type Result<T> = std::result::Result<T, ReadPDFError>;
+
 use super::accounts::{Account, AccountHandler};
 use crate::PdfParseParams;
 
 pub mod pdf_store;
 mod read_account_info;
 mod read_transactions;
+use pdf_oxide::PdfDocument;
 pub use pdf_store::{sha256_hash, store_pdf_as_name};
 use read_account_info::parse_account_info;
 use read_transactions::parse_transactions;
@@ -63,6 +67,8 @@ pub enum ReadPDFError {
     MarketError(#[from] finql::market::MarketError),
     #[error("Invalid date")]
     InvalidDate,
+    #[error("PDF parsing failed")]
+    PdfParsingFailed(#[from] pdf_oxide::Error),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -76,6 +82,7 @@ enum DocumentType {
 }
 
 // Collect all parsed data that is required to construct by category distinct cash flow transactions
+#[derive(Debug)]
 pub struct ParsedTransactionInfo {
     doc_type: DocumentType,
     asset: Asset,
@@ -120,7 +127,7 @@ pub fn rounded_equal(x: f64, y: f64, precision: i32) -> bool {
     ((x * factor).round() - (y * factor).round()).abs() < 1.0
 }
 
-pub fn text_from_pdf(file: &Path) -> Result<String, ReadPDFError> {
+pub fn text_from_pdf(file: &Path) -> Result<String> {
     let output = Command::new("pdftotext")
         .arg("-layout")
         .arg("-q")
@@ -132,7 +139,7 @@ pub fn text_from_pdf(file: &Path) -> Result<String, ReadPDFError> {
 
 /// Convert a string with German number convention
 /// (e.g. '.' as thousands separator and ',' as decimal separator)
-pub fn german_string_to_float(num_string: &str) -> Result<f64, ReadPDFError> {
+pub fn german_string_to_float(num_string: &str) -> Result<f64> {
     let sign_less_string = num_string.replace('-', "");
     let positive = sign_less_string == num_string;
     let result = sign_less_string
@@ -154,9 +161,28 @@ pub fn german_string_to_float(num_string: &str) -> Result<f64, ReadPDFError> {
 }
 
 /// Converts strings in German data convention to Date
-pub fn german_string_to_date(date_string: &str) -> Result<Date, ReadPDFError> {
+pub fn german_string_to_date(date_string: &str) -> Result<Date> {
     let format = format_description!("[day].[month].[year]");
     Date::parse(date_string, &format).map_err(|_| ReadPDFError::ParseDate)
+}
+
+pub async fn parse(file: &Path, market: &Market) -> Result<Vec<Transaction>> {
+    info!("parsing file {:?}", file.to_str());
+    let doc = PdfDocument::open(file)?;
+    let options = pdf_oxide::converters::ConversionOptions::default();
+    let text = doc.to_markdown(0, &options)?;
+    trace!("{text}");
+
+    let transactions = Vec::new();
+
+    let account_info = parse_account_info(&text)?;
+    debug!("Account: {}:{}", account_info.0, account_info.1);
+
+    // Retrieve all transaction relevant data from pdf
+    let transaction_info = parse_transactions(&text, market).await?;
+    debug!("Transaction infos:\n{transaction_info:#?}");
+
+    Ok(transactions)
 }
 
 pub async fn parse_and_store<'a>(
@@ -165,7 +191,7 @@ pub async fn parse_and_store<'a>(
     db: Arc<dyn AccountHandler + Send + Sync>,
     config: &'a PdfParseParams,
     market: &'a Market,
-) -> Result<i32, ReadPDFError> {
+) -> Result<i32> {
     let file_name = sanitize(file_name);
     let hash = sha256_hash(path)?;
     if let Ok((ids, _path)) = db.lookup_hash(&hash).await {
@@ -175,70 +201,60 @@ pub async fn parse_and_store<'a>(
     }
 
     // Start parsing document
-    let text = text_from_pdf(path);
-    match text {
-        Ok(text) => {
-            let account_info = parse_account_info(&text);
+    let text = text_from_pdf(path)?;
+    let account_info = parse_account_info(&text);
 
-            let acc_id = if account_info.is_err() && config.default_account.is_some() {
-                config.default_account.unwrap()
-            } else {
-                let (broker, account_name) = account_info?;
-                let account = Account {
-                    id: None,
-                    broker,
-                    account_name,
-                };
-                db.insert_account_if_new(&account)
-                    .await
-                    .map_err(ReadPDFError::DBError)?
-            };
+    let acc_id = if account_info.is_err() && config.default_account.is_some() {
+        config.default_account.unwrap()
+    } else {
+        let (broker, account_name) = account_info?;
+        let account = Account {
+            id: None,
+            broker,
+            account_name,
+        };
+        db.insert_account_if_new(&account)
+            .await
+            .map_err(ReadPDFError::DBError)?
+    };
 
-            // Retrieve all transaction relevant data from pdf
-            let tri = parse_transactions(&text, market).await?;
-            // If not disabled, perform consistency check
-            if config.consistency_check {
-                check_consistency(&tri).await?;
-            }
-            // Generate list of transactions
-            let transactions_info = make_transactions(&tri).await;
-            match transactions_info {
-                Ok((transactions, asset)) => {
-                    let asset_id = db.get_asset_id(&asset).await.ok_or_else(|| {
-                        ReadPDFError::AssetNotFound(match asset {
-                            Asset::Stock(stock) => stock.name,
-                            Asset::Currency(curr) => curr.to_string(),
-                        })
-                    })?;
-                    let mut trans_ids = Vec::new();
-                    for trans in transactions {
-                        let mut trans = trans.clone();
-                        trans.set_asset_id(asset_id);
-                        if !trans_ids.is_empty() {
-                            trans.set_transaction_ref(trans_ids[0]);
-                        }
-                        let trans_id = db.insert_transaction(&trans).await?;
-                        trans_ids.push(trans_id);
-                        db.add_transaction_to_account(acc_id, trans_id).await?;
-                    }
-                    store_pdf_as_name(path, &file_name, &hash, config).await?;
-                    let doc_ids = db.insert_doc(&trans_ids, &hash, &file_name).await?;
-                    let buffer = std::fs::read(path).unwrap();
-                    for id in doc_ids {
-                        db.store_pdf(id, &buffer).await.unwrap();
-                    }
-                    Ok(trans_ids.len() as i32)
-                }
-                Err(err) => Err(err),
-            }
-        }
-        Err(err) => Err(err),
+    // Retrieve all transaction relevant data from pdf
+    let tri = parse_transactions(&text, market).await?;
+    // If not disabled, perform consistency check
+    if config.consistency_check {
+        check_consistency(&tri).await?;
     }
+    // Generate list of transactions
+    let (transactions, asset) = make_transactions(&tri).await?;
+    let asset_id = db.get_asset_id(&asset).await.ok_or_else(|| {
+        ReadPDFError::AssetNotFound(match asset {
+            Asset::Stock(stock) => stock.name,
+            Asset::Currency(curr) => curr.to_string(),
+        })
+    })?;
+    let mut trans_ids = Vec::new();
+    for trans in transactions {
+        let mut trans = trans.clone();
+        trans.set_asset_id(asset_id);
+        if !trans_ids.is_empty() {
+            trans.set_transaction_ref(trans_ids[0]);
+        }
+        let trans_id = db.insert_transaction(&trans).await?;
+        trans_ids.push(trans_id);
+        db.add_transaction_to_account(acc_id, trans_id).await?;
+    }
+    store_pdf_as_name(path, &file_name, &hash, config).await?;
+    let doc_ids = db.insert_doc(&trans_ids, &hash, &file_name).await?;
+    let buffer = std::fs::read(path).unwrap();
+    for id in doc_ids {
+        db.store_pdf(id, &buffer).await.unwrap();
+    }
+    Ok(trans_ids.len() as i32)
 }
 
 // Check if main payment plus all fees and taxes add up to total payment
 // Add up all payments separate by currencies, convert into total currency, and check if they add up to zero.
-pub async fn check_consistency(tri: &ParsedTransactionInfo) -> Result<(), ReadPDFError> {
+pub async fn check_consistency(tri: &ParsedTransactionInfo) -> Result<()> {
     let time = make_offset_time(
         tri.valuta.year(),
         tri.valuta.month() as u32,
@@ -289,9 +305,7 @@ pub async fn check_consistency(tri: &ParsedTransactionInfo) -> Result<(), ReadPD
 }
 
 // Transaction in foreign currency will be converted to currency of total payment amount
-pub async fn make_transactions(
-    tri: &ParsedTransactionInfo,
-) -> Result<(Vec<Transaction>, Asset), ReadPDFError> {
+pub async fn make_transactions(tri: &ParsedTransactionInfo) -> Result<(Vec<Transaction>, Asset)> {
     let mut transactions = Vec::new();
     let time = make_offset_time(
         tri.valuta.year(),
