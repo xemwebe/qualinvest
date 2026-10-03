@@ -166,23 +166,19 @@ pub fn german_string_to_date(date_string: &str) -> Result<Date> {
     Date::parse(date_string, &format).map_err(|_| ReadPDFError::ParseDate)
 }
 
-pub async fn parse(file: &Path, market: &Market) -> Result<Vec<Transaction>> {
+pub async fn parse(file: &Path, market: &Market) -> Result<ParsedTransactionInfo> {
     info!("parsing file {:?}", file.to_str());
     let doc = PdfDocument::open(file)?;
     let options = pdf_oxide::converters::ConversionOptions::default();
-    let text = doc.to_markdown(0, &options)?;
+    let text = doc.to_markdown_all(&options)?;
     trace!("{text}");
-
-    let transactions = Vec::new();
 
     let account_info = parse_account_info(&text)?;
     debug!("Account: {}:{}", account_info.0, account_info.1);
 
     // Retrieve all transaction relevant data from pdf
     let transaction_info = parse_transactions(&text, market).await?;
-    debug!("Transaction infos:\n{transaction_info:#?}");
-
-    Ok(transactions)
+    Ok(transaction_info)
 }
 
 pub async fn parse_and_store<'a>(

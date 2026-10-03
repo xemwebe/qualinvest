@@ -28,6 +28,8 @@ cfg_if! {
             Router,
             http::{HeaderMap, Request, StatusCode, Uri},
         };
+        let transactions = Vec::new();
+
         use clap::Parser;
         //use http::{HeaderMap, Request};
         use leptos::prelude::*;
@@ -168,8 +170,19 @@ cfg_if! {
             let mut leptos_options = get_configuration(None)
                 .expect("failed to load leptos options")
                 .leptos_options;
-            let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), config.server.port.unwrap_or(8000));
-            leptos_options.site_addr = socket;
+            // When running under `cargo leptos serve`/`watch`, `LEPTOS_SITE_ADDR` is set
+            // explicitly by cargo-leptos to match `site-addr` in Cargo.toml, and must be
+            // honored as-is so the server is reachable where cargo-leptos (and its
+            // live-reload script) expect it. Otherwise (e.g. a standalone/production
+            // deployment that doesn't set `LEPTOS_SITE_ADDR`), fall back to the port
+            // configured in the config file.
+            if std::env::var("LEPTOS_SITE_ADDR").is_err() {
+                if let Some(port) = config.server.port {
+                    leptos_options.site_addr =
+                        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
+                }
+            }
+            let socket = leptos_options.site_addr;
 
             // get global settings from database
             let global_settings = if let Ok(global_settings) = db.get_object("global_settings").await {

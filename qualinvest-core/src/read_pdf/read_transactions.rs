@@ -26,7 +26,7 @@ struct AssetInfo {
 fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFError> {
     lazy_static! {
         static ref NAME_WKN_ISIN: Regex = Regex::new(
-            r"(?m)WPKNR/ISIN\n(.*)\s\s\s*([A-Z0-9]{6})\s*\n\s*(.*)\s\s\s*([A-Z0-9]{12})"
+            r"(?m)WPKNR/ISIN\*\*\n(.*)\s+([A-Z0-9]{6})\s*\n\s*(.*)\s+([A-Z0-9]{12})"
         )
         .unwrap();
         // Search for asset in dividend documents
@@ -41,7 +41,7 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFE
         )
         .unwrap();
         // Search for asset in tax documents
-        static ref NAME_WKN_ISIN_TAX: Regex = Regex::new(r"Stk\.\s+([.,0-9]*)\s+([A-Za-z0-9. ]*),\s*WKN\s*/\s*ISIN:\s+([A-Z0-9]{6})\s*/\s*([A-Z0-9]{12})").unwrap();
+        static ref NAME_WKN_ISIN_TAX: Regex = Regex::new(r"Stk\.\s+([-.,0-9]*)\s+(.*)\s,\s*WKN\s*/\s*ISIN:\s+([A-Z0-9]{6})\s*/\s*([A-Z0-9]{12})").unwrap();
     }
 
     match doc_type {
@@ -189,8 +189,8 @@ async fn parse_fx_rate(
 fn parse_doc_type(text: &str) -> Result<DocumentType, ReadPDFError> {
     lazy_static! {
         static ref DOC_TYPE_SET: RegexSet = RegexSet::new([
-            r"(?m)^\s*Wertpapierkauf",
-            r"(?m)^\s*Wertpapierverkauf",
+            r"(?m)^\s*\*?\*?Wertpapierkauf",
+            r"(?m)^\s*\*?\*?Wertpapierverkauf",
             r"(?m)^\s*Dividendengutschrift",
             r"(?m)^\s*Ertragsgutschrift",
             r"(?m)^\s*Zinsgutschrift",
@@ -231,8 +231,8 @@ async fn parse_pre_tax(
     market: &Market,
 ) -> Result<(CashAmount, Date), ReadPDFError> {
     lazy_static! {
-        static ref PRE_TAX_AMOUNT: Regex = Regex::new(
-            r"Zu Ihren (?:Gunsten|Lasten) vor Steuern:\*\*\n*\*\*([A-Z]{3})\s*([-0-9.,]+)"
+        static ref PRE_TAX_AMOUNT2: Regex = Regex::new(
+            r"Zu Ihren (?:Gunsten|Lasten) vor Steuern:?\*?\*?\n*\*?\*?([A-Z]{2}[0-9 ]*)\s[A-Z]{3}\s*([0-9.]{10})\s*([A-Z]{3})\s*([-0-9.,]+)\*?\*?"
         )
         .unwrap();
         static ref PRE_TAX_AMOUNT_TAX: Regex =
@@ -265,17 +265,17 @@ async fn parse_pre_tax(
         };
     }
 
-    match PRE_TAX_AMOUNT.captures(text) {
-        None => Err(ReadPDFError::NotFound("pre-tax amount")),
+    match PRE_TAX_AMOUNT2.captures(text) {
         Some(cap) => {
             trace!("captures: {cap:?}");
-            let amount = german_string_to_float(&cap[3])?;
+            let amount = german_string_to_float(&cap[4])?;
             let currency = market
-                .get_currency(CurrencyISOCode::new(&cap[2]).map_err(ReadPDFError::ParseCurrency)?)
+                .get_currency(CurrencyISOCode::new(&cap[3]).map_err(ReadPDFError::ParseCurrency)?)
                 .await?;
-            let valuta = german_string_to_date(&cap[1])?;
+            let valuta = german_string_to_date(&cap[2])?;
             Ok((CashAmount { amount, currency }, valuta))
         }
+        None => Err(ReadPDFError::NotFound("pre-tax amount")),
     }
 }
 
@@ -333,9 +333,10 @@ pub async fn parse_transactions(
             Regex::new(r"Kurswert\s*:\s+([A-Z]{3})\s+([-0-9,.]*)").unwrap();
         static ref DIV_PRE_TAX: Regex =
             Regex::new(r"Bruttobetrag\s*:\s+([A-Z]{3})\s+([-0-9,.]*)").unwrap();
-        static ref TOTAL_AMOUNT: Regex =
-            Regex::new(r"Zu Ihren (?:Lasten|Gunsten) nach Steuern: *([A-Z]{3}) *([-0-9.,]+)")
-                .unwrap();
+        static ref TOTAL_AMOUNT: Regex = Regex::new(
+            r"Zu Ihren (?:Lasten|Gunsten) nach Steuern:\*?\*?\s*\*?\*?([A-Z]{3}) *([-0-9.,]+)"
+        )
+        .unwrap();
         static ref BOND_PAYBACK: Regex =
             Regex::new(r"Kurswert Einlösung\s+([A-Z]{3}) *([-0-9.,]+)").unwrap();
         static ref PAID_TAX: Regex =

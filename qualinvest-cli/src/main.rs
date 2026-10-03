@@ -140,7 +140,7 @@ struct Performance {
 struct Pdf {
     /// pdf file to parse
     #[arg(short, long)]
-    input_file: PathBuf,
+    input_files: String,
 }
 
 #[tokio::main]
@@ -323,12 +323,16 @@ async fn main() -> Result<()> {
             println!("Password hash: {}", hash_2a);
         }
         Command::ParsePdf(args) => {
-            let transactions = qualinvest_core::read_pdf::parse(&args.input_file, &market)
-                .await
-                .unwrap();
-            println!("PDF parse results:");
-            for transaction in transactions {
-                println!("{transaction:?}");
+            for entry in glob::glob(&args.input_files).expect("Failed to read glob pattern") {
+                match entry {
+                    Ok(path) => {
+                        let transaction_info = qualinvest_core::read_pdf::parse(&path, &market)
+                            .await
+                            .unwrap();
+                        println!("PDF parse results:\n{transaction_info:#?}");
+                    }
+                    Err(e) => println!("Error: {:?}", e),
+                }
             }
         }
     }
