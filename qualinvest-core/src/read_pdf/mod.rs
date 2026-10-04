@@ -30,7 +30,7 @@ pub mod pdf_store;
 mod read_account_info;
 mod read_transactions;
 use pdf_oxide::PdfDocument;
-pub use pdf_store::{sha256_hash, store_pdf_as_name};
+pub use pdf_store::sha256_hash;
 use read_account_info::parse_account_info;
 use read_transactions::parse_transactions;
 
@@ -97,6 +97,7 @@ pub struct ParsedTransactionInfo {
     extra_taxes: Vec<CashAmount>,
     accruals: Vec<CashAmount>,
     note: Option<String>,
+    account_info: Option<(String, String)>,
 }
 
 impl ParsedTransactionInfo {
@@ -120,6 +121,7 @@ impl ParsedTransactionInfo {
             extra_taxes: Vec::new(),
             accruals: Vec::new(),
             note: None,
+            account_info: None,
         }
     }
 }
@@ -189,19 +191,20 @@ pub async fn parse(
     debug!("Account: {}:{}", account_info.0, account_info.1);
 
     // Retrieve all transaction relevant data from pdf
-    let transaction_info = parse_transactions(&text, market).await?;
+    let mut transaction_info = parse_transactions(&text, market).await?;
+    transaction_info.account_info = Some(account_info);
+
     Ok(transaction_info)
 }
 
-pub async fn parse_and_store<'a>(
-    path: &'a Path,
-    file_name: &'a str,
+pub async fn store_parsed_pdf(
+    hash: &str,
+    file_name: &str,
+    transaction_info: &ParsedTransactionInfo,
     db: Arc<dyn AccountHandler + Send + Sync>,
-    config: &'a PdfParseParams,
-    market: &'a Market,
+    config: &PdfParseParams,
 ) -> Result<i32> {
     let file_name = sanitize(file_name);
-    let hash = sha256_hash(path)?;
     if let Ok((ids, _path)) = db.lookup_hash(&hash).await {
         if !ids.is_empty() && config.warn_old {
             return Err(ReadPDFError::AlreadyParsed);
@@ -209,31 +212,28 @@ pub async fn parse_and_store<'a>(
     }
 
     // Start parsing document
-    let text = text_from_pdf(path)?;
-    let account_info = parse_account_info(&text);
-
-    let acc_id = if account_info.is_err() && config.default_account.is_some() {
-        config.default_account.unwrap()
-    } else {
-        let (broker, account_name) = account_info?;
+    let acc_id = if let Some(account_info) = &transaction_info.account_info {
+        let (broker, account_name) = account_info;
         let account = Account {
             id: None,
-            broker,
-            account_name,
+            broker: broker.to_string(),
+            account_name: account_name.to_string(),
         };
         db.insert_account_if_new(&account)
             .await
             .map_err(ReadPDFError::DBError)?
+    } else if let Some(default_account_id) = config.default_account {
+        default_account_id
+    } else {
+        -1
     };
 
-    // Retrieve all transaction relevant data from pdf
-    let tri = parse_transactions(&text, market).await?;
     // If not disabled, perform consistency check
     if config.consistency_check {
-        check_consistency(&tri).await?;
+        check_consistency(transaction_info).await?;
     }
     // Generate list of transactions
-    let (transactions, asset) = make_transactions(&tri).await?;
+    let (transactions, asset) = make_transactions(transaction_info).await?;
     let asset_id = db.get_asset_id(&asset).await.ok_or_else(|| {
         ReadPDFError::AssetNotFound(match asset {
             Asset::Stock(stock) => stock.name,
@@ -251,12 +251,7 @@ pub async fn parse_and_store<'a>(
         trans_ids.push(trans_id);
         db.add_transaction_to_account(acc_id, trans_id).await?;
     }
-    store_pdf_as_name(path, &file_name, &hash, config).await?;
-    let doc_ids = db.insert_doc(&trans_ids, &hash, &file_name).await?;
-    let buffer = std::fs::read(path).unwrap();
-    for id in doc_ids {
-        db.store_pdf(id, &buffer).await.unwrap();
-    }
+    let _ = db.insert_doc(&trans_ids, &hash, &file_name).await?;
     Ok(trans_ids.len() as i32)
 }
 

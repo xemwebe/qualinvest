@@ -147,6 +147,9 @@ struct Pdf {
     /// ouput folder; default is 'out'
     #[arg(short, long)]
     output_folder: Option<PathBuf>,
+    /// store parsed transactions in database
+    #[arg(short, long)]
+    store: bool,
 }
 
 #[tokio::main]
@@ -346,6 +349,17 @@ async fn main() -> Result<()> {
                         .await
                         .unwrap();
                         println!("PDF parse results:\n{transaction_info:#?}");
+                        if args.store {
+                            let hash = qualinvest_core::read_pdf::sha256_hash(&path)?;
+                            qualinvest_core::read_pdf::store_parsed_pdf(
+                                &hash,
+                                &path.to_string_lossy(),
+                                &transaction_info,
+                                db.clone(),
+                                &config.pdf,
+                            )
+                            .await?;
+                        }
                     }
                     Err(e) => println!("Error: {:?}", e),
                 }

@@ -30,6 +30,7 @@ pub struct Config {
     pub market_data: MarketDataProviders,
     pub server: ServerSettings,
     pub debug: bool,
+    pub pdf: PdfParseParams,
 }
 
 /// Database parameters
@@ -41,7 +42,6 @@ pub struct DbParams {
 /// Parameters for PDF file parsing
 #[derive(Debug, Deserialize, Default, Serialize)]
 pub struct PdfParseParams {
-    pub doc_path: String,
     pub warn_old: bool,
     pub consistency_check: bool,
     pub rename_asset: bool,
