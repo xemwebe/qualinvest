@@ -141,6 +141,12 @@ struct Pdf {
     /// pdf file to parse
     #[arg(short, long)]
     input_files: String,
+    /// convert files to text, if set, and write files to output dir
+    #[arg(short, long)]
+    to_text: bool,
+    /// ouput folder; default is 'out'
+    #[arg(short, long)]
+    output_folder: Option<PathBuf>,
 }
 
 #[tokio::main]
@@ -323,12 +329,22 @@ async fn main() -> Result<()> {
             println!("Password hash: {}", hash_2a);
         }
         Command::ParsePdf(args) => {
+            let out_folder = args.output_folder.unwrap_or_else(|| {
+                let mut p = PathBuf::new();
+                p.push("out");
+                p
+            });
             for entry in glob::glob(&args.input_files).expect("Failed to read glob pattern") {
                 match entry {
                     Ok(path) => {
-                        let transaction_info = qualinvest_core::read_pdf::parse(&path, &market)
-                            .await
-                            .unwrap();
+                        let transaction_info = qualinvest_core::read_pdf::parse(
+                            &path,
+                            &market,
+                            args.to_text,
+                            &out_folder,
+                        )
+                        .await
+                        .unwrap();
                         println!("PDF parse results:\n{transaction_info:#?}");
                     }
                     Err(e) => println!("Error: {:?}", e),

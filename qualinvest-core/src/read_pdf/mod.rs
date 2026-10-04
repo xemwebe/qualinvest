@@ -8,7 +8,7 @@ use std::{io, num, string};
 
 use thiserror::Error;
 
-use log::{debug, info, trace};
+use log::{debug, info};
 use sanitize_filename::sanitize;
 use time::{macros::format_description, Date};
 
@@ -69,6 +69,8 @@ pub enum ReadPDFError {
     InvalidDate,
     #[error("PDF parsing failed")]
     PdfParsingFailed(#[from] pdf_oxide::Error),
+    #[error("Invalid file name")]
+    InvalidFileName,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -166,12 +168,22 @@ pub fn german_string_to_date(date_string: &str) -> Result<Date> {
     Date::parse(date_string, &format).map_err(|_| ReadPDFError::ParseDate)
 }
 
-pub async fn parse(file: &Path, market: &Market) -> Result<ParsedTransactionInfo> {
+pub async fn parse(
+    file: &Path,
+    market: &Market,
+    to_text: bool,
+    out_folder: &Path,
+) -> Result<ParsedTransactionInfo> {
     info!("parsing file {:?}", file.to_str());
     let doc = PdfDocument::open(file)?;
     let options = pdf_oxide::converters::ConversionOptions::default();
     let text = doc.to_markdown_all(&options)?;
-    trace!("{text}");
+    if to_text {
+        let base_file_name = file.file_stem().ok_or(ReadPDFError::InvalidFileName)?;
+        std::fs::create_dir_all(&out_folder)?;
+        let out_file = out_folder.join(&format!("{}.txt", base_file_name.to_string_lossy()));
+        std::fs::write(&out_file, &text)?;
+    }
 
     let account_info = parse_account_info(&text)?;
     debug!("Account: {}:{}", account_info.0, account_info.1);
