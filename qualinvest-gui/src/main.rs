@@ -28,7 +28,6 @@ cfg_if! {
             Router,
             http::{HeaderMap, Request, StatusCode, Uri},
         };
-        let transactions = Vec::new();
 
         use clap::Parser;
         //use http::{HeaderMap, Request};

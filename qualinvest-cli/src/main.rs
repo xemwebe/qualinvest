@@ -152,6 +152,33 @@ struct Pdf {
     store: bool,
 }
 
+#[derive(Debug)]
+pub enum ParseResult {
+    Success(i32),
+    Error(qualinvest_core::read_pdf::ReadPDFError),
+}
+
+pub struct ParseLogEntry {
+    pub file_name: String,
+    pub result: ParseResult,
+}
+
+impl ParseLogEntry {
+    fn success(file_name: String, transaction_id: i32) -> Self {
+        Self {
+            file_name,
+            result: ParseResult::Success(transaction_id),
+        }
+    }
+
+    fn error(file_name: String, err: qualinvest_core::read_pdf::ReadPDFError) -> Self {
+        Self {
+            file_name,
+            result: ParseResult::Error(err),
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     pretty_env_logger::init();
@@ -337,34 +364,64 @@ async fn main() -> Result<()> {
                 p.push("out");
                 p
             });
-            for entry in glob::glob(&args.input_files).expect("Failed to read glob pattern") {
-                match entry {
-                    Ok(path) => {
-                        let transaction_info = qualinvest_core::read_pdf::parse(
-                            &path,
-                            &market,
-                            args.to_text,
-                            &out_folder,
-                        )
-                        .await
-                        .unwrap();
-                        println!("PDF parse results:\n{transaction_info:#?}");
-                        if args.store {
-                            let hash = qualinvest_core::read_pdf::sha256_hash(&path)?;
-                            qualinvest_core::read_pdf::store_parsed_pdf(
-                                &hash,
-                                &path.to_string_lossy(),
-                                &transaction_info,
-                                db.clone(),
-                                &config.pdf,
-                            )
-                            .await?;
+            let mut error_log = Vec::new();
+            for entry in glob::glob(&args.input_files)? {
+                if let Ok(path) = entry {
+                    match qualinvest_core::read_pdf::parse(
+                        &path,
+                        &market,
+                        args.to_text,
+                        &out_folder,
+                    )
+                    .await
+                    {
+                        Ok(transaction_info) => {
+                            debug!("PDF parse results:\n{transaction_info:#?}");
+                            if args.store {
+                                let hash = qualinvest_core::read_pdf::sha256_hash(&path)?;
+                                match qualinvest_core::read_pdf::store_parsed_pdf(
+                                    &hash,
+                                    &path.to_string_lossy(),
+                                    &transaction_info,
+                                    db.clone(),
+                                    &config.pdf,
+                                )
+                                .await
+                                {
+                                    Ok(id) => error_log.push(ParseLogEntry::success(
+                                        path.to_string_lossy().to_string(),
+                                        id,
+                                    )),
+                                    Err(e) => error_log.push(ParseLogEntry::error(
+                                        path.to_string_lossy().to_string(),
+                                        e,
+                                    )),
+                                }
+                            }
                         }
+                        Err(e) => error_log
+                            .push(ParseLogEntry::error(path.to_string_lossy().to_string(), e)),
                     }
-                    Err(e) => println!("Error: {:?}", e),
+                }
+            }
+            for result in &error_log {
+                if let ParseResult::Success(id) = result.result {
+                    println!(
+                        "parsing file '{}' was successful, created trade {id}",
+                        result.file_name
+                    )
+                }
+            }
+            for result in &error_log {
+                if let ParseResult::Error(ref err) = result.result {
+                    println!(
+                        "parsing file '{}' failed with error: {err}",
+                        result.file_name
+                    )
                 }
             }
         }
     }
+
     Ok(())
 }
