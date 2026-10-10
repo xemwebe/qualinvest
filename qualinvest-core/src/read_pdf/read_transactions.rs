@@ -352,13 +352,17 @@ pub async fn parse_transactions(
             Regex::new(r"Provision für Steuererstattung\s+([A-Z]{3})\s+([-0-9,.]+ ?-?)").unwrap(),
         ];
         static ref COMDIRECT_TAXES: Vec<Regex> = vec![
-            Regex::new(r"Mehrwertsteuer auf\s+[A-Z]{3}\s+[-0-9,.]+\s+([A-Z]{3})\s+([-0-9,.]+ ?-?)")
+            Regex::new(
+                r"Mehrwertsteuer auf\s+[A-Z]{3}\s+[-0-9,.]+\s+[`]*\s*([A-Z]{3})\s+([-0-9,.]+\s?-?)"
+            )
+            .unwrap(),
+            Regex::new(r"Kapitalertragsteuer\s*\(?[0-9]?\)?\s+[`]*\s*([A-Z]{3})\s+([-0-9,.]+)")
                 .unwrap(),
-            Regex::new(r"Kapitalertragsteuer\s*\(?[0-9]?\)?\s+([A-Z]{3})\s+([-0-9,.]+)").unwrap(),
-            Regex::new(r"Solidaritätszuschlag\s+([A-Z]{3})\s+([-0-9,.]+)").unwrap(),
-            Regex::new(r"(?m)Kirchensteuer\s+([A-Z]{3})\s*\n\s*_*\s*\n\s*+([-0-9,.]+)").unwrap(),
-            Regex::new(r"Quellensteuer\s+([A-Z]{3})\s+([-0-9,.]+ ?-?)").unwrap(),
-            Regex::new(r"Quellensteuervergütung\s+([A-Z]{3})\s+([-0-9,.]+ ?-?)").unwrap(),
+            Regex::new(r"Solidaritätszuschlag\s+[`]*\s*([A-Z]{3})\s+([-0-9,.]+)").unwrap(),
+            Regex::new(r"(?m)Kirchensteuer\s+[`]*\s*([A-Z]{3})\s*\n\s*_*\s*\n\s*+([-0-9,.]+)")
+                .unwrap(),
+            Regex::new(r"Quellensteuer\s+[`]*\s*([A-Z]{3})\s+([-0-9,.]+ ?-?)").unwrap(),
+            Regex::new(r"Quellensteuervergütung\s+[`]*\s*([A-Z]{3})\s+([-0-9,.]+ ?-?)").unwrap(),
         ];
         static ref COMDIRECT_ACCRUALS: Vec<Regex> =
             vec![Regex::new(r"[0-9]+\s+Tage Zinsen\s+:\s*([A-Z]{3})\s+([-0-9,.]+)").unwrap(),];
@@ -418,6 +422,7 @@ pub async fn parse_transactions(
         DocumentType::Tax => parse_amount(&PAID_TAX, text, market).await?,
     };
     let total_amount = must_have(total_amount, "can't identify total payment amount")?;
+    trace!("total amount: {total_amount}");
     let (fx_rate, _) = parse_fx_rate(text, market).await?;
     trace!("fx_rate: {fx_rate:?}");
 
