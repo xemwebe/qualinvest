@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
-use log::{debug, info};
+use log::{debug, info, trace};
 use time::OffsetDateTime;
 
 use finql::datatypes::{
@@ -156,6 +156,7 @@ struct Pdf {
 pub enum ParseResult {
     Success(i32),
     Error(qualinvest_core::read_pdf::ReadPDFError),
+    Skipped,
 }
 
 pub struct ParseLogEntry {
@@ -175,6 +176,13 @@ impl ParseLogEntry {
         Self {
             file_name,
             result: ParseResult::Error(err),
+        }
+    }
+
+    fn skipped(file_name: String) -> Self {
+        Self {
+            file_name,
+            result: ParseResult::Skipped,
         }
     }
 }
@@ -379,6 +387,13 @@ async fn main() -> Result<()> {
                             debug!("PDF parse results:\n{transaction_info:#?}");
                             if args.store {
                                 let hash = qualinvest_core::read_pdf::sha256_hash(&path)?;
+                                trace!("hash of new document: {hash}");
+                                if !db.lookup_hash(&hash).await?.0.is_empty() {
+                                    error_log.push(ParseLogEntry::skipped(
+                                        path.to_string_lossy().to_string(),
+                                    ));
+                                    continue;
+                                }
                                 match qualinvest_core::read_pdf::store_parsed_pdf(
                                     &hash,
                                     &path.to_string_lossy(),
@@ -405,20 +420,26 @@ async fn main() -> Result<()> {
                 }
             }
             for result in &error_log {
-                if let ParseResult::Success(count) = result.result {
-                    println!(
-                        "parsing file '{}' was successful, created {count} trade{}",
-                        result.file_name,
-                        if count == 1 { "" } else { "s" }
-                    )
-                }
-            }
-            for result in &error_log {
-                if let ParseResult::Error(ref err) = result.result {
-                    println!(
-                        "parsing file '{}' failed with error: {err}",
-                        result.file_name
-                    )
+                match result.result {
+                    ParseResult::Success(count) => {
+                        println!(
+                            "parsing file '{}' was successful, created {count} trade{}",
+                            result.file_name,
+                            if count == 1 { "" } else { "s" }
+                        )
+                    }
+                    ParseResult::Error(ref err) => {
+                        println!(
+                            "parsing file '{}' failed with error: {err}",
+                            result.file_name
+                        )
+                    }
+                    ParseResult::Skipped => {
+                        println!(
+                            "parsing file '{}' skipped, pdf has already been processed",
+                            result.file_name
+                        )
+                    }
                 }
             }
         }
