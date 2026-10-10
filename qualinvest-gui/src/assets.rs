@@ -12,6 +12,9 @@ pub struct AssetView {
     pub id: i32,
     pub name: String,
     pub class: String,
+    pub wkn: Option<String>,
+    pub isin: Option<String>,
+    pub note: Option<String>,
 }
 
 cfg_if! {
@@ -20,11 +23,14 @@ cfg_if! {
         use finql::datatypes::AssetHandler;
 
         pub async fn get_assets_ssr(db: PostgresDB) -> Vec<AssetView> {
-            if let Ok(assets) = db.get_asset_list().await {
+            if let Ok(assets) = db.get_asset_list_extended().await {
                 assets.into_iter().map(|a| AssetView {
                     id: a.id,
                     name: a.name,
                     class: a.class,
+                    wkn: a.wkn,
+                    isin: a.isin,
+                    note: a.note,
                 }).collect()
             } else {
                 Vec::new()
@@ -81,9 +87,9 @@ pub async fn insert_asset(asset: AssetView) -> Result<i32, ServerFnError> {
         Asset::Stock(Stock {
             id: None,
             name: asset.name,
-            wkn: None,
-            isin: None,
-            note: None,
+            wkn: asset.wkn,
+            isin: asset.isin,
+            note: asset.note,
         })
     } else if asset.class == "currency" {
         Asset::Currency(Currency {
@@ -126,9 +132,9 @@ pub async fn update_asset(asset: AssetView) -> Result<(), ServerFnError> {
         Asset::Stock(Stock {
             id: Some(asset.id),
             name: asset.name,
-            wkn: None,
-            isin: None,
-            note: None,
+            wkn: asset.wkn,
+            isin: asset.isin,
+            note: asset.note,
         })
     } else if asset.class == "currency" {
         Asset::Currency(Currency {

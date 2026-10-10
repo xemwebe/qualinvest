@@ -21,6 +21,9 @@ pub fn AssetsTable(
             id: new_id,
             name: String::new(),
             class: String::new(),
+            wkn: None,
+            isin: None,
+            note: None,
         };
 
         set_table_data.update(|data| {
@@ -57,6 +60,9 @@ pub fn AssetsTable(
                         <th class="header-cell">"ID"</th>
                         <th class="header-cell">"Name"</th>
                         <th class="header-cell">"Class"</th>
+                        <th class="header-cell">"WKN"</th>
+                        <th class="header-cell">"ISIN"</th>
+                        <th class="header-cell">"Note"</th>
                         <Suspense fallback=|| view! { <></> }>
                             {move || {
                                 user.get().and_then(|user_data| {
@@ -113,7 +119,11 @@ fn EditableAssetRow(
     let row_id = row.id;
     let (edit_name, set_edit_name) = signal(row.name.clone());
     let (edit_class, set_edit_class) = signal(row.class.clone());
+    let (edit_wkn, set_edit_wkn) = signal(row.wkn.clone().unwrap_or_default());
+    let (edit_isin, set_edit_isin) = signal(row.isin.clone().unwrap_or_default());
+    let (edit_note, set_edit_note) = signal(row.note.clone().unwrap_or_default());
 
+    let is_stock = move || edit_class.get() == "stock";
     let is_editing = move || editing_id.get() == Some(row_id);
     let is_selected = move || {
         if let Some((id, _)) = selected_asset_info.get() {
@@ -132,6 +142,7 @@ fn EditableAssetRow(
                     let asset_name = edit_name.get();
                     let asset_name_clone1 = asset_name.clone();
                     let asset_name_clone2 = asset_name.clone();
+                    let is_currency = edit_class.get() != "stock";
                     view! {
                         <td
                             class="cell"
@@ -165,6 +176,15 @@ fn EditableAssetRow(
                             }
                         >
                             {edit_class}
+                        </td>
+                        <td class="cell" class:disabled=is_currency>
+                            {edit_wkn}
+                        </td>
+                        <td class="cell" class:disabled=is_currency>
+                            {edit_isin}
+                        </td>
+                        <td class="cell" class:disabled=is_currency>
+                            {edit_note}
                         </td>
                         <Suspense fallback=|| view! { <></> }>
                             {move || {
@@ -238,16 +258,49 @@ fn EditableAssetRow(
                         on:input=move |ev| set_edit_class.set(event_target_value(&ev))
                     />
                 </td>
+                <td class="cell edit" class:disabled=move || !is_stock()>
+                    <input
+                        type="text"
+                        class="input"
+                        prop:value=edit_wkn
+                        prop:disabled=move || !is_stock()
+                        on:input=move |ev| set_edit_wkn.set(event_target_value(&ev))
+                    />
+                </td>
+                <td class="cell edit" class:disabled=move || !is_stock()>
+                    <input
+                        type="text"
+                        class="input"
+                        prop:value=edit_isin
+                        prop:disabled=move || !is_stock()
+                        on:input=move |ev| set_edit_isin.set(event_target_value(&ev))
+                    />
+                </td>
+                <td class="cell edit" class:disabled=move || !is_stock()>
+                    <input
+                        type="text"
+                        class="input"
+                        prop:value=edit_note
+                        prop:disabled=move || !is_stock()
+                        on:input=move |ev| set_edit_note.set(event_target_value(&ev))
+                    />
+                </td>
                 <td class="button-cell">
                     <img
                         class="icon"
                         width=25
                         src="check.svg"
                         on:click=move |_| {
+                            let wkn_val = edit_wkn.get();
+                            let isin_val = edit_isin.get();
+                            let note_val = edit_note.get();
                             let updated_row = AssetView {
                                 id: row_id,
                                 name: edit_name.get(),
                                 class: edit_class.get(),
+                                wkn: if wkn_val.is_empty() { None } else { Some(wkn_val) },
+                                isin: if isin_val.is_empty() { None } else { Some(isin_val) },
+                                note: if note_val.is_empty() { None } else { Some(note_val) },
                             };
 
                             if row_id > 0 {

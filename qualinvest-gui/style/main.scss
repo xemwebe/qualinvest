@@ -551,6 +551,17 @@
         font-size: 0.9rem;
     }
 
+    .cell.disabled {
+        color: var(--disabled-text-color, #999);
+        background-color: var(--disabled-background-color, #f5f5f5);
+    }
+
+    .cell.disabled .input {
+        color: var(--disabled-text-color, #999);
+        background-color: var(--disabled-background-color, #f5f5f5);
+        cursor: not-allowed;
+    }
+
     .table tbody tr:nth-child(even) {
         background-color: var(--table-stripe-color);
     }

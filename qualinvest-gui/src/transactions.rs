@@ -378,7 +378,7 @@ pub async fn delete_transaction(transaction_id: i32, user_id: i32) -> Result<(),
     use crate::auth::PostgresBackend;
     use axum_login::AuthSession;
     use finql::datatypes::TransactionHandler;
-    use log::debug;
+    use log::{debug, error};
     use qualinvest_core::accounts::AccountHandler;
 
     debug!("delete transaction called with id {transaction_id}");
@@ -410,6 +410,10 @@ pub async fn delete_transaction(transaction_id: i32, user_id: i32) -> Result<(),
         .map_err(|e| ServerFnError::new(format!("Failed to get user accounts: {}", e)))?;
     let user_account_ids: Vec<i32> = user_accounts.iter().filter_map(|a| a.id).collect();
     if !user_account_ids.contains(&transaction_account_id) {
+        error!(
+            "Forbidden: Cannot access account {}",
+            transaction_account_id
+        );
         return Err(ServerFnError::new(format!(
             "Forbidden: Cannot access account {}",
             transaction_account_id
