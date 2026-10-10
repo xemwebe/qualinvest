@@ -8,7 +8,7 @@ use std::{io, num, string};
 
 use thiserror::Error;
 
-use log::{debug, info};
+use log::{debug, error, info, trace};
 use sanitize_filename::sanitize;
 use time::{macros::format_description, Date};
 
@@ -204,6 +204,7 @@ pub async fn store_parsed_pdf(
     db: Arc<dyn AccountHandler + Send + Sync>,
     config: &PdfParseParams,
 ) -> Result<i32> {
+    debug!("store_parsed_pdf called");
     let file_name = sanitize(file_name);
     if let Ok((ids, _path)) = db.lookup_hash(&hash).await {
         if !ids.is_empty() && config.warn_old {
@@ -211,7 +212,7 @@ pub async fn store_parsed_pdf(
         }
     }
 
-    // Start parsing document
+    // Find account or insert new one
     let acc_id = if let Some(account_info) = &transaction_info.account_info {
         let (broker, account_name) = account_info;
         let account = Account {
@@ -258,6 +259,7 @@ pub async fn store_parsed_pdf(
 // Check if main payment plus all fees and taxes add up to total payment
 // Add up all payments separate by currencies, convert into total currency, and check if they add up to zero.
 pub async fn check_consistency(tri: &ParsedTransactionInfo) -> Result<()> {
+    debug!("check_consistency called");
     let time = make_offset_time(
         tri.valuta.year(),
         tri.valuta.month() as u32,
@@ -267,16 +269,14 @@ pub async fn check_consistency(tri: &ParsedTransactionInfo) -> Result<()> {
         0,
     )
     .ok_or(ReadPDFError::ParseDate)?;
+    trace!("closing time is {time}");
 
     // temporary storage for fx rates
     // total payment is always in base currency, but main_amount (and maybe fees or taxes) could be in foreign currency.
     let mut fx_converter = SimpleCurrencyConverter::new();
-    if tri.fx_rate.is_some() {
-        fx_converter.insert_fx_rate(
-            tri.total_amount.currency,
-            tri.main_amount.currency,
-            tri.fx_rate.unwrap(),
-        );
+    if let Some(fx_rate) = tri.fx_rate {
+        trace!("fx rate to be added to fx converter: {fx_rate}");
+        fx_converter.insert_fx_rate(tri.total_amount.currency, tri.main_amount.currency, fx_rate);
     }
 
     // Add up all payment components and check whether they equal the final payment
@@ -291,24 +291,28 @@ pub async fn check_consistency(tri: &ParsedTransactionInfo) -> Result<()> {
     for accrued in &tri.accruals {
         add_by_currency(accrued, &mut check_sum, &mut foreign_check_sum);
     }
+    trace!("foreign check sum: {foreign_check_sum}, time: {time}");
     check_sum
         .add(foreign_check_sum, time, &fx_converter, true)
         .await?;
-
+    trace!("check_sum after adding foreign check sum is {check_sum}");
     // Final sum should be nearly zero
     if !rounded_equal(check_sum.amount, 0.0, 4) {
         let warning = format!(
             "Sum of payments does not equal total payments, difference is {}.",
             check_sum.amount
         );
+        error!("consistency check failed");
         Err(ReadPDFError::ConsistencyCheckFailed(warning))
     } else {
+        debug!("consistency check was successfull");
         Ok(())
     }
 }
 
 // Transaction in foreign currency will be converted to currency of total payment amount
 pub async fn make_transactions(tri: &ParsedTransactionInfo) -> Result<(Vec<Transaction>, Asset)> {
+    debug!("make_transactions called");
     let mut transactions = Vec::new();
     let time = make_offset_time(
         tri.valuta.year(),

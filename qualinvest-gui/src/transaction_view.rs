@@ -46,6 +46,8 @@ pub fn TransactionsTable(
 
     // Local state for managing new rows before they're saved
     let (pending_new_rows, set_pending_new_rows) = signal::<Vec<TransactionView>>(Vec::new());
+    // Track deleted transaction IDs to remove them from the UI immediately
+    let (deleted_ids, set_deleted_ids) = signal::<Vec<i32>>(Vec::new());
 
     let add_new_row = move |_| {
         let new_id = next_id.get();
@@ -70,9 +72,13 @@ pub fn TransactionsTable(
         set_next_id.set(new_id - 1);
     };
 
-    // Combine persisted data with pending new rows
+    // Combine persisted data with pending new rows, filtering out deleted ones
     let combined_data = move || {
-        let mut data = table_data();
+        let deleted = deleted_ids.get();
+        let mut data: Vec<_> = table_data()
+            .into_iter()
+            .filter(|row| !deleted.contains(&row.id))
+            .collect();
         data.extend(pending_new_rows.get());
         data
     };
@@ -200,6 +206,7 @@ pub fn TransactionsTable(
                                 set_editing_id=set_editing_id
                                 set_reload_trigger=set_reload_trigger
                                 set_pending_new_rows=set_pending_new_rows
+                                set_deleted_ids=set_deleted_ids
                                 set_error_message=set_error_message
                                 user_id=user_id
                             />
@@ -218,6 +225,7 @@ fn EditableTransactionRow(
     set_editing_id: WriteSignal<Option<i32>>,
     set_reload_trigger: WriteSignal<i32>,
     set_pending_new_rows: WriteSignal<Vec<TransactionView>>,
+    set_deleted_ids: WriteSignal<Vec<i32>>,
     set_error_message: WriteSignal<Option<String>>,
     user_id: i32,
 ) -> impl IntoView {
@@ -269,7 +277,8 @@ fn EditableTransactionRow(
                                                     Ok(_) => {
                                                         log::info!("Transaction deleted successfully");
                                                         set_error_message.set(None);
-                                                        set_reload_trigger.update(|v| *v += 1);
+                                                        // Remove the row from UI immediately
+                                                        set_deleted_ids.update(|ids| ids.push(transaction_id));
                                                     }
                                                     Err(e) => {
                                                         log::error!("Failed to delete transaction: {}", e);

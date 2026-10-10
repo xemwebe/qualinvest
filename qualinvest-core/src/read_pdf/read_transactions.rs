@@ -161,7 +161,7 @@ async fn parse_fx_rate(
         )
         .unwrap();
         static ref EXCHANGE_RATE_DIV: Regex =
-            Regex::new(r"zum Devisenkurs:\s+[A-Z/]{7}\s+([0-9,.]+)\s\s+([A-Z]{3})\s+([-0-9,.]+)")
+            Regex::new(r"zum Devisenkurs:\s+[A-Z/]{7}\s+([0-9,.]+)\s+([A-Z]{3})\s+([-0-9,.]+)")
                 .unwrap();
     }
     let mut cap = EXCHANGE_RATE.captures(text);
@@ -173,10 +173,7 @@ async fn parse_fx_rate(
     }
 
     let cap = cap.unwrap();
-    println!(
-        "Debug: Parsing FX-rate: {} {} {}",
-        &cap[1], &cap[2], &cap[3]
-    );
+    debug!("Parsing FX-rate: {} {} {}", &cap[1], &cap[2], &cap[3]);
     let fx_rate = german_string_to_float(&cap[1])?;
     let amount = german_string_to_float(&cap[3])?;
     let currency = market
@@ -246,7 +243,7 @@ async fn parse_pre_tax(
         return match PRE_TAX_AMOUNT_TAX.captures(text) {
             None => Err(ReadPDFError::NotFound("pre-tax amount")),
             Some(cap) => {
-                trace!("captures: {cap:?}");
+                trace!("pre tax amount tax captures: {cap:?}");
                 let amount = german_string_to_float(&cap[2])?;
                 let currency = market
                     .get_currency(
@@ -267,7 +264,7 @@ async fn parse_pre_tax(
 
     match PRE_TAX_AMOUNT2.captures(text) {
         Some(cap) => {
-            trace!("captures: {cap:?}");
+            trace!("pre tax amount2 captures: {cap:?}");
             let amount = german_string_to_float(&cap[4])?;
             let currency = market
                 .get_currency(CurrencyISOCode::new(&cap[3]).map_err(ReadPDFError::ParseCurrency)?)
@@ -422,6 +419,7 @@ pub async fn parse_transactions(
     };
     let total_amount = must_have(total_amount, "can't identify total payment amount")?;
     let (fx_rate, _) = parse_fx_rate(text, market).await?;
+    trace!("fx_rate: {fx_rate:?}");
 
     // Collect essential informations in ParsedTransactionInfo
     let mut tri = match doc_type {

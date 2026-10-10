@@ -146,6 +146,9 @@ pub trait AccountHandler: TransactionHandler {
         hash: &str,
         path: &str,
     ) -> Result<Vec<i32>, DataError>;
+
+    /// Insert document information for successfully parsed documents
+    async fn delete_doc(&self, transaction_id: i32) -> Result<(), DataError>;
 }
 
 #[async_trait]
@@ -374,6 +377,17 @@ impl AccountHandler for PostgresDB {
             doc_ids.push(row.id);
         }
         Ok(doc_ids)
+    }
+
+    /// Delete document information for specific transaction id
+    async fn delete_doc(&self, transaction_id: i32) -> Result<(), DataError> {
+        sqlx::query!(
+            "DELETE FROM documents WHERE transaction_id=$1;",
+            transaction_id
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     /// Get id of account a transaction belongs to

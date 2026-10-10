@@ -429,9 +429,18 @@ pub async fn delete_transaction(transaction_id: i32, user_id: i32) -> Result<(),
                 e
             ))
         })?;
-    db.delete_transaction(transaction_id)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Failed to delete transaction: {}", e)))
+    db.delete_doc(transaction_id).await.map_err(|e| {
+        ServerFnError::new(format!(
+            "Failed to delete docs for transaction id {transaction_id}: {}",
+            e
+        ))
+    })?;
+    db.delete_transaction(transaction_id).await.map_err(|e| {
+        ServerFnError::new(format!(
+            "Failed to delete transaction with id {transaction_id}: {}",
+            e
+        ))
+    })
 }
 
 #[server(UploadTransactionFiles, "/api")]

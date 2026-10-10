@@ -405,10 +405,11 @@ async fn main() -> Result<()> {
                 }
             }
             for result in &error_log {
-                if let ParseResult::Success(id) = result.result {
+                if let ParseResult::Success(count) = result.result {
                     println!(
-                        "parsing file '{}' was successful, created trade {id}",
-                        result.file_name
+                        "parsing file '{}' was successful, created {count} trade{}",
+                        result.file_name,
+                        if count == 1 { "" } else { "s" }
                     )
                 }
             }
