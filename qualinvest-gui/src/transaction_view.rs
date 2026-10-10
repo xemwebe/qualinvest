@@ -17,6 +17,7 @@ pub fn TransactionsTable(
     let (next_id, set_next_id) = signal(-1);
     let (reload_trigger, set_reload_trigger) = signal(0);
     let (upload_status, set_upload_status) = signal::<Option<String>>(None);
+    let (error_message, set_error_message) = signal::<Option<String>>(None);
     let file_input_ref = NodeRef::<leptos::html::Input>::new();
 
     // Create a resource that reloads when selected_account_id or reload_trigger changes
@@ -168,6 +169,11 @@ pub fn TransactionsTable(
                 <p class="upload-status">{msg}</p>
             })
         }}
+        {move || {
+            error_message.get().map(|msg| view! {
+                <p class="error">{msg}</p>
+            })
+        }}
         <table class="table">
             <thead>
                 <tr>
@@ -194,6 +200,7 @@ pub fn TransactionsTable(
                                 set_editing_id=set_editing_id
                                 set_reload_trigger=set_reload_trigger
                                 set_pending_new_rows=set_pending_new_rows
+                                set_error_message=set_error_message
                                 user_id=user_id
                             />
                         }
@@ -211,6 +218,7 @@ fn EditableTransactionRow(
     set_editing_id: WriteSignal<Option<i32>>,
     set_reload_trigger: WriteSignal<i32>,
     set_pending_new_rows: WriteSignal<Vec<TransactionView>>,
+    set_error_message: WriteSignal<Option<String>>,
     user_id: i32,
 ) -> impl IntoView {
     let row_id = row.id;
@@ -260,9 +268,13 @@ fn EditableTransactionRow(
                                                 match delete_transaction(transaction_id, user_id).await {
                                                     Ok(_) => {
                                                         log::info!("Transaction deleted successfully");
+                                                        set_error_message.set(None);
                                                         set_reload_trigger.update(|v| *v += 1);
                                                     }
-                                                    Err(e) => log::error!("Failed to delete transaction: {}", e),
+                                                    Err(e) => {
+                                                        log::error!("Failed to delete transaction: {}", e);
+                                                        set_error_message.set(Some(format!("Failed to delete transaction: {}", e)));
+                                                    }
                                                 }
                                             });
                                         } else {
@@ -388,9 +400,13 @@ fn EditableTransactionRow(
                                     match update_transaction(transaction_to_update, user_id).await {
                                         Ok(_) => {
                                             log::info!("Transaction updated successfully");
+                                            set_error_message.set(None);
                                             set_reload_trigger.update(|v| *v += 1);
                                         }
-                                        Err(e) => log::error!("Failed to update transaction: {}", e),
+                                        Err(e) => {
+                                            log::error!("Failed to update transaction: {}", e);
+                                            set_error_message.set(Some(format!("Failed to update transaction: {}", e)));
+                                        }
                                     }
                                 });
                             } else {
@@ -400,13 +416,17 @@ fn EditableTransactionRow(
                                     match insert_transaction(transaction_to_insert, user_id).await {
                                         Ok(_new_id) => {
                                             log::info!("Transaction inserted successfully with id {}", _new_id);
+                                            set_error_message.set(None);
                                             // Remove from pending and reload persisted data
                                             set_pending_new_rows.update(|rows| {
                                                 rows.retain(|r| r.id != row_id);
                                             });
                                             set_reload_trigger.update(|v| *v += 1);
                                         }
-                                        Err(e) => log::error!("Failed to insert transaction: {}", e),
+                                        Err(e) => {
+                                            log::error!("Failed to insert transaction: {}", e);
+                                            set_error_message.set(Some(format!("Failed to insert transaction: {}", e)));
+                                        }
                                     }
                                 });
                             }
