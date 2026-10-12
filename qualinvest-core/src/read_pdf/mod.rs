@@ -26,13 +26,14 @@ type Result<T> = std::result::Result<T, ReadPDFError>;
 use super::accounts::{Account, AccountHandler};
 use crate::PdfParseParams;
 
+mod comdirect;
+mod ing_diba;
 pub mod pdf_store;
 mod read_account_info;
-mod read_transactions;
+mod sparkasse;
 use pdf_oxide::PdfDocument;
 pub use pdf_store::sha256_hash;
-use read_account_info::parse_account_info;
-use read_transactions::parse_transactions;
+use read_account_info::{parse_account_info, Bank};
 
 /// Error related to market data object
 #[derive(Error, Debug)]
@@ -179,7 +180,7 @@ pub async fn parse(
     info!("parsing file {:?}", file.to_str());
     let doc = PdfDocument::open(file)?;
     let options = pdf_oxide::converters::ConversionOptions::default();
-    let text = doc.to_markdown_all(&options)?;
+    let text = doc.to_plain_text_all(&options)?;
     if to_text {
         let base_file_name = file.file_stem().ok_or(ReadPDFError::InvalidFileName)?;
         std::fs::create_dir_all(&out_folder)?;
@@ -191,8 +192,12 @@ pub async fn parse(
     debug!("Account: {}:{}", account_info.0, account_info.1);
 
     // Retrieve all transaction relevant data from pdf
-    let mut transaction_info = parse_transactions(&text, market).await?;
-    transaction_info.account_info = Some(account_info);
+    let mut transaction_info = match account_info.0 {
+        Bank::Comdirect => comdirect::parse_transactions(&text, market).await?,
+        Bank::SparkasseFrankfurt => sparkasse::parse_transactions(&text, market).await?,
+        Bank::IngDiba => ing_diba::parse_transactions(&text, market).await?,
+    };
+    transaction_info.account_info = Some((format!("{}", account_info.0), account_info.1));
 
     Ok(transaction_info)
 }

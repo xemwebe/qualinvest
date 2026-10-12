@@ -1,5 +1,4 @@
 //! Parse text files and extract asset and transaction data
-//! Currently, transaction documents from comdirect bank are supported
 use super::german_string_to_date;
 use super::german_string_to_float;
 use super::{DocumentType, ParsedTransactionInfo, ReadPDFError};
@@ -26,13 +25,13 @@ struct AssetInfo {
 fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFError> {
     lazy_static! {
         static ref NAME_WKN_ISIN: Regex = Regex::new(
-            r"(?m)WPKNR/ISIN\*\*\n(.*)\s+([A-Z0-9]{6})\s*\n\s*(.*)\s+([A-Z0-9]{12})"
+            r"(?m)WPKNR/ISIN\s(.*)\s+([A-Z0-9]{6})\s*\n\s*(.*)\s+([A-Z0-9]{12})"
         )
         .unwrap();
         // Search for asset in dividend documents
         // r"(?m)WKN/ISIN\n\s*per\s+([.0-9]{10})\s+(.*)\s+([A-Z0-9]{6})\s*\n\s*STK\s+([.,0-9]*)\s+(.*)\s\s\s*([A-Z0-9]{12})"        )
         static ref NAME_WKN_ISIN_DIV: Regex = Regex::new(
-            r"(?m)WKN/ISIN\n\s*per\s+([.0-9]{10})\s+([A-Z0-9]{6})\s*\*\*(.*)\*\*\n\s*STK\s+([.,0-9]*)\s+([A-Z0-9]{12})"
+            r"WKN/ISIN\s*per\s+([.0-9]{10})\s+([A-Z0-9]{6})\s*(.*)\s*STK\s+([.,0-9]*)\s+([A-Z0-9]{12})"
         )
         .unwrap();
         // Search for asset in interest documents
@@ -228,8 +227,8 @@ async fn parse_pre_tax(
     market: &Market,
 ) -> Result<(CashAmount, Date), ReadPDFError> {
     lazy_static! {
-        static ref PRE_TAX_AMOUNT2: Regex = Regex::new(
-            r"Zu Ihren (?:Gunsten|Lasten) vor Steuern:?\*?\*?\n*\*?\*?([A-Z]{2}[0-9 ]*)\s[A-Z]{3}\s*([0-9.]{10})\s*([A-Z]{3})\s*([-0-9.,]+)\*?\*?"
+        static ref PRE_TAX_AMOUNT: Regex = Regex::new(
+            r"Zu Ihren (?:Gunsten|Lasten) vor Steuern:?\s*([A-Z]{2}[0-9 ]*)\s[A-Z]{3}\s*([0-9.]{10})\s*([A-Z]{3})\s*([-0-9.,]+)"
         )
         .unwrap();
         static ref PRE_TAX_AMOUNT_TAX: Regex =
@@ -262,7 +261,7 @@ async fn parse_pre_tax(
         };
     }
 
-    match PRE_TAX_AMOUNT2.captures(text) {
+    match PRE_TAX_AMOUNT.captures(text) {
         Some(cap) => {
             trace!("pre tax amount2 captures: {cap:?}");
             let amount = german_string_to_float(&cap[4])?;
