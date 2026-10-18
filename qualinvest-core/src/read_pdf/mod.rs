@@ -199,6 +199,8 @@ pub async fn parse(
     };
     transaction_info.account_info = Some((format!("{}", account_info.0), account_info.1));
 
+    debug!("parsed tranaction info: {transaction_info:#?}");
+
     Ok(transaction_info)
 }
 

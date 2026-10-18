@@ -154,7 +154,8 @@ struct Pdf {
 
 #[derive(Debug)]
 pub enum ParseResult {
-    Success(i32),
+    ParseSuccess,
+    StoreSuccess(i32),
     Error(qualinvest_core::read_pdf::ReadPDFError),
     Skipped,
 }
@@ -165,10 +166,16 @@ pub struct ParseLogEntry {
 }
 
 impl ParseLogEntry {
+    fn parse_success(file_name: String) -> Self {
+        Self {
+            file_name,
+            result: ParseResult::ParseSuccess,
+        }
+    }
     fn success(file_name: String, transaction_id: i32) -> Self {
         Self {
             file_name,
-            result: ParseResult::Success(transaction_id),
+            result: ParseResult::StoreSuccess(transaction_id),
         }
     }
 
@@ -375,6 +382,7 @@ async fn main() -> Result<()> {
             let mut error_log = Vec::new();
             for entry in glob::glob(&args.input_files)? {
                 if let Ok(path) = entry {
+                    debug!("try parsing {}", path.display());
                     match qualinvest_core::read_pdf::parse(
                         &path,
                         &market,
@@ -384,7 +392,7 @@ async fn main() -> Result<()> {
                     .await
                     {
                         Ok(transaction_info) => {
-                            debug!("PDF parse results:\n{transaction_info:#?}");
+                            debug!("parsing was successful");
                             if args.store {
                                 let hash = qualinvest_core::read_pdf::sha256_hash(&path)?;
                                 trace!("hash of new document: {hash}");
@@ -412,6 +420,10 @@ async fn main() -> Result<()> {
                                         e,
                                     )),
                                 }
+                            } else {
+                                error_log.push(ParseLogEntry::parse_success(
+                                    path.to_string_lossy().to_string(),
+                                ));
                             }
                         }
                         Err(e) => error_log
@@ -421,7 +433,10 @@ async fn main() -> Result<()> {
             }
             for result in &error_log {
                 match result.result {
-                    ParseResult::Success(count) => {
+                    ParseResult::ParseSuccess => {
+                        println!("parsing file '{}' was successful", result.file_name,)
+                    }
+                    ParseResult::StoreSuccess(count) => {
                         println!(
                             "parsing file '{}' was successful, created {count} trade{}",
                             result.file_name,

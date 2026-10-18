@@ -25,7 +25,7 @@ struct AssetInfo {
 fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo, ReadPDFError> {
     lazy_static! {
         static ref NAME_WKN_ISIN: Regex = Regex::new(
-            r"(?m)WPKNR/ISIN\s(.*)\s+([A-Z0-9]{6})\s*\n\s*(.*)\s+([A-Z0-9]{12})"
+            r"WPKNR/ISIN\s*(.*)\s+([A-Z0-9]{6})\s*(.*)\s+([A-Z0-9]{12})"
         )
         .unwrap();
         // Search for asset in dividend documents
@@ -232,7 +232,7 @@ async fn parse_pre_tax(
         )
         .unwrap();
         static ref PRE_TAX_AMOUNT_TAX: Regex =
-            Regex::new(r"Zu Ihren Gunsten vor Steuern:\*\*\s*\*\*([A-Z]{3})\s*([-0-9.,]+)")
+            Regex::new(r"Zu Ihren Gunsten vor\s*Steuern:\s*([A-Z]{3})\s*([-0-9.,]+)")
                 .unwrap();
         static ref VALUTA: Regex = Regex::new(r"erfolgt mit Valuta\s*([0-9.]{10})").unwrap();
         static ref VALUTA_ALT: Regex = Regex::new(r"Datum:\s+([0-9.]{10})").unwrap();
@@ -324,7 +324,7 @@ pub async fn parse_transactions(
         )
         .unwrap();
         static ref BOND_POSITION: Regex = Regex::new(r"[A-Z]{3}\s+([0-9.,]+)\s+[0-9.,]+%").unwrap();
-        static ref POSITION: Regex = Regex::new(r"St.\s+([0-9.,]+)").unwrap();
+        static ref POSITION: Regex = Regex::new(r"Stk?.\s+([0-9.,]+)").unwrap();
         static ref TRADE_VALUE: Regex =
             Regex::new(r"Kurswert\s*:\s+([A-Z]{3})\s+([-0-9,.]*)").unwrap();
         static ref DIV_PRE_TAX: Regex =
@@ -336,8 +336,7 @@ pub async fn parse_transactions(
         static ref BOND_PAYBACK: Regex =
             Regex::new(r"Kurswert Einlösung\s+([A-Z]{3}) *([-0-9.,]+)").unwrap();
         static ref PAID_TAX: Regex =
-            Regex::new(r"(?:abgeführte|erstattete) Steuern\*\*\s+\*\*([A-Z]{3})\s+([-0-9,.]+)\s+")
-                .unwrap();
+            Regex::new(r"(?:abgeführte|erstattete) Steuern\s+([A-Z]{3})\s+([-0-9,.]+)\s+").unwrap();
         static ref COMDIRECT_FEES: Vec<Regex> = vec![
             Regex::new(r"(?:Gesamtprovision|Provision)\s*:\s+([A-Z]{3})\s+([-0-9,.]*)").unwrap(),
             Regex::new(r"Börsenplatzabhäng. Entgelt\s*:\s+([A-Z]{3})\s+([-0-9,.]*)").unwrap(),
