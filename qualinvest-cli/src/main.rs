@@ -405,7 +405,7 @@ async fn main() -> Result<()> {
                                 match qualinvest_core::read_pdf::store_parsed_pdf(
                                     &hash,
                                     &path.to_string_lossy(),
-                                    &transaction_info,
+                                    transaction_info,
                                     db.clone(),
                                     &config.pdf,
                                 )
