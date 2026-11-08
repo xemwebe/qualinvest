@@ -1,4 +1,4 @@
-//! Parse text files and extract asset and transaction data
+//! Parse text files and extract cash flows from Sparkassenkontoauszug
 use crate::read_pdf::utils::{german_string_to_date, german_string_to_float};
 use std::sync::Arc;
 use time::Date;

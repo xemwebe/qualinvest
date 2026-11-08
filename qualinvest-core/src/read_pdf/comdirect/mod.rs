@@ -439,6 +439,7 @@ fn parse_doc_type(text: &str) -> Result<DocumentType> {
             r"(?m)^\s*Ertragsgutschrift",
             r"(?m)^\s*Zinsgutschrift",
             r"(?m)^\s*Einlösung",
+            r"Finanzreport Nr\.",
         ])
         .unwrap();
         static ref TAX_TYPE: Regex =
@@ -454,6 +455,7 @@ fn parse_doc_type(text: &str) -> Result<DocumentType> {
             2 | 3 => Ok(DocumentType::Dividend),
             4 => Ok(DocumentType::Interest),
             5 => Ok(DocumentType::BondPayBack),
+            6 => Ok(DocumentType::Finanzreport),
             // should never happen
             _ => Err(ReadPDFError::UnknownDocumentType),
         }
@@ -615,7 +617,7 @@ pub async fn parse_document(text: &str, market: &Market) -> Result<ParsedInfo> {
     let doc_type = parse_doc_type(text)?;
     trace!("DocType: {doc_type:?}");
     if doc_type == DocumentType::Finanzreport {
-        return finanzreport::parse_report(text);
+        return Ok(finanzreport::parse_report(text, market).await?);
     }
     let mut asset_info = parse_asset(doc_type, text)?;
     trace!("AssetInfo: {asset_info:?}");
