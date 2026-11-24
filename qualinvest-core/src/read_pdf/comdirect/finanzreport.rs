@@ -12,26 +12,6 @@ use regex::Regex;
 use std::sync::Arc;
 
 #[derive(Debug)]
-enum TransferType {
-    DauerAuftrag,
-    DebitCardPayment,
-    Lastschrift,
-}
-
-impl TransferType {
-    fn from_str(s: &str) -> Result<Self> {
-        Ok(match s {
-            "Dauerauftrag" => TransferType::DauerAuftrag,
-            "Debitkartenzahlung" => TransferType::DebitCardPayment,
-            "Lastschrift" => TransferType::Lastschrift,
-            _ => {
-                return Err(ReadPDFError::UnknownCashFlowType(s.to_string()));
-            }
-        })
-    }
-}
-
-#[derive(Debug)]
 struct CashTransfer {
     date: Date,
     amount: f64,
@@ -57,11 +37,36 @@ impl ParsedDocument for Finanzreport {
     }
 
     fn check_consistency(&self) -> Result<()> {
+        let mut balance = self.start_balance;
+        for cf in &self.cash_transfers {
+            balance += cf.amount;
+        }
+        let balance_diff = self.end_balance - balance;
+        if balance_diff.abs() > 1e-4 {
+            return Err(ReadPDFError::ConsistencyCheckFailed(format!(
+                "Found cash balance difference of {balance_diff} EUR"
+            )));
+        }
         Ok(())
     }
 
     fn make_transactions(&self) -> Result<(Vec<Transaction>, Option<Asset>)> {
-        Err(ReadPDFError::NotFound("comdirect Finanzreport parser"))
+        let mut transactions = Vec::new();
+        for cf in &self.cash_transfers {
+            transactions.push(Transaction {
+                id: None,
+                transaction_type: TransactionType::Cash,
+                cash_flow: CashFlow {
+                    amount: CashAmount {
+                        amount: cf.amount,
+                        currency: self.currency.clone(),
+                    },
+                    date: cf.date,
+                },
+                note: Some(cf.note.clone()),
+            })
+        }
+        Ok((transactions, None))
     }
 }
 

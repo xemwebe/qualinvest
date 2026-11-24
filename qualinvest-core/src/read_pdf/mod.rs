@@ -115,7 +115,7 @@ pub async fn parse(
     let mut parsed_document = match account_info.0 {
         Bank::Comdirect => comdirect::parse_document(&text, market).await?,
         Bank::SparkasseFrankfurt => sparkasse::parse_document(&text, market).await?,
-        Bank::IngDiba => ing_diba::parse_transactions(&text, market).await?,
+        Bank::IngDiba => ing_diba::parse_document(&text, market).await?,
     };
 
     if let Some(doc) = Arc::get_mut(&mut parsed_document) {
