@@ -388,12 +388,12 @@ impl UserHandler for PostgresDB {
         )
         .fetch_one(&self.pool)
         .await;
-        if let Ok(row) = row {
-            if let Some(settings_value) = row.settings {
-                let settings: UserSettings =
-                    serde_json::value::from_value(settings_value).unwrap_or_default();
-                return settings;
-            }
+        if let Ok(row) = row
+            && let Some(settings_value) = row.settings
+        {
+            let settings: UserSettings =
+                serde_json::value::from_value(settings_value).unwrap_or_default();
+            return settings;
         }
         Default::default()
     }

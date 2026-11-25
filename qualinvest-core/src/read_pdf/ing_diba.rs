@@ -2,8 +2,8 @@
 use super::{Bank, ParsedDocument, ParsedInfo, ReadPDFError};
 use crate::read_pdf::utils::{german_string_to_date, german_string_to_float};
 use finql::{
-    datatypes::{Asset, CashAmount, CashFlow, Currency, Transaction, TransactionType},
     Market,
+    datatypes::{Asset, CashAmount, CashFlow, Currency, Transaction, TransactionType},
 };
 use lazy_static::lazy_static;
 use log::debug;
@@ -84,7 +84,7 @@ impl ParsedDocument for INGDibaKontoauszug {
                 cash_flow: CashFlow {
                     amount: CashAmount {
                         amount: cf.amount,
-                        currency: self.currency.clone(),
+                        currency: self.currency,
                     },
                     date: cf.date,
                 },

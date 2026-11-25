@@ -11,12 +11,12 @@ use std::sync::Arc;
 use time::Date;
 
 use finql::{
+    Market,
     datatypes::{
-        date_time_helper::make_offset_time, Asset, CashAmount, CashFlow, CurrencyISOCode, Stock,
-        Transaction, TransactionType,
+        Asset, CashAmount, CashFlow, CurrencyISOCode, Stock, Transaction, TransactionType,
+        date_time_helper::make_offset_time,
     },
     fx_rates::SimpleCurrencyConverter,
-    Market,
 };
 
 type Result<T> = std::result::Result<T, ReadPDFError>;
@@ -312,8 +312,10 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo> {
                     let ex_div_day = Some(german_string_to_date(&cap[1])?);
                     let position = Some(german_string_to_float(&cap[5])?);
                     let interest_rate = Some(german_string_to_float(&cap[2])?);
-                    debug!("Debug: Found asset in Interest or BondPayBack with wkn: {:?}, isin: {:?}, name: '{:?}', ex_div_day: {:?}, position: {:?}, inerest rate: {:?}",
-                            wkn, isin, name, ex_div_day, position, interest_rate);
+                    debug!(
+                        "Debug: Found asset in Interest or BondPayBack with wkn: {:?}, isin: {:?}, name: '{:?}', ex_div_day: {:?}, position: {:?}, inerest rate: {:?}",
+                        wkn, isin, name, ex_div_day, position, interest_rate
+                    );
                     Ok(AssetInfo {
                         asset: Asset::Stock(Stock::new(None, name, isin, wkn, None)),
                         _ex_div_day: ex_div_day,
@@ -355,8 +357,10 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo> {
                 let name = cap[3].trim().to_string();
                 let ex_div_day = Some(german_string_to_date(&cap[1])?);
                 let position = Some(german_string_to_float(&cap[4])?);
-                debug!("Found asset in Dividend note with wkn: {:?}, isin: {:?}, name: '{:?}', ex_div_day: {:?}, position: {:?}",
-                        wkn, isin, name, ex_div_day, position);
+                debug!(
+                    "Found asset in Dividend note with wkn: {:?}, isin: {:?}, name: '{:?}', ex_div_day: {:?}, position: {:?}",
+                    wkn, isin, name, ex_div_day, position
+                );
                 Ok(AssetInfo {
                     asset: Asset::Stock(Stock::new(None, name, isin, wkn, None)),
                     _ex_div_day: ex_div_day,
@@ -617,7 +621,7 @@ pub async fn parse_document(text: &str, market: &Market) -> Result<ParsedInfo> {
     let doc_type = parse_doc_type(text)?;
     trace!("DocType: {doc_type:?}");
     if doc_type == DocumentType::Finanzreport {
-        return Ok(finanzreport::parse_report(text, market).await?);
+        return finanzreport::parse_report(text, market).await;
     }
     let mut asset_info = parse_asset(doc_type, text)?;
     trace!("AssetInfo: {asset_info:?}");

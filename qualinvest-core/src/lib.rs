@@ -64,10 +64,10 @@ pub struct ServerSettings {
 }
 
 fn add_provider(market: &finql::Market, token: &Option<String>, source: MarketDataSource) {
-    if let Some(token) = token {
-        if let Some(provider) = source.get_provider(token.clone()) {
-            market.add_provider(source.to_string(), provider)
-        }
+    if let Some(token) = token
+        && let Some(provider) = source.get_provider(token.clone())
+    {
+        market.add_provider(source.to_string(), provider)
     }
 }
 

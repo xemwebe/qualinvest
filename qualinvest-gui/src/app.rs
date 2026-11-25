@@ -6,10 +6,10 @@ use crate::settings_view::UsersTable;
 use crate::simulation_view::SimulationPage;
 use crate::transaction_view::TransactionsTable;
 use leptos::{prelude::*, task::spawn_local};
-use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
+use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};
 use leptos_router::{
-    components::{Route, Router, Routes, A},
     StaticSegment,
+    components::{A, Route, Router, Routes},
 };
 use log::debug;
 
@@ -184,15 +184,15 @@ fn Login() -> impl IntoView {
 
     // Effect to handle navigation after successful login and user refetch
     Effect::new(move |_| {
-        if should_navigate.get() {
-            if let Some(user_data) = user.get() {
-                if user_data.is_some() {
-                    debug!("User is authenticated, navigating to /transactions");
-                    use leptos_router::hooks::use_navigate;
-                    let navigate = use_navigate();
-                    navigate("/transactions", Default::default());
-                    set_should_navigate.set(false);
-                }
+        if should_navigate.get()
+            && let Some(user_data) = user.get()
+        {
+            if user_data.is_some() {
+                debug!("User is authenticated, navigating to /transactions");
+                use leptos_router::hooks::use_navigate;
+                let navigate = use_navigate();
+                navigate("/transactions", Default::default());
+                set_should_navigate.set(false);
             }
         }
     });

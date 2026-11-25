@@ -12,8 +12,8 @@ use log::{debug, info};
 use sanitize_filename::sanitize;
 
 use finql::{
-    datatypes::{Asset, CurrencyError, DataError, Transaction},
     Market,
+    datatypes::{Asset, CurrencyError, DataError, Transaction},
 };
 
 type Result<T> = std::result::Result<T, ReadPDFError>;
@@ -29,7 +29,7 @@ mod sparkasse;
 pub mod utils;
 use pdf_oxide::PdfDocument;
 pub use pdf_store::sha256_hash;
-use read_account_info::{parse_account_info, Bank};
+use read_account_info::{Bank, parse_account_info};
 
 /// Error related to market data object
 #[derive(Error, Debug)]
@@ -103,8 +103,8 @@ pub async fn parse(
     let text = doc.to_plain_text_all(&options)?;
     if to_text {
         let base_file_name = file.file_stem().ok_or(ReadPDFError::InvalidFileName)?;
-        std::fs::create_dir_all(&out_folder)?;
-        let out_file = out_folder.join(&format!("{}.txt", base_file_name.to_string_lossy()));
+        std::fs::create_dir_all(out_folder)?;
+        let out_file = out_folder.join(format!("{}.txt", base_file_name.to_string_lossy()));
         std::fs::write(&out_file, &text)?;
     }
 
@@ -136,10 +136,11 @@ pub async fn store_parsed_pdf(
 ) -> Result<i32> {
     debug!("store_parsed_pdf called");
     let file_name = sanitize(file_name);
-    if let Ok((ids, _path)) = db.lookup_hash(&hash).await {
-        if !ids.is_empty() && config.warn_old {
-            return Err(ReadPDFError::AlreadyParsed);
-        }
+    if let Ok((ids, _path)) = db.lookup_hash(hash).await
+        && !ids.is_empty()
+        && config.warn_old
+    {
+        return Err(ReadPDFError::AlreadyParsed);
     }
 
     // Find account or insert new one
@@ -152,10 +153,8 @@ pub async fn store_parsed_pdf(
         db.insert_account_if_new(&account)
             .await
             .map_err(ReadPDFError::DBError)?
-    } else if let Some(default_account_id) = config.default_account {
-        default_account_id
     } else {
-        -1
+        config.default_account.unwrap_or(-1)
     };
     debug!("Account id is {acc_id}");
 

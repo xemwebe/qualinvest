@@ -3,8 +3,8 @@ use crate::read_pdf::utils::{german_string_to_date, german_string_to_float};
 use time::Date;
 
 use finql::{
-    datatypes::{Asset, CashAmount, CashFlow, Currency, Transaction, TransactionType},
     Market,
+    datatypes::{Asset, CashAmount, CashFlow, Currency, Transaction, TransactionType},
 };
 use lazy_static::lazy_static;
 use log::debug;
@@ -33,7 +33,7 @@ impl ParsedDocument for Finanzreport {
     }
 
     fn get_account_info(&self) -> Option<(String, String)> {
-        return self.account_info.clone();
+        self.account_info.clone()
     }
 
     fn check_consistency(&self) -> Result<()> {

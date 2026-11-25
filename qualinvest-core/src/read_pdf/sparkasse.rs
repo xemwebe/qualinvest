@@ -5,8 +5,8 @@ use time::Date;
 
 use super::{Bank, ParsedDocument, ParsedInfo, ReadPDFError};
 use finql::{
-    datatypes::{Asset, CashAmount, CashFlow, Currency, Transaction, TransactionType},
     Market,
+    datatypes::{Asset, CashAmount, CashFlow, Currency, Transaction, TransactionType},
 };
 use lazy_static::lazy_static;
 use log::debug;
@@ -57,7 +57,7 @@ impl ParsedDocument for SparkassenKontoauszug {
     }
 
     fn get_account_info(&self) -> Option<(String, String)> {
-        return self.account_info.clone();
+        self.account_info.clone()
     }
     fn check_consistency(&self) -> Result<()> {
         let mut balance = self.start_balance;
@@ -81,7 +81,7 @@ impl ParsedDocument for SparkassenKontoauszug {
                 cash_flow: CashFlow {
                     amount: CashAmount {
                         amount: cf.amount,
-                        currency: self.currency.clone(),
+                        currency: self.currency,
                     },
                     date: cf.date,
                 },
