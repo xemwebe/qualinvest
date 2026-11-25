@@ -27,4 +27,5 @@ data-encoding = "2.3"
 plotters = "0.3"
 chrono = "0.4"
 pdf_oxide = { path = "../../pdfparser/pdf_oxide" }
+ib = { path = "../ib" }
 log.workspace = true

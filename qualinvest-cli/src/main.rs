@@ -59,6 +59,7 @@ enum Command {
     /// Create a bcrypt password hash
     HashPassword,
     ParsePdf(Pdf),
+    ParseIb(IbCsv),
 }
 
 #[derive(Args)]
@@ -147,6 +148,17 @@ struct Pdf {
     /// ouput folder; default is 'out'
     #[arg(short, long)]
     output_folder: Option<PathBuf>,
+    /// store parsed transactions in database
+    #[arg(short, long)]
+    store: bool,
+}
+
+/// Parse Interactive Brokers account statemens from CSV
+#[derive(Args)]
+struct IbCsv {
+    /// csv files to parse
+    #[arg(short, long)]
+    input_files: String,
     /// store parsed transactions in database
     #[arg(short, long)]
     store: bool,
@@ -424,6 +436,80 @@ async fn main() -> Result<()> {
                         error_log.push(ParseLogEntry::error(path.to_string_lossy().to_string(), e))
                     }
                 }
+            }
+            for result in &error_log {
+                match result.result {
+                    ParseResult::ParseSuccess => {
+                        println!("parsing file '{}' was successful", result.file_name,)
+                    }
+                    ParseResult::StoreSuccess(count) => {
+                        println!(
+                            "parsing file '{}' was successful, created {count} trade{}",
+                            result.file_name,
+                            if count == 1 { "" } else { "s" }
+                        )
+                    }
+                    ParseResult::Error(ref err) => {
+                        println!(
+                            "parsing file '{}' failed with error: {err}",
+                            result.file_name
+                        )
+                    }
+                    ParseResult::Skipped => {
+                        println!(
+                            "parsing file '{}' skipped, pdf has already been processed",
+                            result.file_name
+                        )
+                    }
+                }
+            }
+        }
+        Command::ParseIb(args) => {
+            let mut error_log: Vec<ParseLogEntry> = Vec::new();
+            for path in glob::glob(&args.input_files)?.flatten() {
+                debug!("try parsing {}", path.display());
+                match ib::read::parse_kontoauszug(&path) {
+                    Ok(kontoauszug_data) => {
+                        debug!("parsing was successful");
+                        if args.store {
+                            let hash = qualinvest_core::read_pdf::sha256_hash(&path)?;
+                            trace!("hash of new document: {hash}");
+                            if !db.lookup_hash(&hash).await?.0.is_empty() {
+                                error_log.push(ParseLogEntry::skipped(
+                                    path.to_string_lossy().to_string(),
+                                ));
+                                continue;
+                            }
+                            match qualinvest_core::ib::store_parsed_csv(
+                                &hash,
+                                &path.to_string_lossy(),
+                                kontoauszug_data,
+                                db.clone(),
+                                &config.pdf,
+                            )
+                            .await
+                            {
+                                Ok(id) => error_log.push(ParseLogEntry::success(
+                                    path.to_string_lossy().to_string(),
+                                    id,
+                                )),
+                                Err(e) => error_log.push(ParseLogEntry::error(
+                                    path.to_string_lossy().to_string(),
+                                    e,
+                                )),
+                            }
+                        } else {
+                            error_log.push(ParseLogEntry::parse_success(
+                                path.to_string_lossy().to_string(),
+                            ));
+                        }
+                    }
+                    // TODO: fix incorrect error
+                    Err(_e) => error_log.push(ParseLogEntry::error(
+                        path.to_string_lossy().to_string(),
+                        qualinvest_core::read_pdf::ReadPDFError::ParseDate,
+                    )),
+                };
             }
             for result in &error_log {
                 match result.result {

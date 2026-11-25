@@ -12,6 +12,7 @@ keywords.workspace = true
 finql.workspace = true
 time.workspace = true
 qualinvest-core = { path = "../qualinvest-core" }
+ib = { path = "../ib" }
 serde.workspace = true
 serde_json = "1.0"
 clap = { version = "4.5", features = ["derive"] }
