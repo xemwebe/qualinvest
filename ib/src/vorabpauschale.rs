@@ -197,7 +197,7 @@ impl Vorabpauschalen {
                 return Err(Error::EtfEndPositionUngleichEins(etf.to_owned()));
             }
             let position = &position[0];
-            if let Some(start_positionen) = offene_positionen_start.get_positionen(&etf) {
+            if let Some(start_positionen) = offene_positionen_start.get_positionen(etf) {
                 for start_position in start_positionen {
                     let (isin, name) = kontoauszug
                         .finanzinstrumente

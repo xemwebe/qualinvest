@@ -193,7 +193,7 @@ pub async fn store_parsed_pdf(
         db.add_transaction_to_account(acc_id, trans_id).await?;
         debug!("transaction has been added to account");
     }
-    let _ = db.insert_doc(&trans_ids, &hash, &file_name).await?;
+    let _ = db.insert_doc(&trans_ids, hash, &file_name).await?;
     debug!("Hash of document has been stored");
     Ok(trans_ids.len() as i32)
 }

@@ -1,5 +1,5 @@
-use crate::account::{get_accounts, AccountOption};
-use crate::position::{get_performance_graph, get_positions, PositionData, PositionRow};
+use crate::account::{AccountOption, get_accounts};
+use crate::position::{PositionData, PositionRow, get_performance_graph, get_positions};
 use crate::time_range::{TimeRange, TimeRangeSelector};
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
@@ -49,13 +49,12 @@ pub fn PositionTable() -> impl IntoView {
                                     let options = select.selected_options();
                                     let mut ids = Vec::new();
                                     for i in 0..options.length() {
-                                        if let Some(opt) = options.item(i) {
-                                            if let Ok(opt) = opt.dyn_into::<web_sys::HtmlOptionElement>() {
-                                                if let Ok(id) = opt.value().parse::<i32>() {
+                                        if let Some(opt) = options.item(i)
+                                            && let Ok(opt) = opt.dyn_into::<web_sys::HtmlOptionElement>() {
+                                            if let Ok(id) = opt.value().parse::<i32>() {
                                                     ids.push(id);
                                                 }
                                             }
-                                        }
                                     }
                                     set_selected_account_ids.set(ids);
                                 }

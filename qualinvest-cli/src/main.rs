@@ -6,7 +6,7 @@
 //!
 
 use std::fs;
-use std::io::{stdout, Write};
+use std::io::{Write, stdout};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -17,14 +17,14 @@ use log::{debug, info, trace};
 use time::OffsetDateTime;
 
 use finql::datatypes::{
-    date_time_helper::offset_date_time_from_str_standard, Currency, QuoteHandler, Ticker,
-    TransactionHandler,
+    Currency, QuoteHandler, Ticker, TransactionHandler,
+    date_time_helper::offset_date_time_from_str_standard,
 };
 use finql::postgres::PostgresDB;
-use finql::{portfolio::calc_position, Market};
+use finql::{Market, portfolio::calc_position};
 
 use qualinvest_core::{
-    accounts::AccountHandler, performance::calc_performance, setup_market, Config,
+    Config, accounts::AccountHandler, performance::calc_performance, setup_market,
 };
 
 #[derive(Parser)]
@@ -380,54 +380,48 @@ async fn main() -> Result<()> {
                 p
             });
             let mut error_log = Vec::new();
-            for entry in glob::glob(&args.input_files)? {
-                if let Ok(path) = entry {
-                    debug!("try parsing {}", path.display());
-                    match qualinvest_core::read_pdf::parse(
-                        &path,
-                        &market,
-                        args.to_text,
-                        &out_folder,
-                    )
+            for path in glob::glob(&args.input_files)?.flatten() {
+                debug!("try parsing {}", path.display());
+                match qualinvest_core::read_pdf::parse(&path, &market, args.to_text, &out_folder)
                     .await
-                    {
-                        Ok(transaction_info) => {
-                            debug!("parsing was successful");
-                            if args.store {
-                                let hash = qualinvest_core::read_pdf::sha256_hash(&path)?;
-                                trace!("hash of new document: {hash}");
-                                if !db.lookup_hash(&hash).await?.0.is_empty() {
-                                    error_log.push(ParseLogEntry::skipped(
-                                        path.to_string_lossy().to_string(),
-                                    ));
-                                    continue;
-                                }
-                                match qualinvest_core::read_pdf::store_parsed_pdf(
-                                    &hash,
-                                    &path.to_string_lossy(),
-                                    transaction_info,
-                                    db.clone(),
-                                    &config.pdf,
-                                )
-                                .await
-                                {
-                                    Ok(id) => error_log.push(ParseLogEntry::success(
-                                        path.to_string_lossy().to_string(),
-                                        id,
-                                    )),
-                                    Err(e) => error_log.push(ParseLogEntry::error(
-                                        path.to_string_lossy().to_string(),
-                                        e,
-                                    )),
-                                }
-                            } else {
-                                error_log.push(ParseLogEntry::parse_success(
+                {
+                    Ok(transaction_info) => {
+                        debug!("parsing was successful");
+                        if args.store {
+                            let hash = qualinvest_core::read_pdf::sha256_hash(&path)?;
+                            trace!("hash of new document: {hash}");
+                            if !db.lookup_hash(&hash).await?.0.is_empty() {
+                                error_log.push(ParseLogEntry::skipped(
                                     path.to_string_lossy().to_string(),
                                 ));
+                                continue;
                             }
+                            match qualinvest_core::read_pdf::store_parsed_pdf(
+                                &hash,
+                                &path.to_string_lossy(),
+                                transaction_info,
+                                db.clone(),
+                                &config.pdf,
+                            )
+                            .await
+                            {
+                                Ok(id) => error_log.push(ParseLogEntry::success(
+                                    path.to_string_lossy().to_string(),
+                                    id,
+                                )),
+                                Err(e) => error_log.push(ParseLogEntry::error(
+                                    path.to_string_lossy().to_string(),
+                                    e,
+                                )),
+                            }
+                        } else {
+                            error_log.push(ParseLogEntry::parse_success(
+                                path.to_string_lossy().to_string(),
+                            ));
                         }
-                        Err(e) => error_log
-                            .push(ParseLogEntry::error(path.to_string_lossy().to_string(), e)),
+                    }
+                    Err(e) => {
+                        error_log.push(ParseLogEntry::error(path.to_string_lossy().to_string(), e))
                     }
                 }
             }

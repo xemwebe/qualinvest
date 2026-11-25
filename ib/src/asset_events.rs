@@ -46,9 +46,9 @@ impl AssetEventList {
     }
 
     fn add(&mut self, timestamp: i64, event: AssetEvent) {
-        if !self.events.contains_key(&timestamp) {
-            self.events.insert(timestamp, VecDeque::new());
-        }
+        self.events
+            .entry(timestamp)
+            .or_insert_with(|| VecDeque::new());
         match event {
             AssetEvent::Kauf(_) | AssetEvent::Transfer(_) | AssetEvent::Kapitalmaßnahme(_) => {
                 self.events.get_mut(&timestamp).unwrap().push_front(event)
@@ -70,9 +70,9 @@ impl AssetEventList {
                 continue;
             }
             let timestamp = convert_date(&k.datum_zeit)?;
-            if !maßnahmen_per_datum_und_asset.contains_key(&timestamp) {
-                maßnahmen_per_datum_und_asset.insert(timestamp, HashMap::new());
-            }
+            maßnahmen_per_datum_und_asset
+                .entry(timestamp)
+                .or_insert_with(|| HashMap::new());
             let (old_symbol, target_symbol) = parse_symbols_von_kapitalmaßnahme(&k.beschreibung)?;
             let symbol = old_symbol.clone();
             let maßnahme: &mut Kapitalmaßnahme = maßnahmen_per_datum_und_asset

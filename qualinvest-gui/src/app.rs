@@ -186,14 +186,13 @@ fn Login() -> impl IntoView {
     Effect::new(move |_| {
         if should_navigate.get()
             && let Some(user_data) = user.get()
+            && user_data.is_some()
         {
-            if user_data.is_some() {
-                debug!("User is authenticated, navigating to /transactions");
-                use leptos_router::hooks::use_navigate;
-                let navigate = use_navigate();
-                navigate("/transactions", Default::default());
-                set_should_navigate.set(false);
-            }
+            debug!("User is authenticated, navigating to /transactions");
+            use leptos_router::hooks::use_navigate;
+            let navigate = use_navigate();
+            navigate("/transactions", Default::default());
+            set_should_navigate.set(false);
         }
     });
 

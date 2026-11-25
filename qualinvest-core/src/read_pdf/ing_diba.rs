@@ -59,7 +59,7 @@ impl ParsedDocument for INGDibaKontoauszug {
     }
 
     fn get_account_info(&self) -> Option<(String, String)> {
-        return self.account_info.clone();
+        self.account_info.clone()
     }
     fn check_consistency(&self) -> Result<()> {
         let mut balance = self.start_balance;

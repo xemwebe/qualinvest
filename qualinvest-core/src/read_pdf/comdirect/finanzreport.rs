@@ -59,7 +59,7 @@ impl ParsedDocument for Finanzreport {
                 cash_flow: CashFlow {
                     amount: CashAmount {
                         amount: cf.amount,
-                        currency: self.currency.clone(),
+                        currency: self.currency,
                     },
                     date: cf.date,
                 },
