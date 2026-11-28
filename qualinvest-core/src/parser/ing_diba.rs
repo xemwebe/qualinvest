@@ -1,6 +1,6 @@
 //! Parse text files and extract asset and transaction data
-use super::{Bank, ParsedDocument, ParsedInfo, ReadPDFError};
-use crate::read_pdf::{
+use super::{Bank, ParseError, ParsedDocument, ParsedInfo};
+use crate::parser::{
     AccountHandler,
     utils::{german_string_to_date, german_string_to_float},
 };
@@ -15,7 +15,7 @@ use regex::Regex;
 use std::sync::Arc;
 use time::Date;
 
-type Result<T> = std::result::Result<T, ReadPDFError>;
+type Result<T> = std::result::Result<T, ParseError>;
 
 #[derive(Debug)]
 enum TransferType {
@@ -33,7 +33,7 @@ impl TransferType {
             "Gutschrift" => TransferType::Gutschrift,
             "Entgelt" => TransferType::Entgelt,
             _ => {
-                return Err(ReadPDFError::UnknownCashFlowType(s.to_string()));
+                return Err(ParseError::UnknownCashFlowType(s.to_string()));
             }
         })
     }
@@ -73,7 +73,7 @@ impl ParsedDocument for INGDibaKontoauszug {
         }
         let balance_diff = self.end_balance - balance;
         if balance_diff.abs() > 1e-4 {
-            return Err(ReadPDFError::ConsistencyCheckFailed(format!(
+            return Err(ParseError::ConsistencyCheckFailed(format!(
                 "Found cash balance difference of {balance_diff} EUR"
             )));
         }
@@ -83,6 +83,7 @@ impl ParsedDocument for INGDibaKontoauszug {
     async fn make_transactions(
         &self,
         _db: Arc<dyn AccountHandler + Send + Sync>,
+        _market: &Market,
     ) -> Result<Vec<Transaction>> {
         let mut transactions = Vec::new();
         for cf in &self.cash_transfers {
@@ -117,13 +118,13 @@ pub async fn parse_document(text: &str, market: &Market) -> Result<ParsedInfo> {
     debug!("Reading ING Diba Girokonto Kontoauszug");
     let start_balance = match ALTER_SALDO.captures(text) {
         Some(cap) => Ok(german_string_to_float(&cap[1])?),
-        None => Err(ReadPDFError::NotFound("start balance")),
+        None => Err(ParseError::NotFound("start balance")),
     }?;
     debug!("Start balance is {start_balance} EUR");
 
     let end_balance = match NEUER_SALDO.captures(text) {
         Some(cap) => Ok(german_string_to_float(&cap[1])?),
-        None => Err(ReadPDFError::NotFound("start balance")),
+        None => Err(ParseError::NotFound("start balance")),
     }?;
     debug!("End balance is {end_balance} EUR");
 

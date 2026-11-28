@@ -15,12 +15,11 @@ use finql::{
 };
 
 pub mod accounts;
-pub mod ib;
+pub mod parser;
 pub mod performance;
 pub mod plot;
 pub mod position;
 pub mod postgres_user;
-pub mod read_pdf;
 pub mod sanitization;
 pub mod user;
 

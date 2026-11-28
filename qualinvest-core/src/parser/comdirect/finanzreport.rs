@@ -1,8 +1,8 @@
-use super::{Bank, ParsedDocument, ParsedInfo, ReadPDFError, Result};
-use crate::read_pdf::utils::{german_string_to_date, german_string_to_float};
+use super::{Bank, ParseError, ParsedDocument, ParsedInfo, Result};
+use crate::parser::utils::{german_string_to_date, german_string_to_float};
 use time::Date;
 
-use crate::read_pdf::AccountHandler;
+use crate::parser::AccountHandler;
 use async_trait::async_trait;
 use finql::{
     Market,
@@ -46,7 +46,7 @@ impl ParsedDocument for Finanzreport {
         }
         let balance_diff = self.end_balance - balance;
         if balance_diff.abs() > 1e-4 {
-            return Err(ReadPDFError::ConsistencyCheckFailed(format!(
+            return Err(ParseError::ConsistencyCheckFailed(format!(
                 "Found cash balance difference of {balance_diff} EUR"
             )));
         }
@@ -56,6 +56,7 @@ impl ParsedDocument for Finanzreport {
     async fn make_transactions(
         &self,
         _db: Arc<dyn AccountHandler + Send + Sync>,
+        _markt: &Market,
     ) -> Result<Vec<Transaction>> {
         let mut transactions = Vec::new();
         for cf in &self.cash_transfers {
@@ -92,7 +93,7 @@ pub async fn parse_report(text: &str, market: &Market) -> Result<ParsedInfo> {
             german_string_to_float(&cap["end"])?,
             cap["cfs"].to_string(),
         )),
-        None => Err(ReadPDFError::NotFound(
+        None => Err(ParseError::NotFound(
             "Giro account section in comdirect Finanzreport not found",
         )),
     }?;

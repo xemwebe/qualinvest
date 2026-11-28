@@ -1,12 +1,12 @@
 //! Parse text files and extract cash flows from Sparkassenkontoauszug
-use crate::read_pdf::{
+use crate::parser::{
     AccountHandler,
     utils::{german_string_to_date, german_string_to_float},
 };
 use std::sync::Arc;
 use time::Date;
 
-use super::{Bank, ParsedDocument, ParsedInfo, ReadPDFError};
+use super::{Bank, ParseError, ParsedDocument, ParsedInfo};
 use async_trait::async_trait;
 use finql::{
     Market,
@@ -16,7 +16,7 @@ use lazy_static::lazy_static;
 use log::debug;
 use regex::Regex;
 
-type Result<T> = std::result::Result<T, ReadPDFError>;
+type Result<T> = std::result::Result<T, ParseError>;
 
 #[derive(Debug)]
 enum TransferType {
@@ -32,7 +32,7 @@ impl TransferType {
             "Debitkartenzahlung" => TransferType::DebitCardPayment,
             "Lastschrift" => TransferType::Lastschrift,
             _ => {
-                return Err(ReadPDFError::UnknownCashFlowType(s.to_string()));
+                return Err(ParseError::UnknownCashFlowType(s.to_string()));
             }
         })
     }
@@ -71,7 +71,7 @@ impl ParsedDocument for SparkassenKontoauszug {
         }
         let balance_diff = self.end_balance - balance;
         if balance_diff.abs() > 1e-4 {
-            return Err(ReadPDFError::ConsistencyCheckFailed(format!(
+            return Err(ParseError::ConsistencyCheckFailed(format!(
                 "Found cash balance difference of {balance_diff} EUR"
             )));
         }
@@ -80,6 +80,7 @@ impl ParsedDocument for SparkassenKontoauszug {
     async fn make_transactions(
         &self,
         _db: Arc<dyn AccountHandler + Send + Sync>,
+        _market: &Market,
     ) -> Result<Vec<Transaction>> {
         let mut transactions = Vec::new();
         for cf in &self.cash_transfers {
@@ -120,7 +121,7 @@ pub async fn parse_document(text: &str, market: &Market) -> Result<ParsedInfo> {
             german_string_to_date(&cap[1])?,
             german_string_to_float(&cap[2])?,
         )),
-        None => Err(ReadPDFError::NotFound("start time and balance")),
+        None => Err(ParseError::NotFound("start time and balance")),
     }?;
     debug!("Start balance {start_balance} EUR at {start_date}");
     let (end_date, end_balance) = match KONTOSTAND_END.captures(text) {
@@ -128,7 +129,7 @@ pub async fn parse_document(text: &str, market: &Market) -> Result<ParsedInfo> {
             german_string_to_date(&cap[1])?,
             german_string_to_float(&cap[2])?,
         )),
-        None => Err(ReadPDFError::NotFound("end time and balance")),
+        None => Err(ParseError::NotFound("end time and balance")),
     }?;
     debug!("End balance {end_balance} EUR at {end_date}");
 

@@ -168,7 +168,7 @@ struct IbCsv {
 pub enum ParseResult {
     ParseSuccess,
     StoreSuccess(i32),
-    Error(qualinvest_core::read_pdf::ReadPDFError),
+    Error(qualinvest_core::parser::ParseError),
     Skipped,
 }
 
@@ -191,7 +191,7 @@ impl ParseLogEntry {
         }
     }
 
-    fn error(file_name: String, err: qualinvest_core::read_pdf::ReadPDFError) -> Self {
+    fn error(file_name: String, err: qualinvest_core::parser::ParseError) -> Self {
         Self {
             file_name,
             result: ParseResult::Error(err),
@@ -394,13 +394,13 @@ async fn main() -> Result<()> {
             let mut error_log = Vec::new();
             for path in glob::glob(&args.input_files)?.flatten() {
                 debug!("try parsing {}", path.display());
-                match qualinvest_core::read_pdf::parse(&path, &market, args.to_text, &out_folder)
+                match qualinvest_core::parser::parse(&path, &market, args.to_text, &out_folder)
                     .await
                 {
                     Ok(transaction_info) => {
                         debug!("parsing was successful");
                         if args.store {
-                            let hash = qualinvest_core::read_pdf::sha256_hash(&path)?;
+                            let hash = qualinvest_core::parser::sha256_hash(&path)?;
                             trace!("hash of new document: {hash}");
                             if !db.lookup_hash(&hash).await?.0.is_empty() {
                                 error_log.push(ParseLogEntry::skipped(
@@ -408,11 +408,12 @@ async fn main() -> Result<()> {
                                 ));
                                 continue;
                             }
-                            match qualinvest_core::read_pdf::store_parsed_pdf(
+                            match qualinvest_core::parser::store_parsed_pdf(
                                 &hash,
                                 &path.to_string_lossy(),
                                 transaction_info,
                                 db.clone(),
+                                &market,
                                 &config.pdf,
                             )
                             .await
@@ -472,7 +473,7 @@ async fn main() -> Result<()> {
                     Ok(kontoauszug_data) => {
                         debug!("parsing was successful");
                         if args.store {
-                            let hash = qualinvest_core::read_pdf::sha256_hash(&path)?;
+                            let hash = qualinvest_core::parser::sha256_hash(&path)?;
                             trace!("hash of new document: {hash}");
                             if !db.lookup_hash(&hash).await?.0.is_empty() {
                                 error_log.push(ParseLogEntry::skipped(
@@ -480,11 +481,12 @@ async fn main() -> Result<()> {
                                 ));
                                 continue;
                             }
-                            match qualinvest_core::ib::store_parsed_csv(
+                            match qualinvest_core::parser::ib::store_parsed_csv(
                                 &hash,
                                 &path.to_string_lossy(),
                                 kontoauszug_data,
                                 db.clone(),
+                                &market,
                                 &config.pdf,
                             )
                             .await
@@ -507,7 +509,7 @@ async fn main() -> Result<()> {
                     // TODO: fix incorrect error
                     Err(_e) => error_log.push(ParseLogEntry::error(
                         path.to_string_lossy().to_string(),
-                        qualinvest_core::read_pdf::ReadPDFError::ParseDate,
+                        qualinvest_core::parser::ParseError::ParseDate,
                     )),
                 };
             }

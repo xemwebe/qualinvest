@@ -1,5 +1,5 @@
 //! Parse broker or bank and account information form pdf file
-use super::ReadPDFError;
+use super::ParseError;
 use regex::Regex;
 use std::{fmt::Display, sync::LazyLock};
 
@@ -23,7 +23,7 @@ impl Display for Bank {
     }
 }
 
-pub fn parse_account_info(text: &str) -> Result<(Bank, String), ReadPDFError> {
+pub fn parse_account_info(text: &str) -> Result<(Bank, String), ParseError> {
     static BROKER: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"(comdirect|Frankfurter Sparkasse|ING-DiBa)").unwrap());
     static ACCOUNT: LazyLock<Regex> =
@@ -41,7 +41,7 @@ pub fn parse_account_info(text: &str) -> Result<(Bank, String), ReadPDFError> {
 
     let broker = BROKER.captures(text);
     match broker {
-        None => Err(ReadPDFError::NotFound("broker")),
+        None => Err(ParseError::NotFound("broker")),
         Some(broker) => match &broker[1] {
             "comdirect" => {
                 let mut account_id = None;
@@ -54,7 +54,7 @@ pub fn parse_account_info(text: &str) -> Result<(Bank, String), ReadPDFError> {
                 if let Some(account_id) = account_id {
                     Ok((Bank::Comdirect, trim_account(&account_id[1])))
                 } else {
-                    Err(ReadPDFError::NotFound("comdirect account"))
+                    Err(ParseError::NotFound("comdirect account"))
                 }
             }
             "Frankfurter Sparkasse" => {
@@ -62,7 +62,7 @@ pub fn parse_account_info(text: &str) -> Result<(Bank, String), ReadPDFError> {
                 if let Some(account_id) = account_id {
                     Ok((Bank::SparkasseFrankfurt, trim_account(&account_id[1])))
                 } else {
-                    Err(ReadPDFError::NotFound("Frankfurter Sparkasse account"))
+                    Err(ParseError::NotFound("Frankfurter Sparkasse account"))
                 }
             }
             "ING-DiBa" => {
@@ -70,10 +70,10 @@ pub fn parse_account_info(text: &str) -> Result<(Bank, String), ReadPDFError> {
                 if let Some(account_id) = account_id {
                     Ok((Bank::IngDiba, trim_account(&account_id[1])))
                 } else {
-                    Err(ReadPDFError::NotFound("ING-DiBa account"))
+                    Err(ParseError::NotFound("ING-DiBa account"))
                 }
             }
-            _ => Err(ReadPDFError::NotFound("broker")),
+            _ => Err(ParseError::NotFound("broker")),
         },
     }
 }

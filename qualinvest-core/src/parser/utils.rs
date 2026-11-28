@@ -1,8 +1,8 @@
-use super::ReadPDFError;
+use super::ParseError;
 use finql::datatypes::CashAmount;
-use time::{macros::format_description, Date};
+use time::{Date, macros::format_description};
 
-type Result<T> = std::result::Result<T, ReadPDFError>;
+type Result<T> = std::result::Result<T, ParseError>;
 
 /// Convert a string with German number convention
 /// (e.g. '.' as thousands separator and ',' as decimal separator)
@@ -14,7 +14,7 @@ pub fn german_string_to_float(num_string: &str) -> Result<f64> {
         .replace('.', "")
         .replace(',', ".")
         .parse()
-        .map_err(ReadPDFError::ParseFloat);
+        .map_err(ParseError::ParseFloat);
     match result {
         Ok(num) => {
             if positive {
@@ -30,7 +30,7 @@ pub fn german_string_to_float(num_string: &str) -> Result<f64> {
 /// Converts strings in German data convention to Date
 pub fn german_string_to_date(date_string: &str) -> Result<Date> {
     let format = format_description!("[day].[month].[year]");
-    Date::parse(date_string, &format).map_err(|_| ReadPDFError::ParseDate)
+    Date::parse(date_string, &format).map_err(|_| ParseError::ParseDate)
 }
 
 pub fn add_by_currency(

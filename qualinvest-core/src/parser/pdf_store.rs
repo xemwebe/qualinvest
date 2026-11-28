@@ -1,11 +1,11 @@
-use super::ReadPDFError;
+use super::ParseError;
 use data_encoding::HEXUPPER;
 use ring::digest::{Context, SHA256};
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 
-pub fn sha256_hash(file: &Path) -> Result<String, ReadPDFError> {
+pub fn sha256_hash(file: &Path) -> Result<String, ParseError> {
     let input = File::open(file)?;
     let mut reader = BufReader::new(input);
 

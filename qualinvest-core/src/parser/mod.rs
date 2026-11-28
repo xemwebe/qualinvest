@@ -17,7 +17,7 @@ use finql::{
     datatypes::{Asset, CurrencyError, DataError, Transaction},
 };
 
-type Result<T> = std::result::Result<T, ReadPDFError>;
+type Result<T> = std::result::Result<T, ParseError>;
 
 use super::accounts::{Account, AccountHandler};
 use crate::PdfParseParams;
@@ -31,10 +31,11 @@ pub mod utils;
 use pdf_oxide::PdfDocument;
 pub use pdf_store::sha256_hash;
 use read_account_info::{Bank, parse_account_info};
+pub mod ib;
 
 /// Error related to market data object
 #[derive(Error, Debug)]
-pub enum ReadPDFError {
+pub enum ParseError {
     #[error("Reading file failed")]
     IoError(#[from] io::Error),
     #[error("UTF8 parse error")]
@@ -71,6 +72,10 @@ pub enum ReadPDFError {
     InvalidFileName,
     #[error("Unknown cash flow type {0}")]
     UnknownCashFlowType(String),
+    #[error("InteractiveBroker parser error")]
+    IbParseError(#[from] ::ib::error::Error),
+    #[error("Invalid date time")]
+    DateTimeError(#[from] time::error::ComponentRange),
 }
 
 pub fn text_from_pdf(file: &Path) -> Result<String> {
@@ -91,6 +96,7 @@ pub trait ParsedDocument: std::fmt::Debug {
     async fn make_transactions(
         &self,
         db: Arc<dyn AccountHandler + Send + Sync>,
+        market: &Market,
     ) -> Result<Vec<Transaction>>;
 }
 
@@ -107,7 +113,7 @@ pub async fn parse(
     let options = pdf_oxide::converters::ConversionOptions::default();
     let text = doc.to_plain_text_all(&options)?;
     if to_text {
-        let base_file_name = file.file_stem().ok_or(ReadPDFError::InvalidFileName)?;
+        let base_file_name = file.file_stem().ok_or(ParseError::InvalidFileName)?;
         std::fs::create_dir_all(out_folder)?;
         let out_file = out_folder.join(format!("{}.txt", base_file_name.to_string_lossy()));
         std::fs::write(&out_file, &text)?;
@@ -137,6 +143,7 @@ pub async fn store_parsed_pdf(
     file_name: &str,
     transaction_info: ParsedInfo,
     db: Arc<dyn AccountHandler + Send + Sync>,
+    market: &Market,
     config: &PdfParseParams,
 ) -> Result<i32> {
     debug!("store_parsed_pdf called");
@@ -145,7 +152,7 @@ pub async fn store_parsed_pdf(
         && !ids.is_empty()
         && config.warn_old
     {
-        return Err(ReadPDFError::AlreadyParsed);
+        return Err(ParseError::AlreadyParsed);
     }
 
     // Find account or insert new one
@@ -157,7 +164,7 @@ pub async fn store_parsed_pdf(
         };
         db.insert_account_if_new(&account)
             .await
-            .map_err(ReadPDFError::DBError)?
+            .map_err(ParseError::DBError)?
     } else {
         config.default_account.unwrap_or(-1)
     };
@@ -170,13 +177,12 @@ pub async fn store_parsed_pdf(
     debug!("Consistency check passed successfully");
 
     // Generate list of transactions
-    let transactions = transaction_info.make_transactions()?;
+    let transactions = transaction_info
+        .make_transactions(db.clone(), market)
+        .await?;
     let mut trans_ids = Vec::new();
     for trans in transactions {
         let mut trans = trans.clone();
-        if let Some(asset_id) = asset_id {
-            trans.set_asset_id(asset_id);
-        }
         if !trans_ids.is_empty() {
             trans.set_transaction_ref(trans_ids[0]);
         }

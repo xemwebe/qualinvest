@@ -1,7 +1,7 @@
 //! Parse text files and extract asset and transaction data
-use super::{ParsedDocument, ParsedInfo, ReadPDFError};
-use crate::read_pdf::AccountHandler;
-use crate::read_pdf::{
+use super::{ParseError, ParsedDocument, ParsedInfo};
+use crate::parser::AccountHandler;
+use crate::parser::{
     read_account_info::Bank,
     utils::{add_by_currency, german_string_to_date, german_string_to_float, rounded_equal},
 };
@@ -21,7 +21,7 @@ use finql::{
     fx_rates::SimpleCurrencyConverter,
 };
 
-type Result<T> = std::result::Result<T, ReadPDFError>;
+type Result<T> = std::result::Result<T, ParseError>;
 
 mod finanzreport;
 
@@ -100,7 +100,7 @@ impl ParsedDocument for ParsedTransactionInfo {
             0,
             0,
         )
-        .ok_or(ReadPDFError::ParseDate)?;
+        .ok_or(ParseError::ParseDate)?;
         trace!("closing time is {time}");
 
         // temporary storage for fx rates
@@ -137,7 +137,7 @@ impl ParsedDocument for ParsedTransactionInfo {
                 check_sum.amount
             );
             error!("consistency check failed");
-            Err(ReadPDFError::ConsistencyCheckFailed(warning))
+            Err(ParseError::ConsistencyCheckFailed(warning))
         } else {
             debug!("consistency check was successfull");
             Ok(())
@@ -148,6 +148,7 @@ impl ParsedDocument for ParsedTransactionInfo {
     async fn make_transactions(
         &self,
         db: Arc<dyn AccountHandler + Send + Sync>,
+        _market: &Market,
     ) -> Result<Vec<Transaction>> {
         debug!("make_transactions called");
         let mut transactions = Vec::new();
@@ -159,7 +160,7 @@ impl ParsedDocument for ParsedTransactionInfo {
             0,
             0,
         )
-        .ok_or(ReadPDFError::InvalidDate)?;
+        .ok_or(ParseError::InvalidDate)?;
 
         // temporary storage for fx rates
         // total payment is always in base currency, but main_amount (and maybe fees or taxes) could be in foreign currency.
@@ -174,7 +175,7 @@ impl ParsedDocument for ParsedTransactionInfo {
 
         // Determine asse_id
         let asset_id = db.get_asset_id(&self.asset).await.ok_or_else(|| {
-            ReadPDFError::AssetNotFound(match &self.asset {
+            ParseError::AssetNotFound(match &self.asset {
                 Asset::Stock(stock) => stock.name.clone(),
                 Asset::Currency(curr) => curr.to_string(),
             })
@@ -198,7 +199,7 @@ impl ParsedDocument for ParsedTransactionInfo {
                         transaction_ref: None,
                     },
                     DocumentType::Finanzreport => {
-                        return Err(ReadPDFError::UnknownDocumentType);
+                        return Err(ParseError::UnknownDocumentType);
                     }
                 },
                 cash_flow: CashFlow {
@@ -261,7 +262,7 @@ impl ParsedDocument for ParsedTransactionInfo {
         for accrued in &self.accruals {
             total_accrued
                 .add_no_db(*accrued, time, &fx_converter, true)
-                .map_err(|_| ReadPDFError::CurrencyMismatch)?;
+                .map_err(|_| ParseError::CurrencyMismatch)?;
         }
         if total_accrued.amount != 0.0 {
             transactions.push(Transaction {
@@ -338,7 +339,7 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo> {
                         position,
                     })
                 }
-                None => Err(ReadPDFError::NotFound("asset")),
+                None => Err(ParseError::NotFound("asset")),
             }
         }
         DocumentType::Tax => {
@@ -361,7 +362,7 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo> {
                         position,
                     })
                 }
-                None => Err(ReadPDFError::NotFound("asset")),
+                None => Err(ParseError::NotFound("asset")),
             }
         }
         DocumentType::Dividend => match NAME_WKN_ISIN_DIV.captures(text) {
@@ -383,7 +384,7 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo> {
                     position,
                 })
             }
-            None => Err(ReadPDFError::NotFound("asset")),
+            None => Err(ParseError::NotFound("asset")),
         },
         _ => match NAME_WKN_ISIN.captures(text) {
             Some(cap) => {
@@ -397,7 +398,7 @@ fn parse_asset(doc_type: DocumentType, text: &str) -> Result<AssetInfo> {
                     position: None,
                 })
             }
-            None => Err(ReadPDFError::NotFound("asset")),
+            None => Err(ParseError::NotFound("asset")),
         },
     }
 }
@@ -415,7 +416,7 @@ async fn parse_amount(regex: &Regex, text: &str, market: &Market) -> Result<Opti
 
 fn must_have(amount: Option<CashAmount>, error_message: &'static str) -> Result<CashAmount> {
     match amount {
-        None => Err(ReadPDFError::NotFound(error_message)),
+        None => Err(ParseError::NotFound(error_message)),
         Some(amount) => Ok(amount),
     }
 }
@@ -443,7 +444,7 @@ async fn parse_fx_rate(text: &str, market: &Market) -> Result<(Option<f64>, Opti
     let fx_rate = german_string_to_float(&cap[1])?;
     let amount = german_string_to_float(&cap[3])?;
     let currency = market
-        .get_currency(CurrencyISOCode::new(&cap[2]).map_err(ReadPDFError::ParseCurrency)?)
+        .get_currency(CurrencyISOCode::new(&cap[2]).map_err(ParseError::ParseCurrency)?)
         .await?;
 
     Ok((Some(fx_rate), Some(CashAmount { amount, currency })))
@@ -476,17 +477,17 @@ fn parse_doc_type(text: &str) -> Result<DocumentType> {
             5 => Ok(DocumentType::BondPayBack),
             6 => Ok(DocumentType::Finanzreport),
             // should never happen
-            _ => Err(ReadPDFError::UnknownDocumentType),
+            _ => Err(ParseError::UnknownDocumentType),
         }
     } else if matches.is_empty() {
         // No document type found, must be tax document
         match TAX_TYPE.captures(text) {
             Some(_) => Ok(DocumentType::Tax),
-            None => Err(ReadPDFError::UnknownDocumentType),
+            None => Err(ParseError::UnknownDocumentType),
         }
     } else {
         // Found more than one document type; this should not happen
-        Err(ReadPDFError::UnknownDocumentType)
+        Err(ParseError::UnknownDocumentType)
     }
 }
 
@@ -509,20 +510,18 @@ async fn parse_pre_tax(
 
     if doc_type == DocumentType::Tax {
         return match PRE_TAX_AMOUNT_TAX.captures(text) {
-            None => Err(ReadPDFError::NotFound("pre-tax amount")),
+            None => Err(ParseError::NotFound("pre-tax amount")),
             Some(cap) => {
                 trace!("pre tax amount tax captures: {cap:?}");
                 let amount = german_string_to_float(&cap[2])?;
                 let currency = market
-                    .get_currency(
-                        CurrencyISOCode::new(&cap[1]).map_err(ReadPDFError::ParseCurrency)?,
-                    )
+                    .get_currency(CurrencyISOCode::new(&cap[1]).map_err(ParseError::ParseCurrency)?)
                     .await?;
                 let valuta = match VALUTA.captures(text) {
                     Some(cap) => Ok(german_string_to_date(&cap[1])?),
                     None => match VALUTA_ALT.captures(text) {
                         Some(cap) => Ok(german_string_to_date(&cap[1])?),
-                        None => Err(ReadPDFError::NotFound("pre-tax amount")),
+                        None => Err(ParseError::NotFound("pre-tax amount")),
                     },
                 }?;
                 Ok((CashAmount { amount, currency }, valuta))
@@ -535,12 +534,12 @@ async fn parse_pre_tax(
             trace!("pre tax amount2 captures: {cap:?}");
             let amount = german_string_to_float(&cap[4])?;
             let currency = market
-                .get_currency(CurrencyISOCode::new(&cap[3]).map_err(ReadPDFError::ParseCurrency)?)
+                .get_currency(CurrencyISOCode::new(&cap[3]).map_err(ParseError::ParseCurrency)?)
                 .await?;
             let valuta = german_string_to_date(&cap[2])?;
             Ok((CashAmount { amount, currency }, valuta))
         }
-        None => Err(ReadPDFError::NotFound("pre-tax amount")),
+        None => Err(ParseError::NotFound("pre-tax amount")),
     }
 }
 
@@ -704,7 +703,7 @@ pub async fn parse_document(text: &str, market: &Market) -> Result<ParsedInfo> {
                 1.0
             };
             if asset_info.position.is_none() {
-                return Err(ReadPDFError::NotFound("position"));
+                return Err(ParseError::NotFound("position"));
             }
             let main_amount = CashAmount {
                 amount: sign * pre_tax_fee_value.amount,
@@ -763,7 +762,7 @@ pub async fn parse_document(text: &str, market: &Market) -> Result<ParsedInfo> {
         )),
         DocumentType::Finanzreport => None,
     };
-    let mut tri = tri.ok_or(ReadPDFError::UnknownDocumentType)?;
+    let mut tri = tri.ok_or(ParseError::UnknownDocumentType)?;
 
     if !is_amendment {
         let sign = if tri.doc_type == DocumentType::Buy {
