@@ -1,9 +1,11 @@
 //! Parse text files and extract asset and transaction data
 use super::{ParsedDocument, ParsedInfo, ReadPDFError};
+use crate::read_pdf::AccountHandler;
 use crate::read_pdf::{
     read_account_info::Bank,
     utils::{add_by_currency, german_string_to_date, german_string_to_float, rounded_equal},
 };
+use async_trait::async_trait;
 use lazy_static::lazy_static;
 use log::{debug, error, trace};
 use regex::{Regex, RegexSet};
@@ -77,6 +79,7 @@ impl ParsedTransactionInfo {
     }
 }
 
+#[async_trait]
 impl ParsedDocument for ParsedTransactionInfo {
     fn add_account_info(&mut self, bank: Bank, account: &str) {
         self.account_info = Some((format!("{}", bank), account.to_string()));
@@ -142,7 +145,10 @@ impl ParsedDocument for ParsedTransactionInfo {
     }
 
     // Transaction in foreign currency will be converted to currency of total payment amount
-    fn make_transactions(&self) -> Result<(Vec<Transaction>, Option<Asset>)> {
+    async fn make_transactions(
+        &self,
+        db: Arc<dyn AccountHandler + Send + Sync>,
+    ) -> Result<Vec<Transaction>> {
         debug!("make_transactions called");
         let mut transactions = Vec::new();
         let time = make_offset_time(
@@ -166,6 +172,15 @@ impl ParsedDocument for ParsedTransactionInfo {
             );
         }
 
+        // Determine asse_id
+        let asset_id = db.get_asset_id(&self.asset).await.ok_or_else(|| {
+            ReadPDFError::AssetNotFound(match &self.asset {
+                Asset::Stock(stock) => stock.name.clone(),
+                Asset::Currency(curr) => curr.to_string(),
+            })
+        })?;
+        debug!("Asset id is {asset_id:?}");
+
         // Construct main transaction
         if self.main_amount.amount != 0.0 {
             transactions.push(Transaction {
@@ -173,12 +188,12 @@ impl ParsedDocument for ParsedTransactionInfo {
                 transaction_type: match self.doc_type {
                     DocumentType::Buy | DocumentType::Sell | DocumentType::BondPayBack => {
                         TransactionType::Asset {
-                            asset_id: 0,
+                            asset_id,
                             position: self.position,
                         }
                     }
-                    DocumentType::Dividend => TransactionType::Dividend { asset_id: 0 },
-                    DocumentType::Interest => TransactionType::Interest { asset_id: 0 },
+                    DocumentType::Dividend => TransactionType::Dividend { asset_id },
+                    DocumentType::Interest => TransactionType::Interest { asset_id },
                     DocumentType::Tax => TransactionType::Tax {
                         transaction_ref: None,
                     },
@@ -194,7 +209,7 @@ impl ParsedDocument for ParsedTransactionInfo {
             });
         } else {
             // No main transaction, nothing todo
-            return Ok((transactions, Some(self.asset.clone())));
+            return Ok(transactions);
         }
 
         let mut total_fee = CashAmount {
@@ -251,7 +266,7 @@ impl ParsedDocument for ParsedTransactionInfo {
         if total_accrued.amount != 0.0 {
             transactions.push(Transaction {
                 id: None,
-                transaction_type: TransactionType::Interest { asset_id: 0 },
+                transaction_type: TransactionType::Interest { asset_id },
                 cash_flow: CashFlow {
                     amount: total_accrued,
                     date: self.valuta,
@@ -265,7 +280,7 @@ impl ParsedDocument for ParsedTransactionInfo {
             self.total_amount.amount - total_accrued.amount - total_tax.amount - total_fee.amount;
         transactions[0].cash_flow.amount.currency = self.total_amount.currency;
 
-        Ok((transactions, Some(self.asset.clone())))
+        Ok(transactions)
     }
 }
 

@@ -420,6 +420,7 @@ pub struct HinweisRow {
 // ============================================================
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct KontoauszugData {
     pub statement: Vec<StatementRow>,
     pub kontoinformation: Vec<KontoinformationRow>,
@@ -1118,5 +1119,14 @@ impl KontoauszugData {
             }
         }
         Ok(positionen)
+    }
+
+    pub fn get_account_info(&self) -> Option<(String, String)> {
+        for row in &self.kontoinformation {
+            if &row.feldname == "Account" {
+                return Some(("InteractiveBrokers".to_string(), row.feldwert.clone()));
+            }
+        }
+        None
     }
 }

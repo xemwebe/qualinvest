@@ -1,6 +1,10 @@
 //! Parse text files and extract asset and transaction data
 use super::{Bank, ParsedDocument, ParsedInfo, ReadPDFError};
-use crate::read_pdf::utils::{german_string_to_date, german_string_to_float};
+use crate::read_pdf::{
+    AccountHandler,
+    utils::{german_string_to_date, german_string_to_float},
+};
+use async_trait::async_trait;
 use finql::{
     Market,
     datatypes::{Asset, CashAmount, CashFlow, Currency, Transaction, TransactionType},
@@ -53,6 +57,7 @@ struct INGDibaKontoauszug {
     currency: Currency,
 }
 
+#[async_trait]
 impl ParsedDocument for INGDibaKontoauszug {
     fn add_account_info(&mut self, bank: Bank, account: &str) {
         self.account_info = Some((format!("{}", bank), account.to_string()));
@@ -75,7 +80,10 @@ impl ParsedDocument for INGDibaKontoauszug {
         Ok(())
     }
 
-    fn make_transactions(&self) -> Result<(Vec<Transaction>, Option<Asset>)> {
+    async fn make_transactions(
+        &self,
+        _db: Arc<dyn AccountHandler + Send + Sync>,
+    ) -> Result<Vec<Transaction>> {
         let mut transactions = Vec::new();
         for cf in &self.cash_transfers {
             transactions.push(Transaction {
@@ -94,7 +102,7 @@ impl ParsedDocument for INGDibaKontoauszug {
                 )),
             })
         }
-        Ok((transactions, None))
+        Ok(transactions)
     }
 }
 

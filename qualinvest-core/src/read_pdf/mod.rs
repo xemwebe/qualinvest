@@ -1,6 +1,7 @@
 //! # Read pdf files and transform into plain text
 //! This requires the extern tool `pdftotext`
 //! which is part of [XpdfReader](https://www.xpdfreader.com/pdftotext-man.html).
+use async_trait::async_trait;
 use std::path::Path;
 use std::process::Command;
 use std::sync::Arc;
@@ -24,7 +25,7 @@ use crate::PdfParseParams;
 mod comdirect;
 mod ing_diba;
 pub mod pdf_store;
-mod read_account_info;
+pub mod read_account_info;
 mod sparkasse;
 pub mod utils;
 use pdf_oxide::PdfDocument;
@@ -82,11 +83,15 @@ pub fn text_from_pdf(file: &Path) -> Result<String> {
     Ok(String::from_utf8(output.stdout)?)
 }
 
+#[async_trait]
 pub trait ParsedDocument: std::fmt::Debug {
     fn add_account_info(&mut self, bank: Bank, account: &str);
     fn get_account_info(&self) -> Option<(String, String)>;
     fn check_consistency(&self) -> Result<()>;
-    fn make_transactions(&self) -> Result<(Vec<Transaction>, Option<Asset>)>;
+    async fn make_transactions(
+        &self,
+        db: Arc<dyn AccountHandler + Send + Sync>,
+    ) -> Result<Vec<Transaction>>;
 }
 
 type ParsedInfo = Arc<dyn ParsedDocument>;
@@ -165,18 +170,7 @@ pub async fn store_parsed_pdf(
     debug!("Consistency check passed successfully");
 
     // Generate list of transactions
-    let (transactions, asset) = transaction_info.make_transactions()?;
-    let asset_id = if let Some(asset) = asset {
-        Some(db.get_asset_id(&asset).await.ok_or_else(|| {
-            ReadPDFError::AssetNotFound(match asset {
-                Asset::Stock(stock) => stock.name,
-                Asset::Currency(curr) => curr.to_string(),
-            })
-        })?)
-    } else {
-        None
-    };
-    debug!("Asset id is {asset_id:?}");
+    let transactions = transaction_info.make_transactions()?;
     let mut trans_ids = Vec::new();
     for trans in transactions {
         let mut trans = trans.clone();
